@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -253,8 +253,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 
 always_inline void
 clone_data_to_cs (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry,
-		  u32 buffer_index, hicn_header_t *hicn0, f64 tnow,
-		  hicn_lifetime_t dmsg_lifetime)
+		  u32 buffer_index, f64 tnow, hicn_lifetime_t dmsg_lifetime)
 {
   /*
    * At this point we think we're safe to proceed. Store the CS buf in
@@ -314,7 +313,6 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u8 isv6;
   u32 bi0;
   u32 next0 = HICN_DATA_FWD_NEXT_ERROR_DROP;
-  hicn_header_t *hicn0;
   hicn_buffer_t *hicnb0;
   const hicn_strategy_vft_t *strategy_vft0 = NULL;
   const hicn_dpo_vft_t *dpo_vft0;
@@ -364,7 +362,6 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  // Get hicn buffer and state
 	  hicnb0 = hicn_get_buffer (b0);
-	  hicn0 = (hicn_header_t *) (vlib_buffer_get_current (b0));
 
 	  hicn_get_internal_state (hicnb0, &pcs_entry_id, &strategy_vft0,
 				   &dpo_vft0, &dpo_ctx_id0);
@@ -442,7 +439,7 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		{
 		  // Clone data packet in the content store and convert the PIT
 		  // entry into a CS entry
-		  clone_data_to_cs (rt->pitcs, pcs_entry, bi0, hicn0, tnow,
+		  clone_data_to_cs (rt->pitcs, pcs_entry, bi0, tnow,
 				    dmsg_lifetime);
 		}
 	      else

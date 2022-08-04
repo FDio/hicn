@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -42,18 +42,15 @@ class CallbackContainer {
 
  public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
-                    bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
-                    auth::Signer *signer, bool sign, std::string passphrase,
-                    uint32_t lifetime)
+                    bool dump, bool quiet, uint8_t ttl, auth::Signer *signer,
+                    bool sign, std::string passphrase, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
         content_objects_index_(0),
         verbose_(verbose),
         dump_(dump),
-        quite_(quite),
-        flags_(flags),
-        reset_(reset),
+        quiet_(quiet),
         ttl_(ttl),
         signer_(signer),
         sign_(sign) {
@@ -63,14 +60,14 @@ class CallbackContainer {
 
     core::Packet::Format format;
     if (prefix.getAddressFamily() == AF_INET) {
-      format = core::Packet::Format::HF_INET_TCP;
+      format = HICN_PACKET_FORMAT_IPV4_TCP;
       if (sign_) {
-        format = core::Packet::Format::HF_INET_TCP_AH;
+        format = HICN_PACKET_FORMAT_IPV4_TCP_AH;
       }
     } else {
-      format = core::Packet::Format::HF_INET6_TCP;
+      format = HICN_PACKET_FORMAT_IPV6_TCP;
       if (sign_) {
-        format = core::Packet::Format::HF_INET6_TCP_AH;
+        format = HICN_PACKET_FORMAT_IPV6_TCP_AH;
       }
     }
 
@@ -99,11 +96,10 @@ class CallbackContainer {
       std::cout << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
                 << " dst port: " << interest.getDstPort()
-                << " flags: " << interest.printFlags()
                 << "TTL: " << (int)interest.getTTL()
                 << " suffixes in manifest: " << interest.numberOfSuffixes()
                 << std::endl;
-    } else if (!quite_) {
+    } else if (!quiet_) {
       std::cout << "<<< received interest " << interest.getName() << std::endl;
     }
 
@@ -113,78 +109,60 @@ class CallbackContainer {
       std::cout << "-------------------------" << std::endl;
     }
 
-    if (interest.testRst()) {
-      std::cout << "!!!got a reset, I don't reply" << std::endl;
-    } else {
-      uint32_t *suffix = interest.firstSuffix();
-      uint32_t n_suffixes_in_manifest = interest.numberOfSuffixes();
-      uint32_t *request_bitmap = interest.getRequestBitmap();
-      if (!interest.isValid()) throw std::runtime_error("Bad interest format");
+    uint32_t *suffix = interest.firstSuffix();
+    uint32_t n_suffixes_in_manifest = interest.numberOfSuffixes();
+    hicn_uword *request_bitmap = interest.getRequestBitmap();
+    if (!interest.isValid()) throw std::runtime_error("Bad interest format");
 
-      Name name = interest.getName();
-      uint32_t pos = 0;  // Position of current suffix in manifest
-      do {
-        // If suffix can be processed, i.e. no manifest with bitmap excluding it
-        if (!interest.hasManifest() || is_bit_set(request_bitmap, pos)) {
-          auto &content_object =
-              content_objects_[content_objects_index_++ & mask_];
+    Name name = interest.getName();
+    uint32_t pos = 0;  // Position of current suffix in manifest
+    do {
+      // If suffix can be processed, i.e. no manifest with bitmap excluding it
+      if (!interest.hasManifest() ||
+          bitmap_is_set_no_check(request_bitmap, pos)) {
+        auto &content_object =
+            content_objects_[content_objects_index_++ & mask_];
 
-          content_object->setName(interest.getName());
-          content_object->setLifetime(lifetime);
-          content_object->setLocator(interest.getLocator());
-          content_object->setSrcPort(interest.getDstPort());
-          content_object->setDstPort(interest.getSrcPort());
-          content_object->setTTL(ttl_);
+        content_object->setName(interest.getName());
+        content_object->setLifetime(lifetime);
+        content_object->setLocator(interest.getLocator());
+        content_object->setSrcPort(interest.getDstPort());
+        content_object->setDstPort(interest.getSrcPort());
+        content_object->setTTL(ttl_);
 
-          if (!sign_) {
-            content_object->resetFlags();
-          }
-
-          if (flags_) {
-            if (interest.testSyn()) {
-              content_object->setSyn();
-              content_object->setAck();
-            } else if (interest.testAck()) {
-              content_object->setAck();
-            }  // here I may need to handle the FIN flag;
-          } else if (reset_) {
-            content_object->setRst();
-          }
-
-          if (verbose_) {
-            std::cout << ">>> send object " << content_object->getName()
-                      << " src port: " << content_object->getSrcPort()
-                      << " dst port: " << content_object->getDstPort()
-                      << " flags: " << content_object->printFlags()
-                      << " TTL: " << (int)content_object->getTTL() << std::endl;
-          } else if (!quite_) {
-            std::cout << ">>> send object " << content_object->getName()
-                      << std::endl;
-          }
-
-          if (dump_) {
-            std::cout << "----- object dump -----" << std::endl;
-            content_object->dump();
-            std::cout << "-----------------------" << std::endl;
-          }
-
-          if (sign_ && signer_) {
-            signer_->signPacket(content_object.get());
-          }
-
-          p.produce(*content_object);
+        if (verbose_) {
+          std::cout << ">>> send object " << content_object->getName()
+                    << " src port: " << content_object->getSrcPort()
+                    << " dst port: " << content_object->getDstPort()
+                    << " TTL: " << (int)content_object->getTTL() << std::endl;
+        } else if (!quiet_) {
+          std::cout << ">>> send object " << content_object->getName()
+                    << std::endl;
         }
 
-        if (interest.hasManifest()) {
-          uint32_t seq = *suffix;
-          suffix++;
-
-          interest.setName(name.setSuffix(seq));
+        if (dump_) {
+          std::cout << "----- object dump -----" << std::endl;
+          content_object->dump();
+          std::cout << "-----------------------" << std::endl;
         }
-      } while (pos++ < n_suffixes_in_manifest);
 
-      if (!quite_) std::cout << std::endl;
-    }
+        if (sign_ && signer_) {
+          signer_->signPacket(content_object.get());
+        }
+
+        p.produce(*content_object);
+      }
+
+      if (interest.hasManifest()) {
+        uint32_t seq = *suffix;
+        suffix++;
+
+        Name name = interest.getName();
+        interest.setName(name.setSuffix(seq));
+      }
+    } while (pos++ < n_suffixes_in_manifest);
+
+    if (!quiet_) std::cout << std::endl;
   }
 
  private:
@@ -194,9 +172,7 @@ class CallbackContainer {
   std::uint16_t content_objects_index_;
   bool verbose_;
   bool dump_;
-  bool quite_;
-  bool flags_;
-  bool reset_;
+  bool quiet_;
   uint8_t ttl_;
   auth::Signer *signer_;
   bool sign_;
@@ -209,13 +185,7 @@ void help() {
   std::cout << "-s <val>          object content size (default 1350B)"
             << std::endl;
   std::cout << "-n <val>          hicn name (default b001::/64)" << std::endl;
-  std::cout << "-f                set tcp flags according to the flag received "
-               "                  (default false)"
-            << std::endl;
   std::cout << "-l                data lifetime" << std::endl;
-  std::cout
-      << "-r                always reply with a reset flag (default false)"
-      << std::endl;
   std::cout << "-t                set ttl (default 64)" << std::endl;
   std::cout << "OUTPUT options" << std::endl;
   std::cout << "-V                verbose, prints statistics about the "
@@ -225,9 +195,9 @@ void help() {
   std::cout << "-D                dump, dumps sent and received packets "
                "(default false)"
             << std::endl;
-  std::cout << "-q                quite, not prints (default false)"
+  std::cout << "-q                quiet, not prints (default false)"
             << std::endl;
-  std::cerr << "-z <io_module>    IO module to use. Default: hicnlightng_module"
+  std::cerr << "-z <io_module>    IO module to use. Default: hicnlight_module"
             << std::endl;
   std::cerr << "-F <conf_file>    Path to optional configuration file for "
                "libtransport"
@@ -250,9 +220,7 @@ int main(int argc, char **argv) {
   std::string delimiter = "/";
   bool verbose = false;
   bool dump = false;
-  bool quite = false;
-  bool flags = false;
-  bool reset = false;
+  bool quiet = false;
   uint32_t object_size = 1250;
   uint8_t ttl = 64;
   std::string keystore_path = "./rsa_crypto_material.p12";
@@ -263,7 +231,7 @@ int main(int argc, char **argv) {
 
   std::string conf_file;
   transport::interface::global_config::IoModuleConfiguration io_config;
-  io_config.name = "hicnlightng_module";
+  io_config.name = "hicnlight_module";
 
   int opt;
 #ifndef _WIN32
@@ -296,19 +264,13 @@ int main(int argc, char **argv) {
       case 'q':
         verbose = false;
         dump = false;
-        quite = true;
+        quiet = true;
         break;
 #ifndef _WIN32
       case 'd':
         daemon = true;
         break;
 #endif
-      case 'f':
-        flags = true;
-        break;
-      case 'r':
-        reset = true;
-        break;
       case 'k':
         keystore_path = optarg;
         sign = true;
@@ -359,14 +321,13 @@ int main(int argc, char **argv) {
   if (sign) {
     signer = std::make_unique<auth::AsymmetricSigner>(keystore_path,
                                                       keystore_password);
-    stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, signer.get(), sign, passphrase,
-                                  data_lifetime);
+    stubs =
+        new CallbackContainer(n, object_size, verbose, dump, quiet, ttl,
+                              signer.get(), sign, passphrase, data_lifetime);
   } else {
     auth::Signer *signer = nullptr;
-    stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, signer, sign, passphrase,
-                                  data_lifetime);
+    stubs = new CallbackContainer(n, object_size, verbose, dump, quiet, ttl,
+                                  signer, sign, passphrase, data_lifetime);
   }
 
   ProducerSocket p;

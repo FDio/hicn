@@ -17,12 +17,6 @@ bool topics_contains(hc_topics_t topic_list, hc_topic_t topic) {
 #define topic_is_set(topic_list, topic_index) \
   ((topic_list) & (1 << (topic_index)))
 
-const char *event_str[] = {
-#define _(x) [EVENT_##x] = #x,
-    foreach_event_type
-#undef _
-};
-
 /*----------------------------------------------------------------------------*
  * Subscriptions
  *----------------------------------------------------------------------------*/
@@ -56,13 +50,13 @@ int subscription_table_add_topics_for_connection(
       int ret = vector_push(subscriptions->table[topic_index], connection_id);
       if (ret < 0) {
         ERROR("Unable to perform subscription for connection %d, topic %s",
-              connection_id, object_str(topic_index));
+              connection_id, object_type_str(topic_index));
         return -1;
       }
 
       if (num_duplicates > 0) {
         DEBUG("Connection %d had already a subscription for topic %s",
-              connection_id, object_str(topic_index));
+              connection_id, object_type_str(topic_index));
         is_subscription_already_present = true;
       }
     }
@@ -111,10 +105,10 @@ unsigned *subscription_table_get_connections_for_topic(
 }
 
 void subscription_table_print(subscription_table_t *subscriptions) {
-  for (int topic_index = OBJECT_UNDEFINED + 1; topic_index < NUM_TOPICS;
+  for (int topic_index = OBJECT_TYPE_UNDEFINED + 1; topic_index < NUM_TOPICS;
        topic_index++) {
     printf("topic %s (%lu subscription/s) from connection/s: [ ",
-           object_str(topic_index),
+           object_type_str(topic_index),
            (unsigned long)vector_len(subscriptions->table[topic_index]));
     unsigned *connection_id;
     vector_foreach(subscriptions->table[topic_index], connection_id,

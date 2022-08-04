@@ -61,7 +61,8 @@ endif()
 # Compiler options
 ##############################################################
 set(COMPILER_OPTIONS
-  ${DEFAULT_COMPILER_OPTIONS}
+  PRIVATE ${DEFAULT_COMPILER_OPTIONS}
+  #PRIVATE "-Wno-address-of-packed-member"
 )
 
 ##############################################################

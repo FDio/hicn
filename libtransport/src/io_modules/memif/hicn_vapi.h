@@ -27,7 +27,7 @@ extern "C" {
 #include "stdint.h"
 
 typedef struct {
-  ip_prefix_t* prefix;
+  hicn_ip_prefix_t* prefix;
   uint32_t swif;
   uint32_t cs_reserved;
 } hicn_producer_input_params;
@@ -42,20 +42,20 @@ typedef struct {
 
 typedef struct {
   uint32_t cs_reserved;
-  ip_address_t* prod_addr;
+  hicn_ip_address_t* prod_addr;
   uint32_t face_id;
 } hicn_producer_output_params;
 
 typedef struct {
-  ip_address_t* src4;
-  ip_address_t* src6;
+  hicn_ip_address_t* src4;
+  hicn_ip_address_t* src6;
   uint32_t face_id1;
   uint32_t face_id2;
 } hicn_consumer_output_params;
 
 typedef struct {
-  ip_prefix_t* prefix;
-  ip_address_t* prod_addr;
+  hicn_ip_prefix_t* prefix;
+  hicn_ip_address_t* prod_addr;
 } hicn_producer_set_route_params;
 
 int hicn_vapi_register_prod_app(vapi_ctx_t ctx,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -29,22 +29,21 @@ namespace core {
 class ContentObject : public Packet {
  public:
   using Ptr = std::shared_ptr<ContentObject>;
-  using HICNContentObject = hicn_header_t;
+  using HICNContentObject = u8;
 
   ContentObject(Packet::Format format, std::size_t additional_header_size = 0);
 
   ContentObject(const Name &name, Packet::Format format,
                 std::size_t additional_header_size = 0);
 
-  ContentObject(const Name &name, hicn_format_t format,
+  ContentObject(const Name &name, hicn_packet_format_t format,
                 std::size_t additional_header_size, const uint8_t *payload,
                 std::size_t payload_size);
 
   template <typename... Args>
   ContentObject(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_data_get_name(format_, packet_start_,
-                           &name_.getStructReference()) < 0) {
+    if (hicn_data_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -52,21 +51,15 @@ class ContentObject : public Packet {
   template <typename... Args>
   ContentObject(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_data_get_name(format_, packet_start_,
-                           &name_.getStructReference()) < 0) {
+    if (hicn_data_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
 
   template <typename... Args>
   ContentObject(CreateOp op, Args &&...args)
-      : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_packet_set_data(format_, packet_start_) < 0) {
-      throw errors::MalformedPacketException();
-    }
-
-    if (hicn_data_get_name(format_, packet_start_,
-                           &name_.getStructReference()) < 0) {
+      : Packet(op, HICN_PACKET_TYPE_DATA, std::forward<Args>(args)...) {
+    if (hicn_data_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -85,13 +78,13 @@ class ContentObject : public Packet {
 
   void setName(const Name &name) override;
 
-  uint32_t getPathLabel() const;
+  hicn_path_label_t getPathLabel() const;
 
-  ContentObject &setPathLabel(uint32_t path_label);
+  ContentObject &setPathLabel(hicn_path_label_t path_label);
 
-  void setLocator(const ip_address_t &ip_address) override;
+  void setLocator(const hicn_ip_address_t &ip_address) override;
 
-  ip_address_t getLocator() const override;
+  hicn_ip_address_t getLocator() const override;
 
   void setLifetime(uint32_t lifetime) override;
 

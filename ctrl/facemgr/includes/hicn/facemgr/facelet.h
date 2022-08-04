@@ -168,32 +168,18 @@ extern const char* facelet_attr_status_str_short[];
 
 /* Facelet attribute */
 
-#ifdef WITH_POLICY
 #define foreach_facelet_attr          \
   _(netdevice_type_t, netdevice_type) \
   _(netdevice_t, netdevice)           \
   _(int, family)                      \
-  _(ip_address_t, local_addr)         \
+  _(hicn_ip_address_t, local_addr)    \
   _(u16, local_port)                  \
-  _(ip_address_t, remote_addr)        \
+  _(hicn_ip_address_t, remote_addr)   \
   _(u16, remote_port)                 \
   _(face_state_t, admin_state)        \
   _(face_state_t, state)              \
   _(u32, priority)                    \
   _(facemgr_face_type_t, face_type)
-#else
-#define foreach_facelet_attr          \
-  _(netdevice_type_t, netdevice_type) \
-  _(netdevice_t, netdevice)           \
-  _(int, family)                      \
-  _(ip_address_t, local_addr)         \
-  _(u16, local_port)                  \
-  _(ip_address_t, remote_addr)        \
-  _(u16, remote_port)                 \
-  _(face_state_t, admin_state)        \
-  _(face_state_t, state)              \
-  _(facemgr_face_type_t, face_type)
-#endif /* WITH_POLICY */
 
 #define foreach_facelet_event \
   _(UNDEFINED)                \

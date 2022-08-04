@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,6 +14,15 @@
  */
 
 #pragma once
+
+#include <hicn/transport/portability/portability.h>
+
+extern "C" {
+#ifndef _WIN32
+TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
+#include <hicn/base.h>
+};
 
 namespace transport {
 

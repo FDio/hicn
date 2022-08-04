@@ -24,29 +24,19 @@ set(LIBHICN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/hicn.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/base.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/common.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/compat.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/error.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/face.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/header.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/mapme.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/name.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/packet.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/policy.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ops.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/strategy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/validation.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/interest_manifest.h
   PARENT_SCOPE
 )
 
-set(LIBHICN_HEADER_FILES_PROTOCOL
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/ah.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/icmp.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/icmprd.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/ipv4.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/ipv6.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/tcp.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/udp.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/new.h
+set(LIBHICN_HEADER_FILES_UTIL
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/array.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/bitmap.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/hash.h
@@ -63,3 +53,6 @@ set(LIBHICN_HEADER_FILES_PROTOCOL
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/vector.h
   PARENT_SCOPE
 )
+
+set_property(GLOBAL PROPERTY LIBHICN_HEADER_FILES_UTIL_PROPERTY "${LIBHICN_HEADER_FILES_UTIL}")
+

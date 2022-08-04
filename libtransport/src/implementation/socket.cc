@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,7 +28,7 @@ Socket::Socket(std::shared_ptr<core::Portal> &&portal)
       verifier_(std::make_shared<auth::VoidVerifier>()) {}
 
 int Socket::setSocketOption(int socket_option_key,
-                            hicn_format_t packet_format) {
+                            hicn_packet_format_t packet_format) {
   switch (socket_option_key) {
     case interface::GeneralTransportOptions::PACKET_FORMAT:
       packet_format_ = packet_format;
@@ -41,7 +41,7 @@ int Socket::setSocketOption(int socket_option_key,
 }
 
 int Socket::getSocketOption(int socket_option_key,
-                            hicn_format_t &packet_format) {
+                            hicn_packet_format_t &packet_format) {
   switch (socket_option_key) {
     case interface::GeneralTransportOptions::PACKET_FORMAT:
       packet_format = packet_format_;

@@ -33,7 +33,7 @@ typedef struct
   u8 type;
   u8 code;
   u16 csum;
-  ip4_address_t ip;
+  ipv4_address_t ip;
   _ipv4_header_t iph;
   u8 data[64];
 } _icmprd4_header_t;
@@ -53,8 +53,8 @@ typedef struct
   u8 code;
   u16 csum;
   u32 res;
-  ip6_address_t tgt;
-  ip6_address_t dst;
+  ipv6_address_t tgt;
+  ipv6_address_t dst;
 } _icmprd_header_t;
 
 #define ICMPRD_HDRLEN sizeof (_icmprd_header_t)

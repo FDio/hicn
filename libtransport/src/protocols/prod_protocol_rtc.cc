@@ -24,6 +24,10 @@
 
 #include <unordered_set>
 
+extern "C" {
+#include <hicn/util/bitmap.h>
+}
+
 namespace transport {
 namespace protocol {
 
@@ -568,7 +572,7 @@ void RTCProductionProtocol::onInterest(Interest &interest) {
 
   uint32_t *suffix = interest.firstSuffix();
   uint32_t n_suffixes_in_manifest = interest.numberOfSuffixes();
-  uint32_t *request_bitmap = interest.getRequestBitmap();
+  hicn_uword *request_bitmap = interest.getRequestBitmap();
 
   Name name = interest.getName();
   uint32_t pos = 0;  // Position of current suffix in manifest
@@ -580,7 +584,8 @@ void RTCProductionProtocol::onInterest(Interest &interest) {
   // Process the suffix in the interest header
   // (first loop iteration), then suffixes in the manifest
   do {
-    if (!interest.hasManifest() || is_bit_set(request_bitmap, pos)) {
+    if (!interest.hasManifest() ||
+        bitmap_is_set_no_check(request_bitmap, pos)) {
       const std::shared_ptr<ContentObject> content_object =
           output_buffer_.find(name);
 

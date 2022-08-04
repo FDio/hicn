@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -69,7 +69,7 @@
 #endif /* WITH_POLICY_STATS */
 
 #include <hicn/core/wldr.h>
-#include <hicn/core/interest_manifest.h>
+#include <hicn/interest_manifest.h>
 #include <hicn/util/log.h>
 
 struct forwarder_s {
@@ -189,9 +189,10 @@ forwarder_t *forwarder_create(configuration_t *configuration) {
   vector_init(forwarder->pending_conn, MAX_MSG, 0);
   vector_init(forwarder->acquired_msgbuf_ids, MAX_MSG, 0);
 
-  char *n_suffixes_per_split_str = getenv("N_SUFFIXES_PER_SPIT");
+  char *n_suffixes_per_split_str = getenv("N_SUFFIXES_PER_SPLIT");
   if (n_suffixes_per_split_str)
-    N_SUFFIXES_PER_SPIT = atoi(n_suffixes_per_split_str);
+    configuration_set_suffixes_per_split(forwarder_get_configuration(forwarder),
+                                         atoi(n_suffixes_per_split_str));
 
   return forwarder;
 
@@ -239,6 +240,162 @@ void forwarder_free(forwarder_t *forwarder) {
   free(forwarder);
 }
 
+/*
+ * An event occurred that might trigger an update of the FIB cache. It is
+ * possible that the flags have been reset following a connection add or remote.
+ * The objective of this function is to prepare the cache entry, and to alert of
+ * any change for both consumer and producer prefixes.
+ */
+void forwarder_on_route_event(const forwarder_t *forwarder,
+                              fib_entry_t *entry) {
+  commands_notify_route(forwarder, entry);
+
+  nexthops_t new_nexthops = NEXTHOPS_EMPTY;
+  nexthops_t *nexthops;
+
+  char *prefix_type_s;
+
+  const connection_table_t *table =
+      forwarder_get_connection_table(entry->forwarder);
+
+  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
+
+  WITH_INFO({
+    char buf[MAXSZ_HICN_PREFIX];
+    hicn_prefix_snprintf(buf, MAXSZ_HICN_NAME, prefix);
+    INFO("fib_entry_on_event: %s", buf);
+  )};
+
+  if (!fib_entry_has_local_nexthop(entry)) {
+    /* Recompute FIB cache, then check whether it has changed based on hash */
+    prefix_type_s = "consumer";
+    nexthops = fib_entry_get_nexthops(entry);
+    nexthops_reset(nexthops);
+    fib_entry_filter_nexthops(entry, nexthops, ~0, false);
+  } else {
+    /* Check available non-local connections (on which we would send MAP-Me
+     * updates */
+    prefix_type_s = "producer";
+
+    nexthops = fib_entry_get_mapme_nexthops(entry, &new_nexthops);
+    fib_entry_filter_nexthops(entry, nexthops, ~0, true);
+
+#ifdef WITH_MAPME
+    mapme_set_adjacencies(forwarder->mapme, entry, nexthops);
+#endif /* WITH_MAPME */
+  }
+
+  if (!fib_entry_nexthops_changed(entry, nexthops)) return;
+
+  /* Send notification */
+  WITH_INFO({
+    char buf[MAXSZ_HICN_PREFIX];
+    hicn_prefix_snprintf(buf, MAXSZ_HICN_NAME, prefix);
+    INFO("Active interfaces changed for %s prefix %s", prefix_type_s, buf);
+  });
+
+  netdevice_flags_t flags = NETDEVICE_FLAGS_EMPTY;
+  nexthops_foreach(nexthops, nh, {
+    connection_t *connection = connection_table_get_by_id(table, nh);
+    netdevice_flags_add(flags, connection_get_interface_type(connection));
+  });
+
+  hicn_ip_prefix_t ip_prefix;
+  hicn_prefix_get_ip_prefix(prefix, &ip_prefix);
+  commands_notify_active_interface_update(forwarder, &ip_prefix, flags);
+}
+
+int forwarder_add_connection(const forwarder_t *forwarder,
+                             const char *symbolic_name, face_type_t type,
+                             address_pair_t *pair, policy_tags_t tags,
+                             int priority, face_state_t admin_state) {
+  connection_table_t *table = forwarder_get_connection_table(forwarder);
+  connection_t *connection = connection_table_get_by_pair(table, pair);
+
+  if (!connection) {
+    connection = connection_create(type, symbolic_name, pair, forwarder);
+    if (!connection) {
+      ERROR("Failed to create %s connection", face_type_str(type));
+      return -1;
+    }
+
+  } else {
+    WARN("Connection already exists");
+  }
+
+#ifdef WITH_POLICY
+  connection_set_tags(connection, tags);
+  connection_set_priority(connection, priority);
+#endif /* WITH_POLICY */
+
+  connection_set_admin_state(connection, admin_state);
+  return 0;
+}
+
+int forwarder_remove_connection(const forwarder_t *forwarder,
+                                unsigned connection_id, bool finalize) {
+  /* Remove connection from the FIB */
+  forwarder_remove_connection_id_from_routes(forwarder, connection_id);
+
+  /* Remove connection */
+  connection_table_t *table = forwarder_get_connection_table(forwarder);
+
+  /* Hook: connection deleted through the control protocol */
+  connection_t *connection = connection_table_at(table, connection_id);
+  forwarder_on_connection_event(forwarder, connection, CONNECTION_EVENT_DELETE);
+
+  connection_table_remove_by_id(table, connection_id);
+  if (finalize) connection_finalize(connection);
+
+  return 0;
+}
+
+/*
+ * This is currently called from commands.c for every command sent to update
+ * a connection.
+ */
+void forwarder_on_connection_event(const forwarder_t *forwarder,
+                                   const connection_t *connection,
+                                   connection_event_t event) {
+  assert(connection);
+
+  commands_notify_connection(forwarder, event, connection);
+
+  unsigned conn_id = connection_get_id(connection);
+
+  /* We need to send a MapMe update on the newly selected connections for
+   * each concerned fib_entry : connection is involved, or no more involved */
+  fib_t *fib = forwarder_get_fib(forwarder);
+  fib_foreach_entry(fib, entry, {
+    const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+
+    if (!fib_entry_has_local_nexthop(entry)) {
+      /* Consumer prefix */
+      /*
+       * A new connection has no impact until it is added to FIB, which will
+       * be handled in a route event
+       */
+      if (event == CONNECTION_EVENT_CREATE) break;
+
+      /*
+       * For each FIB entry, trigger an event only if the connection is part
+       * of nexthops */
+      // XXX Replace this by a function
+      nexthops_foreach(nexthops, nexthop, {
+        if (nexthop != conn_id) continue;
+        forwarder_on_route_event(forwarder, entry);
+        break;
+      });
+    } else {
+      /* Producer prefix */
+      if (connection_is_local(connection)) break;
+
+      // XXX we could optimize event more
+      forwarder_on_route_event(forwarder, entry);
+    }
+  });
+}
+
 void forwarder_setup_local_listeners(forwarder_t *forwarder, uint16_t port) {
   assert(forwarder);
   listener_setup_local(forwarder, port);
@@ -249,7 +406,8 @@ configuration_t *forwarder_get_configuration(forwarder_t *forwarder) {
   return forwarder->config;
 }
 
-subscription_table_t *forwarder_get_subscriptions(forwarder_t *forwarder) {
+subscription_table_t *forwarder_get_subscriptions(
+    const forwarder_t *forwarder) {
   return forwarder->subscriptions;
 }
 
@@ -259,7 +417,7 @@ connection_table_t *forwarder_get_connection_table(
   return forwarder->connection_table;
 }
 
-listener_table_t *forwarder_get_listener_table(forwarder_t *forwarder) {
+listener_table_t *forwarder_get_listener_table(const forwarder_t *forwarder) {
   assert(forwarder);
   return forwarder->listener_table;
 }
@@ -295,7 +453,8 @@ void forwarder_cs_set_size(forwarder_t *forwarder, size_t size) {
   if (pkt_cache_set_cs_size(forwarder->pkt_cache, size) < 0) {
     ERROR(
         "Unable to resize the CS: provided maximum size (%u) is smaller than "
-        "the number of elements currently stored in the CS (%u). Clear the CS "
+        "the number of elements currently stored in the CS (%u). Clear the "
+        "CS "
         "and retry.",
         size, pkt_cache_get_cs_size(forwarder->pkt_cache));
   }
@@ -335,11 +494,11 @@ static ssize_t forwarder_drop(forwarder_t *forwarder, off_t msgbuf_id) {
   const msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
   switch (msgbuf_get_type(msgbuf)) {
-    case MSGBUF_TYPE_INTEREST:
+    case HICN_PACKET_TYPE_INTEREST:
       forwarder->stats.countInterestsDropped++;
       break;
 
-    case MSGBUF_TYPE_DATA:
+    case HICN_PACKET_TYPE_DATA:
       forwarder->stats.countObjectsDropped++;
       break;
 
@@ -384,7 +543,7 @@ static ssize_t forwarder_forward_via_connection(forwarder_t *forwarder,
   // Here we need to update the path label of a data packet before send
   // it. The path label update can be done here because the packet is sent
   // directly to the socket
-  if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA)
+  if (msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_DATA)
     msgbuf_update_pathlabel(msgbuf, connection_get_id(conn));
 
   bool success = connection_send_packet(conn, msgbuf_get_packet(msgbuf),
@@ -415,11 +574,11 @@ static ssize_t forwarder_forward_via_connection(forwarder_t *forwarder,
   }
 
   switch (msgbuf_get_type(msgbuf)) {
-    case MSGBUF_TYPE_INTEREST:
+    case HICN_PACKET_TYPE_INTEREST:
       forwarder->stats.countInterestForwarded++;
       break;
 
-    case MSGBUF_TYPE_DATA:
+    case HICN_PACKET_TYPE_DATA:
       forwarder->stats.countObjectsForwarded++;
       break;
 
@@ -451,7 +610,6 @@ static unsigned forwarder_forward_to_nexthops(forwarder_t *forwarder,
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
   unsigned ingressId = msgbuf_get_connection_id(msgbuf);
 
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
     // DEBUG("[forwarder_forward_to_nexthops]  - nexthop = %d");
     if (nexthop == ingressId) continue;
@@ -469,43 +627,57 @@ static bool forwarder_forward_via_fib(forwarder_t *forwarder, off_t msgbuf_id,
                                       pkt_cache_entry_t *entry) {
   assert(forwarder && entry && msgbuf_id_is_valid(msgbuf_id));
 
+  bool ret = true;
+
   const msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
-  assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
+  assert(msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
-  fib_entry_t *fib_entry = fib_match_message(forwarder->fib, msgbuf);
+  fib_entry_t *fib_entry = fib_match_msgbuf(forwarder->fib, msgbuf);
   if (!fib_entry) return false;
 
-  // DEBUG("[forwarder] Getting nexthops from strategy");
-  nexthops_t *nexthops = fib_entry_get_nexthops_from_strategy(
-      fib_entry, msgbuf, verdict == PKT_CACHE_VERDICT_RETRANSMIT_INTEREST);
+  nexthops_t *nexthops = fib_entry_get_nexthops(fib_entry);
+
+  /* Backup flags and cur_len*/
+  uint_fast32_t flags = nexthops->flags;
+  size_t cur_len = nexthops_get_curlen(nexthops);
+
+  /* This affects the nexthops */
+  nexthops = strategy_lookup_nexthops(&fib_entry->strategy, nexthops, msgbuf);
 
   if (nexthops_get_curlen(nexthops) == 0) {
     ERROR("Message %p returned an empty next hop set", msgbuf);
-    return false;
+    ret = false;
+    goto END;
   }
 
   pit_entry_t *pit_entry = &entry->u.pit_entry;
-  if (!pit_entry) return false;
+  if (!pit_entry) {
+    ret = false;
+    goto END;
+  }
 
   pit_entry_set_fib_entry(pit_entry, fib_entry);
 
   // this requires some additional checks. It may happen that some of the output
   // faces selected by the forwarding strategy are not usable. So far all the
   // forwarding strategy return only valid faces (or an empty list)
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
     // DEBUG("Adding egress to PIT for nexthop %d", nexthop);
     pit_entry_egress_add(pit_entry, nexthop);
   });
 
   if (forwarder_forward_to_nexthops(forwarder, msgbuf_id, nexthops) <= 0) {
-    // this should never happen
-    ERROR("Message %p returned an empty next hop set", msgbuf);
-    return false;
+    ERROR("Error forwarding mMessage %p to next hops", msgbuf);
+    ret = false;
   }
 
-  return true;
+END:
+  /* Restore flags & curlen */
+  nexthops->flags = flags;
+  nexthops->cur_elts = cur_len;
+
+  return ret;
 }
 
 #endif /* ! BYPASS_FIB */
@@ -519,7 +691,7 @@ int _forwarder_forward_upon_interest(
   // - Aggregation can be perfomed, do not forward
   if (verdict == PKT_CACHE_VERDICT_AGGREGATE_INTEREST) {
     forwarder_drop(forwarder, interest_msgbuf_id);
-    return msgbuf_get_len(msgbuf);
+    return (int)msgbuf_get_len(msgbuf);
   }
 
   // - Data packet matching the interest was found, forward reply
@@ -532,12 +704,12 @@ int _forwarder_forward_upon_interest(
     msgbuf_reset_pathlabel(data_msgbuf);
     forwarder_forward_via_connection(forwarder, data_msgbuf_id,
                                      msgbuf_get_connection_id(interest_msgbuf));
-    return msgbuf_get_len(msgbuf);
+    return (int)msgbuf_get_len(msgbuf);
   }
 
   // - For aggregated interest, the interest forwarding is done in
   // `_forwarder_forward_aggregated_interest()`
-  if (is_aggregated) return msgbuf_get_len(msgbuf);
+  if (is_aggregated) return (int)msgbuf_get_len(msgbuf);
 
   // - Try to forward the interest
   int rc =
@@ -552,7 +724,7 @@ int _forwarder_forward_upon_interest(
     return -1;
   }
 
-  return msgbuf_get_len(msgbuf);
+  return (int)msgbuf_get_len(msgbuf);
 }
 
 static void _forwarder_update_interest_stats(forwarder_t *forwarder,
@@ -601,54 +773,60 @@ static void _forwarder_update_interest_stats(forwarder_t *forwarder,
   }
 }
 
+/**
+ * Return the interest manifest from the interest payload
+ */
 static interest_manifest_header_t *_forwarder_get_interest_manifest(
     msgbuf_t *msgbuf) {
-  uint8_t *packet = msgbuf_get_packet(msgbuf);
-  hicn_header_t *header = (hicn_header_t *)packet;
-  hicn_type_t type = hicn_header_to_type(header);
+  uint8_t *payload;
+  size_t payload_size;
+
+  hicn_packet_buffer_t *pkbuf = msgbuf_get_pkbuf(msgbuf);
 
   hicn_payload_type_t payload_type;
-  int rc = hicn_ops_vft[type.l1]->get_payload_type(type, &header->protocol,
-                                                   &payload_type);
-  _ASSERT(rc == HICN_LIB_ERROR_NONE);
+  HICN_UNUSED(int rc) = hicn_packet_get_payload_type(pkbuf, &payload_type);
+  assert(rc == HICN_LIB_ERROR_NONE);
+
   if (payload_type != HPT_MANIFEST) return NULL;
 
-  size_t header_length, payload_length;
-  rc = hicn_ops_vft[type.l1]->get_header_length(type, &header->protocol,
-                                                &header_length);
-  assert(rc == HICN_LIB_ERROR_NONE);
+  rc = hicn_packet_get_payload(pkbuf, &payload, &payload_size, false);
+  _ASSERT(rc == HICN_LIB_ERROR_NONE);
 
-  rc = hicn_ops_vft[type.l1]->get_payload_length(type, &header->protocol,
-                                                 &payload_length);
-  assert(rc == HICN_LIB_ERROR_NONE);
-
-  u8 *payload = (u8 *)header + header_length;
-  interest_manifest_header_t *int_manifest_header =
-      (interest_manifest_header_t *)payload;
-  if (!interest_manifest_is_valid(int_manifest_header, payload_length))
-    return NULL;
-
-  return int_manifest_header;
+  return (interest_manifest_header_t *)payload;
 }
 
 // Manifest is split using splitting strategy, then every
 // sub-manifest is sent using the forwarding strategy defined for the prefix
 int _forwarder_forward_aggregated_interest(
     forwarder_t *forwarder, interest_manifest_header_t *int_manifest_header,
-    int n_suffixes_to_fwd, msgbuf_t *msgbuf, off_t msgbuf_id,
-    pkt_cache_entry_t **entries) {
+    msgbuf_t *msgbuf, off_t msgbuf_id, pkt_cache_entry_t **entries) {
   assert(msgbuf_id_is_valid(msgbuf_id) &&
-         msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
+         msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
-  fib_entry_t *fib_entry = fib_match_message(forwarder->fib, msgbuf);
-  if (!fib_entry) return -1;
+  bool ret = -1;
 
-  int n_suffixes_per_split = N_SUFFIXES_PER_SPIT;
+  fib_entry_t *fib_entry = fib_match_msgbuf(forwarder->fib, msgbuf);
+  if (!fib_entry) goto END;
+
+  nexthops_t *nexthops = fib_entry_get_nexthops(fib_entry);
+  if (nexthops_get_curlen(nexthops) == 0) {
+    ret = 0;
+    goto END;
+  }
+
+  /* Backup flags and cur_len*/
+  uint_fast32_t flags = nexthops->flags;
+  size_t cur_len = nexthops_get_curlen(nexthops);
+
+  size_t n_suffixes_per_split = configuration_get_suffixes_per_split(
+      forwarder_get_configuration(forwarder));
+  int_manifest_split_strategy_t disaggregation_strategy =
+      configuration_get_split_strategy(forwarder_get_configuration(forwarder));
   switch (disaggregation_strategy) {
-    case INT_MANIFEST_SPLIT_NONE:
+    case INT_MANIFEST_SPLIT_STRATEGY_NONE:
       n_suffixes_per_split = int_manifest_header->n_suffixes + 1;
 
-    case INT_MANIFEST_SPLIT_MAX_N_SUFFIXES: {
+    case INT_MANIFEST_SPLIT_STRATEGY_MAX_N_SUFFIXES: {
       // Generate sub-manifests: same as original manifest,
       // but different suffix in the header and different bitmap
 
@@ -658,11 +836,11 @@ int _forwarder_forward_aggregated_interest(
 
       // Save copy of original bitmap to use as a reference
       // to generate bitmaps for sub-manifests
-      u32 original_bitmap[BITMAP_SIZE] = {0};
+      hicn_uword original_bitmap[BITMAP_SIZE] = {0};
       memcpy(&original_bitmap, int_manifest_header->request_bitmap,
-             BITMAP_SIZE * sizeof(u32));
+             BITMAP_SIZE * sizeof(hicn_uword));
 
-      int suffix_index = 0;  // Position of suffix in initial manifest
+      size_t suffix_index = 0;  // Position of suffix in initial manifest
       while (suffix_index < total_suffixes) {
         // If more than one sub-manifest,
         // clone original interest manifest and update suffix
@@ -677,38 +855,48 @@ int _forwarder_forward_aggregated_interest(
           msgbuf = clone;
         }
 
-        u32 curr_bitmap[BITMAP_SIZE] = {0};
-        int first_suffix_index_in_submanifest = suffix_index;
+        hicn_uword curr_bitmap[BITMAP_SIZE] = {0};
+        size_t first_suffix_index_in_submanifest = suffix_index;
         suffix_index = interest_manifest_update_bitmap(
             original_bitmap, curr_bitmap, suffix_index, total_suffixes,
             n_suffixes_per_split);
-        int first_suffix_index_in_next_submanifest = suffix_index;
+        size_t first_suffix_index_in_next_submanifest = suffix_index;
 
         // Update manifest bitmap in current msgbuf
         interest_manifest_header_t *manifest =
             _forwarder_get_interest_manifest(msgbuf);
         assert(manifest != NULL);
         memcpy(manifest->request_bitmap, curr_bitmap,
-               BITMAP_SIZE * sizeof(u32));
+               BITMAP_SIZE * sizeof(hicn_uword));
         WITH_TRACE({
           bitmap_print(manifest->request_bitmap, BITMAP_SIZE);
           printf("\n");
         });
 
-        // Update PIT entries for suffixes in current sub-manifest
-        nexthops_t *nexthops =
-            fib_entry_get_nexthops_from_strategy(fib_entry, msgbuf, false);
-        if (nexthops_get_curlen(nexthops) == 0) return -1;
+        /*
+         * Update PIT entries for suffixes in current sub-manifest.
+         *
+         * Note that strategy lookup affects the nexthops, and we need to
+         *restore the initial state before every lookup
+         */
+        nexthops->flags = flags;
+        nexthops->cur_elts = cur_len;
+        nexthops =
+            strategy_lookup_nexthops(&fib_entry->strategy, nexthops, msgbuf);
 
-        for (int i = first_suffix_index_in_submanifest;
+        if (nexthops_get_curlen(nexthops) == 0) {
+          ERROR("Message %p returned an empty next hop set", msgbuf);
+          goto RESTORE;
+        }
+
+        for (size_t i = first_suffix_index_in_submanifest;
              i < first_suffix_index_in_next_submanifest; i++) {
-          if (!is_bit_set(manifest->request_bitmap, i)) continue;
+          if (!bitmap_is_set_no_check(manifest->request_bitmap, i)) continue;
 
           pit_entry_t *pit_entry = &(entries[i]->u.pit_entry);
-          if (!pit_entry) return -1;
+          if (!pit_entry) goto RESTORE;
 
           pit_entry_set_fib_entry(pit_entry, fib_entry);
-          unsigned nexthop;
           nexthops_foreach(nexthops, nexthop,
                            { pit_entry_egress_add(pit_entry, nexthop); });
         }
@@ -722,12 +910,21 @@ int _forwarder_forward_aggregated_interest(
         total_len += msgbuf_get_len(msgbuf);
       }
 
-      return total_len;
+      ret = total_len;
+      goto END;
     }
 
     default:
-      return -1;
+      break;
   }
+
+RESTORE:
+  /* Restore flags & curlen */
+  nexthops->flags = flags;
+  nexthops->cur_elts = cur_len;
+
+END:
+  return ret;
 }
 
 static ssize_t forwarder_process_single_interest(forwarder_t *forwarder,
@@ -742,6 +939,7 @@ static ssize_t forwarder_process_single_interest(forwarder_t *forwarder,
   pkt_cache_on_interest(forwarder->pkt_cache, msgbuf_pool, msgbuf_id, &verdict,
                         &data_msgbuf_id, &entry, msgbuf_get_name(msgbuf),
                         forwarder->serve_from_cs);
+
   _forwarder_update_interest_stats(forwarder, verdict, msgbuf,
                                    entry->has_expire_ts, entry->expire_ts);
 
@@ -749,9 +947,7 @@ static ssize_t forwarder_process_single_interest(forwarder_t *forwarder,
       forwarder, msgbuf_pool, data_msgbuf_id, msgbuf_id, entry, verdict, false);
 
   // No route when trying to forward interest, remove from PIT
-  if (rc == -1)
-    pkt_cache_pit_remove_entry(forwarder->pkt_cache, entry,
-                               msgbuf_get_name(msgbuf));
+  if (rc == -1) pkt_cache_pit_remove_entry(forwarder->pkt_cache, entry);
 
   return msgbuf_get_len(msgbuf);
 }
@@ -769,15 +965,16 @@ static ssize_t forwarder_process_aggregated_interest(
   int pos = 0;  // Position of current suffix in manifest
   int n_suffixes_to_fwd = 0;
   u32 *suffix = (u32 *)(int_manifest_header + 1);
-  u32 seq = name_GetSegment(msgbuf_get_name(msgbuf));
+  u32 seq = hicn_name_get_suffix(msgbuf_get_name(msgbuf));
 
-  Name name_copy = EMPTY_NAME;
-  name_Copy(msgbuf_get_name(msgbuf), &name_copy);
+  hicn_name_t name_copy = HICN_NAME_EMPTY;
+  hicn_name_copy(&name_copy, msgbuf_get_name(msgbuf));
 
   // The fist loop iteration handles the suffix in the header,
   // the following ones handle the suffiexes in the manifest
   while (true) {
-    if (!is_bit_set(int_manifest_header->request_bitmap, pos)) goto NEXT_SUFFIX;
+    if (!bitmap_is_set_no_check(int_manifest_header->request_bitmap, pos))
+      goto NEXT_SUFFIX;
 
     // Update packet cache
     pkt_cache_on_interest(forwarder->pkt_cache, msgbuf_pool, msgbuf_id,
@@ -794,14 +991,13 @@ static ssize_t forwarder_process_aggregated_interest(
                                          msgbuf_id, entry, verdict, true);
 
     // No route when trying to forward interest, remove from PIT
-    if (rc == -1)
-      pkt_cache_pit_remove_entry(forwarder->pkt_cache, entry, &name_copy);
+    if (rc == -1) pkt_cache_pit_remove_entry(forwarder->pkt_cache, entry);
 
     // Unset in bitmap if no interest forwarding needed,
     // otherwise increase count of suffixes to forward
     if (rc == -1 || verdict == PKT_CACHE_VERDICT_AGGREGATE_INTEREST ||
         verdict == PKT_CACHE_VERDICT_FORWARD_DATA) {
-      unset_bit(int_manifest_header->request_bitmap, pos);
+      bitmap_unset_no_check(int_manifest_header->request_bitmap, pos);
     } else {
       n_suffixes_to_fwd++;
     }
@@ -812,12 +1008,15 @@ static ssize_t forwarder_process_aggregated_interest(
     // Use next segment in manifest
     seq = *suffix;
     suffix++;
-    name_SetSegment(&name_copy, seq);
+    hicn_name_set_suffix(&name_copy, seq);
 
     WITH_DEBUG({
-      char *nameString = name_ToString(&name_copy);
-      DEBUG("Next in manifest: %s", nameString);
-      free(nameString);
+      char buf[MAXSZ_HICN_PREFIX];
+      int rc =
+          hicn_name_snprintf(buf, MAXSZ_HICN_NAME, msgbuf_get_name(msgbuf));
+      if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+        snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
+      DEBUG("Next in manifest: %s", buf);
     });
   }
 
@@ -825,8 +1024,7 @@ static ssize_t forwarder_process_aggregated_interest(
   if (n_suffixes_to_fwd == 0) return msgbuf_get_len(msgbuf);
 
   return _forwarder_forward_aggregated_interest(forwarder, int_manifest_header,
-                                                n_suffixes_to_fwd, msgbuf,
-                                                msgbuf_id, entries);
+                                                msgbuf, msgbuf_id, entries);
 }
 
 /**
@@ -850,7 +1048,7 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   connection_t *conn =
       connection_table_get_by_id(table, msgbuf_get_connection_id(msgbuf));
 
-  assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
+  assert(msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
   u32 n_suffixes = 0;
   interest_manifest_header_t *int_manifest_header =
@@ -863,16 +1061,20 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   conn->stats.interests.rx_bytes += msgbuf_get_len(msgbuf);
 
   WITH_DEBUG({
-    char *nameString = name_ToString(msgbuf_get_name(msgbuf));
-    DEBUG("INTEREST (%s) suffixes=%u msgbuf_id=%lu ingress=%u length=%u",
-          nameString, n_suffixes, msgbuf_id, msgbuf_get_connection_id(msgbuf),
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc = hicn_name_snprintf(buf, MAXSZ_HICN_NAME, msgbuf_get_name(msgbuf));
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
+    DEBUG("INTEREST (%s) msgbuf_id=%lu ingress=%u length=%u", buf, msgbuf_id,
+          msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf));
+    DEBUG("INTEREST (%s) suffixes=%u msgbuf_id=%lu ingress=%u length=%u", buf,
+          n_suffixes, msgbuf_id, msgbuf_get_connection_id(msgbuf),
           msgbuf_get_len(msgbuf));
-    free(nameString);
   });
 
   // Cache suffixes for current prefix to (possibly) avoid double lookups
   pkt_cache_save_suffixes_for_prefix(
-      forwarder->pkt_cache, name_GetContentName(msgbuf_get_name(msgbuf)));
+      forwarder->pkt_cache, hicn_name_get_prefix(msgbuf_get_name(msgbuf)));
 
   if (!int_manifest_header)
     return forwarder_process_single_interest(forwarder, msgbuf_pool, msgbuf,
@@ -888,7 +1090,9 @@ static void _forwarder_log_on_data(forwarder_t *forwarder,
       DEBUG("Message added to CS from PIT");
       break;
     case PKT_CACHE_VERDICT_STORE_DATA:
-      DEBUG("Message added to CS (expired or no previous interest pending)");
+      DEBUG(
+          "Message added to CS (expired or no previous interest "
+          "pending)");
       break;
     case PKT_CACHE_VERDICT_CLEAR_DATA:
       break;
@@ -921,10 +1125,12 @@ static ssize_t forwarder_process_data(forwarder_t *forwarder, off_t msgbuf_id) {
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
   WITH_DEBUG({
-    char *nameString = name_ToString(msgbuf_get_name(msgbuf));
-    DEBUG("DATA (%s) msgbuf_id=%lu ingress=%u length=%u", nameString, msgbuf_id,
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc = hicn_name_snprintf(buf, MAXSZ_HICN_NAME, msgbuf_get_name(msgbuf));
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
+    DEBUG("DATA (%s) msgbuf_id=%lu ingress=%u length=%u", buf, msgbuf_id,
           msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf));
-    free(nameString);
   });
 
   const connection_table_t *table = forwarder_get_connection_table(forwarder);
@@ -938,7 +1144,7 @@ static ssize_t forwarder_process_data(forwarder_t *forwarder, off_t msgbuf_id) {
 
   // Cache suffixes for current prefix to (possibly) avoid double lookups
   pkt_cache_save_suffixes_for_prefix(
-      forwarder->pkt_cache, name_GetContentName(msgbuf_get_name(msgbuf)));
+      forwarder->pkt_cache, hicn_name_get_prefix(msgbuf_get_name(msgbuf)));
 
   pkt_cache_verdict_t verdict = PKT_CACHE_VERDICT_ERROR;
   bool wrong_egress;
@@ -955,17 +1161,13 @@ static ssize_t forwarder_process_data(forwarder_t *forwarder, off_t msgbuf_id) {
     forwarder->stats.countDroppedNoReversePath++;
     DEBUG("Message %lu did not match PIT, no reverse path", msgbuf_id);
 
-    // MOVE PROBE HOOK ELSEWHERE
-    // XXX relationship with forwarding strategy... insert hooks
-    // if the packet is a probe we need to analyze it
     // NOTE : probes are not stored in PIT
     if (msgbuf_is_probe(msgbuf)) {
-      fib_entry_t *entry = fib_match_message(forwarder->fib, msgbuf);
+      fib_entry_t *entry = fib_match_msgbuf(forwarder->fib, msgbuf);
       if (entry && fib_entry_strategy_type(entry) == STRATEGY_TYPE_BESTPATH) {
         nexthops_t probe_nexthops = NEXTHOPS_EMPTY;
         nexthops_add(&probe_nexthops, msgbuf_get_connection_id(msgbuf));
         fib_entry_on_data(entry, &probe_nexthops, msgbuf, 0, ticks_now());
-        // XXX TODO CONFIRM WE DON'T EXIT HERE ?
       }
     }
     forwarder_drop(forwarder, msgbuf_id);
@@ -982,7 +1184,8 @@ void forwarder_flush_connections(forwarder_t *forwarder) {
   // DEBUG("[forwarder_flush_connections]");
   const connection_table_t *table = forwarder_get_connection_table(forwarder);
 
-  for (unsigned i = 0; i < vector_len(forwarder->pending_conn); i++) {
+  unsigned num_pending_conn = (unsigned)vector_len(forwarder->pending_conn);
+  for (unsigned i = 0; i < num_pending_conn; i++) {
     unsigned conn_id = forwarder->pending_conn[i];
     connection_t *conn = connection_table_at(table, conn_id);
     if (!connection_flush(conn)) {
@@ -994,14 +1197,15 @@ void forwarder_flush_connections(forwarder_t *forwarder) {
   // DEBUG("[forwarder_flush_connections] done");
 }
 
+#if WITH_WLDR
 // XXX move to wldr file, worst case in connection.
 void forwarder_apply_wldr(const forwarder_t *forwarder, const msgbuf_t *msgbuf,
                           connection_t *connection) {
-  // this are the checks needed to implement WLDR. We set wldr only on the STAs
-  // and we let the AP to react according to choice of the client.
-  // if the STA enables wldr using the set command, the AP enable wldr as well
-  // otherwise, if the STA disable it the AP remove wldr
-  // WLDR should be enabled only on the STAs using the command line
+  // this are the checks needed to implement WLDR. We set wldr only on the
+  // STAs and we let the AP to react according to choice of the client. if
+  // the STA enables wldr using the set command, the AP enable wldr as
+  // well otherwise, if the STA disable it the AP remove wldr WLDR should
+  // be enabled only on the STAs using the command line
   // TODO
   // disable WLDR command line on the AP
   if (msgbuf_has_wldr(msgbuf)) {
@@ -1023,8 +1227,10 @@ void forwarder_apply_wldr(const forwarder_t *forwarder, const msgbuf_t *msgbuf,
     }
   }
 }
+#endif
 
-bool forwarder_add_or_update_route(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_add_or_update_route(forwarder_t *forwarder,
+                                   hicn_ip_prefix_t *prefix,
                                    unsigned ingress_id) {
   assert(forwarder);
   assert(prefix);
@@ -1032,7 +1238,7 @@ bool forwarder_add_or_update_route(forwarder_t *forwarder, ip_prefix_t *prefix,
   configuration_t *config = forwarder_get_configuration(forwarder);
 
   char prefix_s[MAXSZ_IP_PREFIX];
-  int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, prefix);
+  int rc = hicn_ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, prefix);
   assert(rc < MAXSZ_IP_PREFIX);
   if (rc < 0) return false;
 
@@ -1041,9 +1247,9 @@ bool forwarder_add_or_update_route(forwarder_t *forwarder, ip_prefix_t *prefix,
   // XXX TODO this should store options too
   strategy_type_t strategy_type = configuration_get_strategy(config, prefix_s);
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, prefix->family, prefix->address,
-                         prefix->len);
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&prefix->address, prefix->len,
+                                         &name_prefix);
   fib_entry_t *entry = fib_contains(forwarder->fib, &name_prefix);
   if (!entry) {
     entry = fib_entry_create(&name_prefix, strategy_type, NULL, forwarder);
@@ -1054,17 +1260,19 @@ bool forwarder_add_or_update_route(forwarder_t *forwarder, ip_prefix_t *prefix,
     fib_entry_nexthops_add(entry, ingress_id);
   }
 
+  forwarder_on_route_event(forwarder, entry);
+
   return true;
 }
 
-bool forwarder_remove_route(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_remove_route(forwarder_t *forwarder, hicn_ip_prefix_t *prefix,
                             unsigned ingress_id) {
   assert(forwarder);
   assert(prefix);
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, prefix->family, prefix->address,
-                         prefix->len);
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&prefix->address, prefix->len,
+                                         &name_prefix);
   fib_remove(forwarder->fib, &name_prefix, ingress_id);
 
   return true;
@@ -1072,31 +1280,32 @@ bool forwarder_remove_route(forwarder_t *forwarder, ip_prefix_t *prefix,
 
 #ifdef WITH_POLICY
 
-bool forwarder_add_or_update_policy(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_add_or_update_policy(forwarder_t *forwarder,
+                                    hicn_ip_prefix_t *prefix,
                                     hicn_policy_t *policy) {
   assert(forwarder);
   assert(prefix);
   assert(policy);
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, prefix->family, prefix->address,
-                         prefix->len);
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&prefix->address, prefix->len,
+                                         &name_prefix);
   fib_entry_t *entry = fib_contains(forwarder->fib, &name_prefix);
   if (!entry) return false;
+
   fib_entry_set_policy(entry, *policy);
 
   return true;
 }
 
-bool forwarder_remove_policy(forwarder_t *forwarder, ip_prefix_t *prefix) {
+bool forwarder_remove_policy(forwarder_t *forwarder, hicn_ip_prefix_t *prefix) {
   assert(forwarder);
   assert(prefix);
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, prefix->family, prefix->address,
-                         prefix->len);
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&prefix->address, prefix->len,
+                                         &name_prefix);
   fib_entry_t *entry = fib_contains(forwarder->fib, &name_prefix);
-
   if (!entry) return false;
 
   fib_entry_set_policy(entry, POLICY_EMPTY);
@@ -1106,14 +1315,30 @@ bool forwarder_remove_policy(forwarder_t *forwarder, ip_prefix_t *prefix) {
 
 #endif /* WITH_POLICY */
 
-void forwarder_remove_connection_id_from_routes(forwarder_t *forwarder,
+void forwarder_remove_connection_id_from_routes(const forwarder_t *forwarder,
                                                 unsigned connection_id) {
+  fib_entry_t **removed_entries = NULL;
+  size_t num_removed_entries;
+
   assert(forwarder);
 
-  fib_remove_connection_id(forwarder->fib, connection_id);
+  fib_remove_connection(forwarder->fib, connection_id, &removed_entries,
+                        &num_removed_entries);
+
+  if (num_removed_entries > 0) {
+    assert(removed_entries);
+
+    for (int i = 0; i < num_removed_entries; i++) {
+      fib_entry_t *entry = removed_entries[i];
+      forwarder_on_route_event(forwarder, entry);
+      fib_remove_entry(forwarder->fib, entry);
+    }
+    free(removed_entries);
+  }
 }
 
-void forwarder_add_strategy_options(forwarder_t *forwarder, Name *name_prefix,
+void forwarder_add_strategy_options(forwarder_t *forwarder,
+                                    hicn_prefix_t *name_prefix,
                                     strategy_type_t strategy_type,
                                     strategy_options_t *strategy_options) {
   assert(forwarder);
@@ -1127,18 +1352,18 @@ void forwarder_add_strategy_options(forwarder_t *forwarder, Name *name_prefix,
   fib_entry_add_strategy_options(entry, strategy_type, strategy_options);
 }
 
-void forwarder_set_strategy(forwarder_t *forwarder, Name *name_prefix,
+void forwarder_set_strategy(forwarder_t *forwarder, hicn_prefix_t *prefix,
                             strategy_type_t strategy_type,
                             strategy_options_t *strategy_options) {
   assert(forwarder);
-  assert(name_prefix);
+  assert(prefix);
   assert(STRATEGY_TYPE_VALID(strategy_type));
   /* strategy_options might be NULL */
 
-  fib_entry_t *entry = fib_contains(forwarder->fib, name_prefix);
+  fib_entry_t *entry = fib_contains(forwarder->fib, prefix);
   if (!entry) {
-    // there is no exact match. so if the forwarding strategy is not in the list
-    // of strategies that can be set by the transport, return
+    // there is no exact match. so if the forwarding strategy is not in
+    // the list of strategies that can be set by the transport, return
     if (strategy_type != STRATEGY_TYPE_BESTPATH &&
         strategy_type != STRATEGY_TYPE_REPLICATION) {
       return;
@@ -1148,7 +1373,7 @@ void forwarder_set_strategy(forwarder_t *forwarder, Name *name_prefix,
     // no knowledge of the length of the prefix. so we apply the strategy at the
     // matching fib entry, which later will be the one that will be used to send
     // interests with this name
-    entry = fib_match_name(forwarder->fib, name_prefix);
+    entry = fib_match_prefix(forwarder->fib, prefix);
     if (!entry) {
       return;  // no fib match, return
     }
@@ -1163,10 +1388,11 @@ cs_t *forwarder_get_cs(const forwarder_t *forwarder) {
   return pkt_cache_get_cs(forwarder->pkt_cache);
 }
 
-// IMPORTANT: Use this function ONLY for read-only operations since a realloc
-// would otherwise modify the returned copy but not the original msgbuf ids
-// vector in the forwarder. This constraint cannot be enforced by returning a
-// (const off_t *) because the vector_t macros still cast to (void **).
+// IMPORTANT: Use this function ONLY for read-only operations since a
+// realloc would otherwise modify the returned copy but not the original
+// msgbuf ids vector in the forwarder. This constraint cannot be enforced
+// by returning a (const off_t *) because the vector_t macros still cast
+// to (void **).
 off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder) {
   return forwarder->acquired_msgbuf_ids;
 }
@@ -1182,24 +1408,17 @@ void forwarder_acquired_msgbuf_ids_push(const forwarder_t *forwarder,
 
 // =======================================================
 
-fib_t *forwarder_get_fib(forwarder_t *forwarder) { return forwarder->fib; }
+fib_t *forwarder_get_fib(const forwarder_t *forwarder) {
+  return forwarder->fib;
+}
 
 msgbuf_pool_t *forwarder_get_msgbuf_pool(const forwarder_t *forwarder) {
   return forwarder->msgbuf_pool;
 }
 
-#ifdef WITH_MAPME
-void forwarder_on_connection_event(const forwarder_t *forwarder,
-                                   const connection_t *connection,
-                                   connection_event_t event) {
-  mapme_on_connection_event(forwarder->mapme, connection, event);
-}
-
 mapme_t *forwarder_get_mapme(const forwarder_t *forwarder) {
   return forwarder->mapme;
 }
-
-#endif /* WITH_MAPME */
 
 #ifdef WITH_POLICY_STATS
 const policy_stats_mgr_t *forwarder_get_policy_stats_mgr(
@@ -1207,39 +1426,6 @@ const policy_stats_mgr_t *forwarder_get_policy_stats_mgr(
   return &forwarder->policy_stats_mgr;
 }
 #endif /* WITH_POLICY_STATS */
-
-/**
- * @brief Process a packet by creating the corresponding message buffer and
- * dispatching it to the forwarder for further processing.
- * @param[in] forwarder Forwarder instance.
- *
- */
-// XXX ??? XXX = process for listener as we are resolving connection id
-//
-
-msgbuf_type_t get_type_from_packet(uint8_t *packet) {
-  if (messageHandler_IsTCP(packet)) {
-    if (messageHandler_IsData(packet)) {
-      return MSGBUF_TYPE_DATA;
-    } else if (messageHandler_IsInterest(packet)) {
-      return MSGBUF_TYPE_INTEREST;
-    } else {
-      return MSGBUF_TYPE_UNDEFINED;
-    }
-
-  } else if (messageHandler_IsWldrNotification(packet)) {
-    return MSGBUF_TYPE_WLDR_NOTIFICATION;
-
-  } else if (mapme_match_packet(packet)) {
-    return MSGBUF_TYPE_MAPME;
-
-  } else if (*packet == REQUEST_LIGHT) {
-    return MSGBUF_TYPE_COMMAND;
-
-  } else {
-    return MSGBUF_TYPE_UNDEFINED;
-  }
-}
 
 /**
  * @brief Finalize (i.e. close fd and free internal data structures)
@@ -1268,7 +1454,6 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
   assert(msgbuf);
 
-  uint8_t *packet = msgbuf_get_packet(msgbuf);
   size_t size = msgbuf_get_len(msgbuf);
 
   /* Connection lookup */
@@ -1281,81 +1466,128 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
 
   assert((conn_id != CONNECTION_ID_UNDEFINED) || listener);
 
+#if 0
+  /*
+   * We have a msgbuf with payload and size, we nee to populate other
+   * information, including packet type etc.
+   */
   msgbuf_type_t type = get_type_from_packet(msgbuf_get_packet(msgbuf));
 
   forwarder->stats.countReceived++;
   msgbuf->type = type;
+#endif
+  /* Initialize packet buffer stored in msgbuf through libhicn */
+  msgbuf_initialize_from_packet(msgbuf);
+  hicn_packet_analyze(msgbuf_get_pkbuf(msgbuf));
+
   msgbuf->connection_id = conn_id;
   msgbuf->recv_ts = now;
 
-  switch (type) {
-    case MSGBUF_TYPE_INTEREST:
+  hicn_name_t name;
+
+RETRY:
+
+  switch (msgbuf_get_type(msgbuf)) {
+    case HICN_PACKET_TYPE_INTEREST:
       if (!connection_id_is_valid(msgbuf->connection_id)) {
         char conn_name[SYMBOLIC_NAME_LEN];
         int rc = connection_table_get_random_name(table, conn_name);
-        if (rc < 0) return 0;
+        if (rc < 0) {
+          ERROR("Could not create name for new connection");
+          goto DROP;
+        }
 
         unsigned connection_id =
             listener_create_connection(listener, conn_name, pair);
+        if (connection_id == CONNECTION_ID_UNDEFINED) {
+          ERROR("Could not create new connection");
+          goto DROP;
+        }
         msgbuf->connection_id = connection_id;
         connection = connection_table_get_by_id(table, connection_id);
       }
       msgbuf->path_label = 0;  // not used for interest packets
-      name_create_from_interest(packet, msgbuf_get_name(msgbuf));
+      hicn_interest_get_name(msgbuf_get_pkbuf(msgbuf), &name);
+      msgbuf_set_name(msgbuf, &name);
+#ifdef WITH_WLDR
       forwarder_apply_wldr(forwarder, msgbuf, connection);
+#endif /* WITH_WLDR */
       forwarder_process_interest(forwarder, msgbuf_id);
 
       pkt_cache_log(forwarder->pkt_cache);
-      return size;
+      break;
 
-    case MSGBUF_TYPE_DATA:
-      if (!connection_id_is_valid(msgbuf->connection_id))
-        return forwarder_drop(forwarder, msgbuf_id);
+    case HICN_PACKET_TYPE_DATA:
+      /* This include probes */
+      if (!connection_id_is_valid(msgbuf->connection_id)) {
+        ERROR("Invalid connection for data packet");
+        goto DROP;
+      }
       msgbuf_init_pathlabel(msgbuf);
-      name_create_from_data(packet, msgbuf_get_name(msgbuf));
+      hicn_data_get_name(msgbuf_get_pkbuf(msgbuf), &name);
+      msgbuf_set_name(msgbuf, &name);
+#ifdef WITH_WLDR
       forwarder_apply_wldr(forwarder, msgbuf, connection);
+#endif /* WITH_WLDR */
       forwarder_process_data(forwarder, msgbuf_id);
 
       pkt_cache_log(forwarder->pkt_cache);
-      return size;
+      break;
 
-    case MSGBUF_TYPE_WLDR_NOTIFICATION:
-      if (!connection_id_is_valid(msgbuf->connection_id))
-        return forwarder_drop(forwarder, msgbuf_id);
+    case HICN_PACKET_TYPE_WLDR_NOTIFICATION:
+      if (!connection_id_is_valid(msgbuf->connection_id)) {
+        ERROR("Invalid connection for WLDR packet");
+        goto DROP;
+      }
       connection_wldr_handle_notification(connection, msgbuf);
-      return size;
+      break;
 
-    case MSGBUF_TYPE_MAPME:
+    case HICN_PACKET_TYPE_MAPME:
       // XXX what about acks ?
       if (!connection_id_is_valid(msgbuf->connection_id)) {
         char conn_name[SYMBOLIC_NAME_LEN];
         int rc = connection_table_get_random_name(table, conn_name);
-        if (rc < 0) return 0;
+        if (rc < 0) {
+          ERROR("Could not create name for new connection");
+          goto DROP;
+        }
 
-        msgbuf->connection_id =
+        unsigned connection_id =
             listener_create_connection(listener, conn_name, pair);
+        if (connection_id == CONNECTION_ID_UNDEFINED) {
+          ERROR("Could not create new connection");
+          goto DROP;
+        }
+        msgbuf->connection_id = connection_id;
       }
       mapme_process(forwarder->mapme, msgbuf);
-      return size;
+      break;
 
-    case MSGBUF_TYPE_COMMAND:
+    case HICN_PACKET_TYPE_COMMAND:
       // Create the connection to send the ack back
       if (!connection_id_is_valid(msgbuf->connection_id)) {
         char conn_name[SYMBOLIC_NAME_LEN];
         int rc = connection_table_get_random_name(table, conn_name);
-        if (rc < 0) return 0;
+        if (rc < 0) {
+          ERROR("Could not create name for new connection");
+          goto DROP;
+        }
 
         unsigned connection_id =
             listener_create_connection(listener, conn_name, pair);
+        if (connection_id == CONNECTION_ID_UNDEFINED) {
+          ERROR("Could not create new connection");
+          goto DROP;
+        }
         msgbuf->connection_id = connection_id;
         connection = connection_table_get_by_id(table, connection_id);
       }
 
-      msg_header_t *msg = (msg_header_t *)packet;
+      msg_header_t *msg = (msg_header_t *)msgbuf_get_packet(msgbuf);
       msgbuf->command.type = msg->header.command_id;
       if (!command_type_is_valid(msgbuf->command.type)) {
-        ERROR("Invalid command");
-        return 0;
+        ERROR("Invalid command %d", msgbuf->command.type);
+        goto DROP;
       }
 
       size = command_process_msgbuf(forwarder, msgbuf);
@@ -1364,19 +1596,32 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
       return size;
 
     default:
-      ERROR("Invalid msgbuf type");
-      forwarder_drop(forwarder, msgbuf_id);
-      return 0;
+      /* Commands are not recognized by the packet parser */
+      if (msgbuf_is_command(msgbuf)) {
+        msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
+        goto RETRY;
+      }
+      goto DROP;
   }
+
+  return size;
+
+DROP:
+  forwarder_drop(forwarder, msgbuf_id);
+  return 0;
 }
 
 void forwarder_log(forwarder_t *forwarder) {
   DEBUG(
       "Forwarder: received = %u (interest = %u, data = %u), dropped = %u "
-      "(interest = %u, data = %u, other = %u), forwarded = { interests = %u, "
-      "data = %u }, dropped = { connection_not_found = %u, send_failure = %u, "
+      "(interest = %u, data = %u, other = %u), forwarded = { interests = "
+      "%u, "
+      "data = %u }, dropped = { connection_not_found = %u, send_failure "
+      "= "
+      "%u, "
       "no_route_in_fib = %u }, interest processing = { aggregated = %u, "
-      "retransmitted = %u, satisfied_from_cs = %u, expired_interests = %u, "
+      "retransmitted = %u, satisfied_from_cs = %u, expired_interests = "
+      "%u, "
       "expired_data = %u }, data processing = { "
       "no_reverse_path = %u }\n",
       forwarder->stats.countReceived, forwarder->stats.countInterestsReceived,

@@ -13,10 +13,11 @@
  * limitations under the License.
  */
 
-#include <string.h>
-#include <hicn/protocol/icmp.h>
 #include <hicn/error.h>
-#include <hicn/ops.h>
+#include <string.h>
+
+#include "icmp.h"
+#include "../ops.h"
 
 DECLARE_get_interest_locator (icmp, UNEXPECTED);
 DECLARE_set_interest_locator (icmp, UNEXPECTED);
@@ -24,89 +25,110 @@ DECLARE_get_interest_name (icmp, UNEXPECTED);
 DECLARE_set_interest_name (icmp, UNEXPECTED);
 DECLARE_get_interest_name_suffix (icmp, UNEXPECTED);
 DECLARE_set_interest_name_suffix (icmp, UNEXPECTED);
-DECLARE_is_interest (icmp, UNEXPECTED);
-DECLARE_mark_packet_as_interest (icmp, UNEXPECTED);
-DECLARE_mark_packet_as_data (icmp, UNEXPECTED);
 DECLARE_get_data_locator (icmp, UNEXPECTED);
 DECLARE_set_data_locator (icmp, UNEXPECTED);
 DECLARE_get_data_name (icmp, UNEXPECTED);
 DECLARE_set_data_name (icmp, UNEXPECTED);
 DECLARE_get_data_name_suffix (icmp, UNEXPECTED);
 DECLARE_set_data_name_suffix (icmp, UNEXPECTED);
-DECLARE_get_data_pathlabel (icmp, UNEXPECTED);
-DECLARE_set_data_pathlabel (icmp, UNEXPECTED);
-DECLARE_update_data_pathlabel (icmp, UNEXPECTED);
+DECLARE_get_data_path_label (icmp, UNEXPECTED);
+DECLARE_set_data_path_label (icmp, UNEXPECTED);
+DECLARE_update_data_path_label (icmp, UNEXPECTED);
 DECLARE_get_lifetime (icmp, UNEXPECTED);
 DECLARE_set_lifetime (icmp, UNEXPECTED);
-DECLARE_get_source_port (icmp, UNEXPECTED);
-DECLARE_get_dest_port (icmp, UNEXPECTED);
-DECLARE_set_source_port (icmp, UNEXPECTED);
-DECLARE_set_dest_port (icmp, UNEXPECTED);
-DECLARE_get_length (icmp, UNEXPECTED);
-DECLARE_get_payload_length (icmp, UNEXPECTED);
-DECLARE_set_payload_length (icmp, UNEXPECTED);
+// DECLARE_get_payload_len (icmp, UNEXPECTED);
+DECLARE_set_payload_len (icmp, UNEXPECTED);
 DECLARE_get_payload_type (icmp, UNEXPECTED);
 DECLARE_set_payload_type (icmp, UNEXPECTED);
 DECLARE_get_signature (icmp, UNEXPECTED);
+DECLARE_has_signature (icmp, UNEXPECTED);
 DECLARE_is_last_data (icmp, UNEXPECTED);
 DECLARE_set_last_data (icmp, UNEXPECTED);
+DECLARE_get_ttl (icmp, UNEXPECTED);
+DECLARE_set_ttl (icmp, UNEXPECTED);
+DECLARE_get_src_port (icmp, UNEXPECTED);
+DECLARE_set_src_port (icmp, UNEXPECTED);
+DECLARE_get_dst_port (icmp, UNEXPECTED);
+DECLARE_set_dst_port (icmp, UNEXPECTED);
 
 int
-icmp_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
+icmp_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  h->icmp = (_icmp_header_t){
+  pkbuf->icmp = pkbuf->len;
+  if (ICMP_HDRLEN > pkbuf->buffer_size - pkbuf->len)
+    return -1;
+  pkbuf->len += ICMP_HDRLEN;
+
+  _icmp_header_t *icmp = pkbuf_get_icmp (pkbuf);
+
+  *icmp = (_icmp_header_t){
     .type = 0,
     .code = 0,
     .csum = 0,
   };
 
-  return HICN_LIB_ERROR_NONE; // CHILD_OPS(init_packet_header, type, h->icmp);
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-icmp_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
+icmp_reset_interest_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  h->icmp.csum = 0;
+  _icmp_header_t *icmp = pkbuf_get_icmp (pkbuf);
 
-  return CHILD_OPS (reset_interest_for_hash, type, h);
+  icmp->csum = 0;
+
+  return CALL_CHILD (reset_interest_for_hash, pkbuf, pos);
 }
 
 int
-icmp_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
+icmp_reset_data_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  h->icmp.csum = 0;
+  _icmp_header_t *icmp = pkbuf_get_icmp (pkbuf);
 
-  return CHILD_OPS (reset_data_for_hash, type, h);
+  icmp->csum = 0;
+
+  return CALL_CHILD (reset_data_for_hash, pkbuf, pos);
 }
 
 int
-icmp_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
+icmp_update_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-  //    h->icmp.csum = 0;
-  //    h->icmp.csum = csum(h->bytes, TCP_HDRLEN + payload_length,
+  //    icmp->csum = 0;
+  //    icmp->csum = csum(h->bytes, TCP_HDRLEN + payload_len,
   //    ~partial_csum);
   //
-  //    return CHILD_OPS(update_checksums, type, h->icmp, 0, payload_length);
+  //    return CALL_CHILD(update_checksums, pkbuf, pos->icmp, 0,
+  //    payload_len);
 }
 
 int
-icmp_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
+icmp_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
+				   size_t pos, u16 *old_val, u16 *new_val,
+				   u8 size, bool skip_first)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-  //    if (csum(h->bytes, TCP_HDRLEN + payload_length, ~partial_csum) != 0)
+}
+
+int
+icmp_verify_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
+{
+  return HICN_LIB_ERROR_NOT_IMPLEMENTED;
+  //    if (csum(h->bytes, TCP_HDRLEN + payload_len, ~partial_csum) != 0)
   //        return HICN_LIB_ERROR_CORRUPTED_PACKET;
-  //    return CHILD_OPS(verify_checksums, type, h->icmp, 0, payload_length);
+  //    return CALL_CHILD(verify_checksums, pkbuf, pos->icmp, 0,
+  //    payload_len);
 }
 
 int
-icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip_address_t *addr_new, ip_address_t *addr_old)
+icmp_rewrite_interest (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       const hicn_ip_address_t *addr_new,
+		       hicn_ip_address_t *addr_old)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-  //    u16 *icmp_checksum = &(h->icmp.csum);
+  //    u16 *icmp_checksum = &(icmp->csum);
   //
   //    /*
   //     * Padding fields are set to zero so we can apply checksum on the
@@ -127,12 +149,13 @@ icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-icmp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip_address_t *addr_new, ip_address_t *addr_old,
-		   const hicn_faceid_t face_id, u8 reset_pl)
+icmp_rewrite_data (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		   const hicn_ip_address_t *addr_new,
+		   hicn_ip_address_t *addr_old, const hicn_faceid_t face_id,
+		   u8 reset_pl)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-  //    u16 *icmp_checksum = &(h->icmp.csum);
+  //    u16 *icmp_checksum = &(icmp->csum);
   //
   //    /*
   //     * Padding fields are set to zero so we can apply checksum on the
@@ -147,9 +170,9 @@ icmp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
   //    csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[0]);
   //    csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[1]);
   //
-  //    csum = ip_csum_sub_even (csum, h->icmp.pathlabel);
-  //    icmp_update_data_pathlabel(type, h, face_id);
-  //    csum = ip_csum_add_even (csum, h->icmp.pathlabel);
+  //    csum = ip_csum_sub_even (csum, icmp->path_label);
+  //    icmp_update_data_path_label(pkbuf, pos, face_id);
+  //    csum = ip_csum_add_even (csum, icmp->path_label);
   //
   //    *icmp_checksum = ip_csum_fold (csum);
   //
@@ -157,96 +180,92 @@ icmp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-icmp_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
-				size_t *header_length)
+icmp_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
+	       hicn_packet_type_t *type)
 {
-  *header_length = ICMP_HDRLEN;
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (get_type, pkbuf, pos, type);
 }
 
 int
-icmp_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
-			size_t *header_length)
+icmp_set_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
+	       hicn_packet_type_t type)
 {
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-
-  *header_length = ICMP_HDRLEN + child_header_length;
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (set_type, pkbuf, pos, type);
 }
 
 int
-icmp_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+icmp_get_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t *signature_size)
 {
-  return CHILD_OPS (get_signature_size, type, h, signature_size);
+  return CALL_CHILD (get_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-icmp_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
+icmp_set_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t signature_size)
 {
-  return CHILD_OPS (set_signature_size, type, h, signature_size);
+  return CALL_CHILD (set_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-icmp_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+icmp_set_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t padding)
 {
-  return CHILD_OPS (set_signature_padding, type, h, padding);
+  return CALL_CHILD (set_signature_padding, pkbuf, pos, padding);
 }
 
 int
-icmp_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+icmp_get_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_padding, type, h, padding);
+  return CALL_CHILD (get_signature_padding, pkbuf, pos, padding);
 }
 
 int
-icmp_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
+icmp_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t signature_timestamp)
 {
-  return CHILD_OPS (set_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (set_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-icmp_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+icmp_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t *signature_timestamp)
 {
-  return CHILD_OPS (get_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (get_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-icmp_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
+icmp_set_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t validation_algorithm)
 {
-  return CHILD_OPS (set_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (set_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-icmp_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+icmp_get_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t *validation_algorithm)
 {
-  return CHILD_OPS (get_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (get_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-icmp_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
+icmp_set_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t *key_id, size_t key_len)
 {
-  return CHILD_OPS (set_key_id, type, h, key_id);
+  return CALL_CHILD (set_key_id, pkbuf, pos, key_id, key_len);
 }
 
 int
-icmp_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
-		 uint8_t *key_id_size)
+icmp_get_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t **key_id, uint8_t *key_id_size)
 {
-  return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
+  return CALL_CHILD (get_key_id, pkbuf, pos, key_id, key_id_size);
 }
 
-DECLARE_HICN_OPS (icmp);
+DECLARE_HICN_OPS (icmp, ICMP_HDRLEN);
 
 /*
  * fd.io coding-style-patch-verification: ON

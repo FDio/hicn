@@ -53,6 +53,7 @@ static int strategy_random_remove_nexthop(strategy_entry_t *entry,
 static nexthops_t *strategy_random_lookup_nexthops(strategy_entry_t *entry,
                                                    nexthops_t *nexthops,
                                                    const msgbuf_t *msgbuf) {
+  if (nexthops_get_curlen(nexthops) == 0) return nexthops;
   nexthops_select(nexthops, rand() % nexthops_get_len(nexthops));
   return nexthops;
 }

@@ -17,423 +17,544 @@
 #include <string.h>
 #include <hicn/common.h>
 #include <hicn/error.h>
-#include <hicn/ops.h>
+
+#include "udp.h"
+#include "../ops.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-DECLARE_get_source_port (new, UNEXPECTED);
-DECLARE_get_dest_port (new, UNEXPECTED);
-DECLARE_set_source_port (new, UNEXPECTED);
-DECLARE_set_dest_port (new, UNEXPECTED);
+DECLARE_get_ttl (new, UNEXPECTED);
+DECLARE_set_ttl (new, UNEXPECTED);
+DECLARE_get_src_port (new, UNEXPECTED);
+DECLARE_set_src_port (new, UNEXPECTED);
+DECLARE_get_dst_port (new, UNEXPECTED);
+DECLARE_set_dst_port (new, UNEXPECTED);
 
-static int
-is_interest (u8 flags)
+int
+new_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return flags & HICN_NEW_FLAG_INT;
+  pkbuf->newhdr = pkbuf->len;
+  if (NEW_HDRLEN > pkbuf->buffer_size - pkbuf->len)
+    return -1;
+  pkbuf->len += NEW_HDRLEN;
+
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_format_t format = hicn_packet_get_format (pkbuf);
+
+  memset (new, 0, sizeof (_new_header_t));
+  _set_new_header_version (new);
+  uint8_t ah_flag =
+    format.as_u8[pos + 1] == IPPROTO_AH ? HICN_NEW_FLAG_SIG : 0;
+  new->flags |= ah_flag;
+
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-new_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
+new_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
+	      hicn_packet_type_t *type)
 {
-  memset (&h->newhdr, 0, sizeof (h->newhdr));
-  _set_new_header_version (&h->newhdr);
-  uint8_t ah_flag = type.l2 == IPPROTO_AH ? HICN_NEW_FLAG_SIG : 0;
-  h->newhdr.flags |= ah_flag;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
 
-  return CHILD_OPS (init_packet_header, type, h);
-}
-
-int
-new_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
-{
-  *is_interest = (h->newhdr.flags & HICN_NEW_FLAG_INT) != 0;
+  /* Interest packets have the INT bit set */
+  if (new->flags & HICN_NEW_FLAG_INT)
+    *type = HICN_PACKET_TYPE_INTEREST;
+  else
+    *type = HICN_PACKET_TYPE_DATA;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
+new_set_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
+	      hicn_packet_type_t type)
 {
-  h->newhdr.flags |= HICN_NEW_FLAG_INT;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  switch (type)
+    {
+    case HICN_PACKET_TYPE_INTEREST:
+      new->flags |= HICN_NEW_FLAG_INT;
+      break;
+    case HICN_PACKET_TYPE_DATA:
+      new->flags &= ~HICN_NEW_FLAG_INT;
+      break;
+    default:
+      return -1;
+    }
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_mark_packet_as_data (hicn_type_t type, hicn_protocol_t *h)
+new_get_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  hicn_ip_address_t *ip_address)
 {
-  h->newhdr.flags &= ~HICN_NEW_FLAG_INT;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_interest_locator (hicn_type_t type, const hicn_protocol_t *h,
-			  ip_address_t *ip_address)
+new_set_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  const hicn_ip_address_t *ip_address)
 {
-  assert (is_interest (h->newhdr.flags));
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,
-			  const ip_address_t *ip_address)
-{
-  assert (is_interest (h->newhdr.flags));
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-new_get_interest_name (hicn_type_t type, const hicn_protocol_t *h,
+new_get_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       hicn_name_t *name)
 {
-  assert (is_interest (h->newhdr.flags));
-  name->prefix = h->newhdr.prefix;
-  name->suffix = ntohl (h->newhdr.suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
+  name->prefix = new->prefix;
+  name->suffix = ntohl (new->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_interest_name (hicn_type_t type, hicn_protocol_t *h,
+new_set_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       const hicn_name_t *name)
 {
-  int rc = new_mark_packet_as_interest (type, h);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  int rc = new_set_type (pkbuf, pos, HICN_PACKET_TYPE_INTEREST);
   if (rc)
     return rc;
 
-  assert (is_interest (h->newhdr.flags));
-  h->newhdr.prefix = name->prefix;
-  h->newhdr.suffix = htonl (name->suffix);
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
+  new->prefix = name->prefix;
+  new->suffix = htonl (name->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+new_get_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      hicn_name_suffix_t *suffix)
 {
-  assert (is_interest (h->newhdr.flags));
-  *suffix = ntohl (h->newhdr.suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
+  *suffix = ntohl (new->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+new_set_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      const hicn_name_suffix_t *suffix)
 {
-  assert (is_interest (h->newhdr.flags));
-  h->newhdr.suffix = htonl (*suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
+  new->suffix = htonl (*suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
+new_reset_interest_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  assert (is_interest (h->newhdr.flags));
-  return CHILD_OPS (init_packet_header, type, h);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-new_get_data_locator (hicn_type_t type, const hicn_protocol_t *h,
-		      ip_address_t *ip_address)
+new_get_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      hicn_ip_address_t *ip_address)
 {
-  assert (!is_interest (h->newhdr.flags));
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_data_locator (hicn_type_t type, hicn_protocol_t *h,
-		      const ip_address_t *ip_address)
+new_set_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      const hicn_ip_address_t *ip_address)
 {
-  assert (!is_interest (h->newhdr.flags));
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_data_name (hicn_type_t type, const hicn_protocol_t *h,
+new_get_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   hicn_name_t *name)
 {
-  assert (!is_interest (h->newhdr.flags));
-  name->prefix = h->newhdr.prefix;
-  name->suffix = ntohl (h->newhdr.suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  name->prefix = new->prefix;
+  name->suffix = ntohl (new->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_data_name (hicn_type_t type, hicn_protocol_t *h,
+new_set_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   const hicn_name_t *name)
 {
-  new_mark_packet_as_data (type, h);
-  assert (!is_interest (h->newhdr.flags));
-  h->newhdr.prefix = name->prefix;
-  h->newhdr.suffix = htonl (name->suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  int rc = new_set_type (pkbuf, pos, HICN_PACKET_TYPE_DATA);
+  if (rc)
+    return rc;
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  new->prefix = name->prefix;
+  new->suffix = htonl (name->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_data_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+new_get_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			  hicn_name_suffix_t *suffix)
 {
-  assert (!is_interest (h->newhdr.flags));
-  *suffix = ntohl (h->newhdr.suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  *suffix = ntohl (new->suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_data_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+new_set_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			  const hicn_name_suffix_t *suffix)
 {
-  assert (!is_interest (h->newhdr.flags));
-  h->newhdr.suffix = htonl (*suffix);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  new->suffix = htonl (*suffix);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_data_pathlabel (hicn_type_t type, const hicn_protocol_t *h,
-			u32 *pathlabel)
+new_get_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			 hicn_path_label_t *path_label)
 {
-  assert (!is_interest (h->newhdr.flags));
-  *pathlabel = h->newhdr.path_label;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  *path_label = ntohl (new->path_label);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			const u32 pathlabel)
+new_set_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			 hicn_path_label_t path_label)
 {
-  assert (!is_interest (h->newhdr.flags));
-  h->newhdr.path_label = pathlabel;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  new->path_label = htonl (path_label);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_update_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			   const hicn_faceid_t face_id)
+new_update_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			    const hicn_faceid_t face_id)
 {
-  hicn_pathlabel_t new_pl;
-  update_pathlabel (h->newhdr.path_label, face_id, &new_pl);
-  h->newhdr.path_label = new_pl;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_path_label_t new_pl;
+  update_path_label (new->path_label, face_id, &new_pl);
+  new->path_label = new_pl;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
+new_reset_data_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (reset_data_for_hash, type, h);
+  return CALL_CHILD (reset_data_for_hash, pkbuf, pos);
 }
 
 int
-new_get_lifetime (hicn_type_t type, const hicn_protocol_t *h,
+new_get_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		  hicn_lifetime_t *lifetime)
 {
-  *lifetime = ntohl (h->newhdr.lifetime);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  *lifetime = ntohl (new->lifetime);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
+new_set_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		  const hicn_lifetime_t lifetime)
 {
-  h->newhdr.lifetime = htonl (lifetime);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  new->lifetime = htonl (lifetime);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		      size_t payload_length)
+new_update_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      u16 partial_csum, size_t payload_len)
 {
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		      size_t payload_length)
+new_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
+				  size_t pos, u16 *old_val, u16 *new_val,
+				  u8 size, bool skip_first)
 {
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		      const ip_address_t *addr_new, ip_address_t *addr_old)
+new_verify_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      u16 partial_csum, size_t payload_len)
 {
-  assert (is_interest (h->newhdr.flags));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		  const ip_address_t *addr_new, ip_address_t *addr_old,
-		  const hicn_faceid_t face_id, u8 reset_pl)
+new_rewrite_interest (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      const hicn_ip_address_t *addr_new,
+		      hicn_ip_address_t *addr_old)
 {
-  assert (!is_interest (h->newhdr.flags));
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_INTEREST);
+
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_length (hicn_type_t type, const hicn_protocol_t *h,
-		size_t *header_length)
+new_rewrite_data (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		  const hicn_ip_address_t *addr_new,
+		  hicn_ip_address_t *addr_old, const hicn_faceid_t face_id,
+		  u8 reset_pl)
 {
-  *header_length = NEW_HDRLEN + ntohs (h->newhdr.payload_length);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+  _unused (new);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
-			       size_t *header_length)
+new_set_payload_len (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		     size_t payload_len)
 {
-  *header_length = NEW_HDRLEN;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  /*
+   * The value we have to store in the header is the sum of headers following
+   * the current header + the new payload size
+   */
+
+  size_t child_header_len =
+    (pkbuf->payload - pkbuf->newhdr) - sizeof (_new_header_t);
+  new->payload_len = htons ((u16) child_header_len + payload_len);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
-		       size_t *header_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *header_length = NEW_HDRLEN + child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-new_get_payload_length (hicn_type_t type, const hicn_protocol_t *h,
-			size_t *payload_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *payload_length = ntohs (h->newhdr.payload_length) - child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-new_set_payload_length (hicn_type_t type, hicn_protocol_t *h,
-			size_t payload_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  h->newhdr.payload_length =
-    htons ((u_short) (payload_length + child_header_length));
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-new_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+new_get_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			size_t *signature_size)
 {
-  return CHILD_OPS (get_signature_size, type, h, signature_size);
+  return CALL_CHILD (get_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-new_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
+new_set_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			size_t signature_size)
 {
-  return CHILD_OPS (set_signature_size, type, h, signature_size);
+  return CALL_CHILD (set_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-new_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+new_set_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   size_t padding)
 {
-  return CHILD_OPS (set_signature_padding, type, h, padding);
+  return CALL_CHILD (set_signature_padding, pkbuf, pos, padding);
 }
 
 int
-new_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+new_get_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   size_t *padding)
 {
-  return CHILD_OPS (get_signature_padding, type, h, padding);
+  return CALL_CHILD (get_signature_padding, pkbuf, pos, padding);
 }
 
 int
-new_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
+new_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			     uint64_t signature_timestamp)
 {
-  return CHILD_OPS (set_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (set_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-new_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+new_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			     uint64_t *signature_timestamp)
 {
-  return CHILD_OPS (get_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (get_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-new_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
+new_set_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint8_t validation_algorithm)
 {
-  return CHILD_OPS (set_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (set_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-new_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+new_get_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint8_t *validation_algorithm)
 {
-  return CHILD_OPS (get_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (get_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-new_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
+new_set_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos, uint8_t *key_id,
+		size_t key_len)
 {
-  return CHILD_OPS (set_key_id, type, h, key_id);
+  return CALL_CHILD (set_key_id, pkbuf, pos, key_id, key_len);
 }
 
 int
-new_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
-		uint8_t *key_id_size)
+new_get_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		uint8_t **key_id, uint8_t *key_id_size)
 {
-  return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
+  return CALL_CHILD (get_key_id, pkbuf, pos, key_id, key_id_size);
 }
 
 int
-new_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
+new_get_signature (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		   uint8_t **signature)
 {
-  return CHILD_OPS (get_signature, type, h, signature);
+  return CALL_CHILD (get_signature, pkbuf, pos, signature);
 }
 
 int
-new_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+new_has_signature (const hicn_packet_buffer_t *pkbuf, size_t pos, bool *flag)
+{
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  return new->flags &HICN_NEW_FLAG_SIG;
+}
+
+int
+new_get_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		      hicn_payload_type_t *payload_type)
 {
-  *payload_type = ((h->newhdr.flags & HICN_NEW_FLAG_MAN) == HICN_NEW_FLAG_MAN);
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  *payload_type = ((new->flags &HICN_NEW_FLAG_MAN) == HICN_NEW_FLAG_MAN);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+new_set_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		      hicn_payload_type_t payload_type)
 {
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
   if (payload_type != HPT_DATA && payload_type != HPT_MANIFEST)
     return HICN_LIB_ERROR_INVALID_PARAMETER;
 
   if (payload_type)
-    h->newhdr.flags |= HICN_NEW_FLAG_MAN;
+    new->flags |= HICN_NEW_FLAG_MAN;
   else
-    h->newhdr.flags &= ~HICN_NEW_FLAG_MAN;
+    new->flags &= ~HICN_NEW_FLAG_MAN;
 
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+new_is_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos, int *is_last)
 {
-  assert (!is_interest (h->newhdr.flags));
-  *is_last = h->newhdr.flags & HICN_NEW_FLAG_LST;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  *is_last = new->flags &HICN_NEW_FLAG_LST;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-new_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+new_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  assert (!is_interest (h->newhdr.flags));
-  h->newhdr.flags |= HICN_NEW_FLAG_LST;
+  _new_header_t *new = pkbuf_get_new (pkbuf);
+
+  hicn_packet_type_t type;
+  _ASSERT (new_get_type (pkbuf, pos, &type) == 0);
+  _ASSERT (type == HICN_PACKET_TYPE_DATA);
+
+  new->flags |= HICN_NEW_FLAG_LST;
   return HICN_LIB_ERROR_NONE;
 }
 
-DECLARE_HICN_OPS (new);
+DECLARE_HICN_OPS (new, NEW_HDRLEN);
 
 #pragma GCC diagnostic pop
 

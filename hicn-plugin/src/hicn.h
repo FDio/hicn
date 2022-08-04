@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,20 +16,7 @@
 #ifndef __HICN_H__
 #define __HICN_H__
 
-#define ip_address_t   hicn_ip_address_t
-#define ip_address_cmp hicn_ip_address_cmp
-#define ip_prefix_t    hicn_ip_prefix_t
-#define ip_prefix_cmp  hicn_ip_prefix_cmp
-#undef ip_prefix_len
-#define ip_prefix_len hicn_ip_prefix_len
 #include <hicn/hicn.h>
-#undef ip_address_t
-#undef ip_address_cmp
-#undef ip_prefix_t
-#undef ip_prefix_cmp
-#undef ip_prefix_len
-#define ip_prefix_len(_a) (_a)->len
-
 #include "faces/face.h"
 
 #include <netinet/in.h>
@@ -61,6 +48,11 @@ typedef u8 weight_t;
 typedef struct
 {
   /**
+   * Cached packet info
+   */
+  hicn_packet_buffer_t pkbuf;
+
+  /**
    * IDs to prefetch a PIT/CS entry (4)
    */
   u32 pcs_entry_id;
@@ -85,15 +77,23 @@ typedef struct
    */
   hicn_face_id_t face_id;
 
-  /**
-   * Cached packet info
-   */
-  hicn_type_t type;
+  /*
+  hicn_packet_type_t type;
+  hicn_packet_format_t format;
   hicn_name_t name;
+  */
   u16 port;
   hicn_lifetime_t lifetime;
 } hicn_buffer_t;
 
+STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_id) == 28, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 32, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 36, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 40, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, face_id) == 44, "");
+// STATIC_ASSERT (offsetof (hicn_buffer_t, name) == 48, "");
+// + name = 16+4 = 20
+// opaque : u32[14] = 56
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
 		 STRUCT_SIZE_OF (vlib_buffer_t, opaque2),
 	       "hICN buffer opaque2 meta-data too large for vlib_buffer");
@@ -104,6 +104,7 @@ hicn_get_buffer (vlib_buffer_t *b0)
   return (hicn_buffer_t *) &(b0->opaque2[0]);
 }
 
+#if 0
 always_inline u8
 hicn_is_v6 (hicn_header_t *pkt_hdr)
 {
@@ -113,13 +114,16 @@ hicn_is_v6 (hicn_header_t *pkt_hdr)
 always_inline hicn_name_t *
 hicn_buffer_get_name (vlib_buffer_t *b)
 {
-  return &hicn_get_buffer (b)->name;
+  return hicn_packet_get_name(&hicn_get_buffer (b)->pkbuf);
 }
+#endif
 
 always_inline u8
 hicn_buffer_is_v6 (vlib_buffer_t *b0)
 {
-  return hicn_get_buffer (b0)->type.l1 == IPPROTO_IPV6;
+  hicn_packet_format_t format =
+    hicn_packet_get_format (&hicn_get_buffer (b0)->pkbuf);
+  return format.l1 == IPPROTO_IPV6;
 }
 
 always_inline void

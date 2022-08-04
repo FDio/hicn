@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,7 +36,9 @@ class ManifestTest : public ::testing::Test {
   using ContentObjectManifest = Manifest<Fixed>;
 
   ManifestTest()
-      : format_(HF_INET6_TCP_AH), name_("b001::123|321"), signature_size_(0) {
+      : format_(HICN_PACKET_FORMAT_IPV6_TCP_AH),
+        name_("b001::123|321"),
+        signature_size_(0) {
     manifest_ = ContentObjectManifest::createContentManifest(format_, name_,
                                                              signature_size_);
   }

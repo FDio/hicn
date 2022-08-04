@@ -23,7 +23,7 @@
 #include <iostream>
 
 #ifdef ANDROID
-#include <io_modules/hicn-light-ng/hicn_forwarder_module.h>
+#include <io_modules/hicn-light/hicn_forwarder_module.h>
 #elif _WIN32
 #include <hicn/util/windows/windows_utils.h>
 #endif
@@ -49,7 +49,7 @@ IoModule *IoModule::load(const char *module_name) {
   creator = (IoModule * (*)(void)) dlsym(handle, "create_module");
   if (!creator) {
     if ((error = dlerror()) != nullptr) {
-      LOG(ERROR) << error;
+      LOG(ERROR) << error << ": " << module_name;
     }
 
     return nullptr;

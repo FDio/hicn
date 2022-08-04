@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -58,32 +58,24 @@ protected:
 
     // The hash should be equal, with and without considering the suffix
     uint32_t hash_a, hash_b;
-    rc = hicn_name_hash (&name_a, &hash_a, 1);
-    EXPECT_EQ (rc, 0);
-    rc = hicn_name_hash (&name_b, &hash_b, 1);
-    EXPECT_EQ (rc, 0);
+    hash_a = hicn_name_get_hash (&name_a);
+    hash_b = hicn_name_get_hash (&name_b);
     EXPECT_EQ (hash_a, hash_b);
 
-    rc = hicn_name_hash (&name_a, &hash_a, 0);
-    EXPECT_EQ (rc, 0);
-    rc = hicn_name_hash (&name_b, &hash_b, 0);
-    EXPECT_EQ (rc, 0);
+    hash_a = hicn_name_get_prefix_hash (&name_a);
+    hash_b = hicn_name_get_prefix_hash (&name_b);
     EXPECT_EQ (hash_a, hash_b);
 
     // Now let's change the suffix
-    rc = hicn_name_set_seq_number (&name_a, 97531);
+    rc = hicn_name_set_suffix (&name_a, 97531);
     // They should result equal if we do not consider the suffix
-    rc = hicn_name_hash (&name_a, &hash_a, 0);
-    EXPECT_EQ (rc, 0);
-    rc = hicn_name_hash (&name_b, &hash_b, 0);
-    EXPECT_EQ (rc, 0);
+    hash_a = hicn_name_get_prefix_hash (&name_a);
+    hash_b = hicn_name_get_prefix_hash (&name_b);
     EXPECT_EQ (hash_a, hash_b);
 
     // And different if we consider it
-    rc = hicn_name_hash (&name_a, &hash_a, 1);
-    EXPECT_EQ (rc, 0);
-    rc = hicn_name_hash (&name_b, &hash_b, 1);
-    EXPECT_EQ (rc, 0);
+    hash_a = hicn_name_get_hash (&name_a);
+    hash_b = hicn_name_get_hash (&name_b);
     EXPECT_NE (hash_a, hash_b);
   }
 
@@ -120,7 +112,7 @@ protected:
     EXPECT_EQ (rc, 0);
 
     // Now let's change the suffix
-    rc = hicn_name_set_seq_number (&name_a, 97531);
+    rc = hicn_name_set_suffix (&name_a, 97531);
     // They should result equal if we do not consider the suffix
     rc = hicn_name_compare (&name_a, &name_b, 0);
     EXPECT_EQ (rc, 0);
@@ -130,13 +122,13 @@ protected:
   }
 
   void
-  nameFromIpPrefixTest (const ip_prefix_t &ip_prefix)
+  nameFromIpPrefixTest (const hicn_ip_prefix_t &hicn_ip_prefix)
   {
     uint32_t suffix = 54321;
     hicn_name_t name;
-    int rc = hicn_name_create_from_ip_prefix (&ip_prefix, suffix, &name);
+    int rc = hicn_name_create_from_ip_prefix (&hicn_ip_prefix, suffix, &name);
     EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
-    rc = memcmp (ip_prefix.address.v6.as_u8, name.prefix.v6.as_u8,
+    rc = memcmp (hicn_ip_prefix.address.v6.as_u8, name.prefix.v6.as_u8,
 		 sizeof (name.prefix.v6));
     EXPECT_EQ (rc, 0);
     EXPECT_EQ (suffix, name.suffix);
@@ -154,16 +146,16 @@ protected:
     int family;
     rc = hicn_name_get_family (&name, &family);
 
-    ip_prefix_t ip_prefix;
-    rc = hicn_name_to_ip_prefix (&name, &ip_prefix);
+    hicn_ip_prefix_t hicn_ip_prefix;
+    rc = hicn_name_to_hicn_ip_prefix (&name, &hicn_ip_prefix);
     EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
-    EXPECT_EQ (ip_prefix.family, family);
-    rc = ip_address_cmp (&ip_prefix.address, &name.prefix, AF_INET6);
+    EXPECT_EQ (hicn_ip_prefix.family, family);
+    rc = hicn_ip_address_cmp (&hicn_ip_prefix.address, &name.prefix);
     EXPECT_EQ (rc, 0);
   }
 
   hicn_name_t name_, name4_, name6_;
-  ip_address_t ipv6_prefix_bytes, ipv4_prefix_bytes;
+  hicn_ip_address_t ipv6_prefix_bytes, ipv4_prefix_bytes;
 };
 
 /**
@@ -180,7 +172,7 @@ TEST_F (NameTest, NameInitialization)
   EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
 
   // Check name is correctly created
-  rc = ip_address_cmp (&name6.prefix, &ipv6_prefix_bytes, AF_INET6);
+  rc = hicn_ip_address_cmp (&name6.prefix, &ipv6_prefix_bytes);
   EXPECT_EQ (rc, 0);
   EXPECT_EQ (name6.suffix, suffix);
 
@@ -190,7 +182,7 @@ TEST_F (NameTest, NameInitialization)
   EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
 
   // Check name is correctly created
-  rc = ip_address_cmp (&name4.prefix, &ipv4_prefix_bytes, AF_INET);
+  rc = hicn_ip_address_cmp (&name4.prefix, &ipv4_prefix_bytes);
   EXPECT_EQ (name4.prefix.pad[0], 0UL);
   EXPECT_EQ (name4.prefix.pad[1], 0UL);
   EXPECT_EQ (name4.prefix.pad[2], 0UL);
@@ -202,7 +194,7 @@ TEST_F (NameTest, NameInitialization)
   EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
 
   // Check name is correctly created
-  rc = ip_address_cmp (&name6.prefix, &ipv4_prefix_bytes, AF_INET);
+  rc = hicn_ip_address_cmp (&name6.prefix, &ipv4_prefix_bytes);
   EXPECT_EQ (name6.prefix.pad[0], 0UL);
   EXPECT_EQ (name6.prefix.pad[1], 0UL);
   EXPECT_EQ (name6.prefix.pad[2], 0UL);
@@ -215,22 +207,26 @@ TEST_F (NameTest, NameInitialization)
  */
 TEST_F (NameTest, NameFromIpPrefix6)
 {
-  ip_prefix_t ip_prefix = { .family = AF_INET6, .address = {}, .len = 64 };
+  hicn_ip_prefix_t hicn_ip_prefix = { .family = AF_INET6,
+				      .address = {},
+				      .len = 64 };
 
-  ip_prefix.address.v6.as_u64[0] = ipv6_prefix_bytes.v6.as_u64[0];
-  ip_prefix.address.v6.as_u64[1] = ipv6_prefix_bytes.v6.as_u64[1];
+  hicn_ip_prefix.address.v6.as_u64[0] = ipv6_prefix_bytes.v6.as_u64[0];
+  hicn_ip_prefix.address.v6.as_u64[1] = ipv6_prefix_bytes.v6.as_u64[1];
 
-  nameFromIpPrefixTest (ip_prefix);
+  nameFromIpPrefixTest (hicn_ip_prefix);
 }
 
 TEST_F (NameTest, NameFromIpPrefix4)
 {
-  ip_prefix_t ip_prefix = { .family = AF_INET, .address = {}, .len = 64 };
-  ip_prefix.address.v4.as_u32 = ipv4_prefix_bytes.v4.as_u32;
-  ip_prefix.address.pad[0] = 0;
-  ip_prefix.address.pad[1] = 0;
-  ip_prefix.address.pad[2] = 0;
-  nameFromIpPrefixTest (ip_prefix);
+  hicn_ip_prefix_t hicn_ip_prefix = { .family = AF_INET,
+				      .address = {},
+				      .len = 64 };
+  hicn_ip_prefix.address.v4.as_u32 = ipv4_prefix_bytes.v4.as_u32;
+  hicn_ip_prefix.address.pad[0] = 0;
+  hicn_ip_prefix.address.pad[1] = 0;
+  hicn_ip_prefix.address.pad[2] = 0;
+  nameFromIpPrefixTest (hicn_ip_prefix);
 }
 
 TEST_F (NameTest, NameCompare6) { nameCompareTest (ipv6_prefix); }
@@ -257,8 +253,8 @@ TEST_F (NameTest, NameCopy4) { nameCopyTest (ipv4_prefix); }
 
 TEST_F (NameTest, NameCopyToDestination)
 {
-  ip4_address_t dst4;
-  ip6_address_t dst6;
+  ipv4_address_t dst4;
+  ipv6_address_t dst6;
 
   // Copy names to destination
   int rc = hicn_name_copy_prefix_to_destination (dst4.as_u8, &name4_);
@@ -282,7 +278,7 @@ TEST_F (NameTest, SetGetSuffix)
   EXPECT_EQ (suffix, suffix_ret);
 
   // Set new suffix
-  rc = hicn_name_set_seq_number (&name6_, suffix2);
+  rc = hicn_name_set_suffix (&name6_, suffix2);
   EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
 
   // Check suffix was set

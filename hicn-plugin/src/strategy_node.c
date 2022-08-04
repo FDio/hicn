@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -160,7 +160,10 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 					      hicn_buffer_get_lifetime (b0));
 
 	  // Add entry to PIT table
-	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &hicnb0->name);
+	  hicn_name_t name;
+	  hicn_packet_get_name (&hicnb0->pkbuf, &name);
+	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
+	  //&hicnb0->name);
 
 	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
 	    {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -100,7 +100,7 @@ TEST_F(MsgbufPoolTest, AcquireMsgbuf) {
 
   // Get msgbuf from msgbuf_pool
   off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
-  msgbuf->type = MSGBUF_TYPE_COMMAND;
+  msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
   EXPECT_NE(msgbuf, nullptr);
   EXPECT_NE(msgbuf_id_is_valid((unsigned long)msgbuf_id), 0);
 
@@ -119,7 +119,7 @@ TEST_F(MsgbufPoolTest, ReleaseMsgbuf) {
 
   // Get msgbuf from msgbuf_pool
   off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
-  msgbuf->type = MSGBUF_TYPE_COMMAND;
+  msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
   EXPECT_NE(msgbuf, nullptr);
   EXPECT_NE(msgbuf_id_is_valid((unsigned long)msgbuf_id), 0);
 
@@ -137,7 +137,7 @@ TEST_F(MsgbufPoolTest, ReleaseNotAcquiredMsgbuf) {
 
   // Get valid msgbuf from msgbuf_pool
   off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
-  msgbuf->type = MSGBUF_TYPE_COMMAND;
+  msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
   EXPECT_NE(msgbuf, nullptr);
   EXPECT_NE(msgbuf_id_is_valid((unsigned long)msgbuf_id), 0);
 
@@ -157,7 +157,7 @@ TEST_F(MsgbufPoolTest, MultipleAcquireAndReleaseMsgbuf) {
 
   // Get msgbuf from msgbuf_pool
   off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
-  msgbuf->type = MSGBUF_TYPE_COMMAND;
+  msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
   EXPECT_NE(msgbuf, nullptr);
   EXPECT_NE(msgbuf_id_is_valid((unsigned long)msgbuf_id), 0);
 
@@ -177,7 +177,7 @@ TEST_F(MsgbufPoolTest, MultipleAcquireAndReleaseMsgbuf) {
 TEST_F(MsgbufPoolTest, CloneMsgbuf) {
   msgbuf_t *msgbuf = NULL;
   off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
-  msgbuf->type = MSGBUF_TYPE_COMMAND;
+  msgbuf_set_type(msgbuf, HICN_PACKET_TYPE_COMMAND);
   EXPECT_NE(msgbuf, nullptr);
   EXPECT_NE(msgbuf_id_is_valid((unsigned long)msgbuf_id), 0);
 

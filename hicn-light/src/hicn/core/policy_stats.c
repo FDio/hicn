@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2022 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifdef WITH_POLICY_STATS
 
 // This has to be included first because of _GNU_SOURCE
@@ -24,7 +39,6 @@ static int policy_stats_mgr_tick(void* mgr_arg, int fd, void* data) {
 
   /* Loop over FIB entries to compute statistics from counters */
   const fib_t* fib = forwarder_get_fib(mgr->forwarder);
-  fib_entry_t* entry;
 
   fib_foreach_entry(fib, entry, {
     policy_stats_update(&entry->policy_stats, &entry->policy_counters, now);
@@ -59,7 +73,6 @@ void policy_stats_on_retransmission(const policy_stats_mgr_t* mgr,
                                     policy_counters_t* counters,
                                     const nexthops_t* nexthops) {
   connection_table_t* table = forwarder_get_connection_table(mgr->forwarder);
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
 #ifdef WITH_POLICY
     const connection_t* conn = connection_table_at(table, nexthop);
@@ -97,7 +110,6 @@ void policy_stats_on_data(const policy_stats_mgr_t* mgr, policy_stats_t* stats,
 
   size_t msg_size = msgbuf_get_len(msgbuf);
 
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
 #ifdef WITH_POLICY
     const connection_t* conn = connection_table_at(table, nexthop);
@@ -121,7 +133,6 @@ void policy_stats_on_timeout(const policy_stats_mgr_t* mgr,
 #ifdef WITH_POLICY
   connection_table_t* table = forwarder_get_connection_table(mgr->forwarder);
 
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
     const connection_t* conn = connection_table_at(table, nexthop);
     if (!conn) continue;

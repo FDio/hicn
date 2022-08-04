@@ -42,8 +42,8 @@ typedef struct
     u8 vfc;			/* 4 bits version, top 4 bits class */
   };
 #endif
-  ip6_address_t saddr; /* source address */
-  ip6_address_t daddr; /* destination address */
+  ipv6_address_t saddr; /* source address */
+  ipv6_address_t daddr; /* destination address */
 } _ipv6_header_t;
 
 #define IPV6_HDRLEN sizeof (_ipv6_header_t)
@@ -57,8 +57,8 @@ static_assert (EXPECTED_IPV6_HDRLEN == IPV6_HDRLEN,
 
 typedef struct
 {
-  ip6_address_t ip_src;
-  ip6_address_t ip_dst;
+  ipv6_address_t ip_src;
+  ipv6_address_t ip_dst;
   u32 size;
   u16 zeros;
   u8 zero;

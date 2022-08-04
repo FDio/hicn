@@ -22,12 +22,22 @@
 #endif
 
 #include "color.h"
-#include "../config/parse.h"
+#include <hicn/ctrl/parse.h>
+#include <hicn/ctrl/hicn-light.h>
 #include <hicn/util/log.h>
 #include <hicn/util/sstrncpy.h>
-#include <hicn/ctrl/hicn-light-ng.h>
 
 #define PORT 9695
+
+/*
+ * Duplicated from hicn_light_ng_api.c while is only available as a module in
+ * libhicnctrl
+ */
+const char *command_type_str[] = {
+#define _(l, u) [COMMAND_TYPE_##u] = STRINGIZE(u),
+    foreach_command_type
+#undef _
+};
 
 static struct option longFormOptions[] = {{"help", no_argument, 0, 'h'},
                                           {"server", required_argument, 0, 'S'},
@@ -49,6 +59,55 @@ void signal_handler(int sig) {
   fprintf(stderr, "Received ^C... quitting !\n");
   stop = true;
 }
+
+#if 0
+int hc_active_interface_snprintf(char *buf, size_t size,
+                                 hc_event_active_interface_update_t *event) {
+  int rc;
+  char *pos = buf;
+
+  rc = ip_prefix_snprintf(pos, size, &event->prefix);
+  if ((rc < 0) || (rc >= size)) return rc;
+  pos += rc;
+  size -= rc;
+
+  for (netdevice_type_t type = NETDEVICE_TYPE_UNDEFINED + 1;
+       type < NETDEVICE_TYPE_N; type++) {
+    if (!netdevice_flags_has(event->interface_type, type)) continue;
+    rc = snprintf(pos, size, " %s", netdevice_type_str(type));
+    if ((rc < 0) || (rc >= size)) return pos - buf + rc;
+
+    pos += rc;
+    size -= rc;
+  }
+  return pos - buf;
+}
+
+// XXX hc_object_snprintf
+void hc_subscription_display(command_type_t command_type,
+                             const uint8_t *buffer) {
+  char buf[65535];
+
+  switch (command_type) {
+    case COMMAND_TYPE_CONNECTION_ADD:
+    case COMMAND_TYPE_CONNECTION_REMOVE:
+    case COMMAND_TYPE_CONNECTION_UPDATE:
+      hc_connection_snprintf(buf, sizeof(buf), (hc_connection_t *)buffer);
+      break;
+    case COMMAND_TYPE_ACTIVE_INTERFACE_UPDATE:
+      hc_active_interface_snprintf(
+          buf, sizeof(buf), (hc_event_active_interface_update_t *)buffer);
+      break;
+    case COMMAND_TYPE_ROUTE_LIST:
+      hc_route_snprintf(buf, sizeof(buf), (hc_route_t *)buffer);
+      break;
+    default:
+      INFO("Unknown event received");
+      return;
+  }
+  INFO("%s %s", command_type_str(command_type), buf);
+}
+#endif
 
 int main(int argc, char *const *argv) {
   log_conf.log_level = LOG_INFO;
@@ -149,13 +208,13 @@ int main(int argc, char *const *argv) {
 #define BUFSIZE 255
     char url[BUFSIZE];
     snprintf(url, BUFSIZE, "tcp://%s:%d/", server_ip, server_port);
-    s = hc_sock_create_forwarder_url(HICNLIGHT_NG, url);
+    s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, url);
   } else {
-    s = hc_sock_create_forwarder(HICNLIGHT_NG);
+    s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   }
   if (!s) {
     fprintf(stderr, "Could not create socket.\n");
-    goto ERR_SOCK;
+    goto ERR_SOCKET;
   }
 
   if (hc_sock_connect(s) < 0) {
@@ -163,7 +222,7 @@ int main(int argc, char *const *argv) {
     goto ERR_CONNECT;
   }
 
-  if (!IS_VALID_OBJECT_TYPE(command.object.type) ||
+  if (!IS_VALID_OBJECT_TYPE(command.object_type) ||
       !IS_VALID_ACTION(command.action)) {
     fprintf(stderr, "Unsupported command");
     goto ERR_PARAM;
@@ -171,285 +230,54 @@ int main(int argc, char *const *argv) {
 
   int rc = UNSUPPORTED_CMD_ERROR;
   hc_data_t *data = NULL;
-  char buf_listener[MAXSZ_HC_LISTENER];
-  char buf_connection[MAXSZ_HC_CONNECTION];
-  char buf_route[MAXSZ_HC_ROUTE];
-  char buf[MAX_LEN];
-  switch (command.object.type) {
-    case OBJECT_ROUTE:
-      switch (command.action) {
-        case ACTION_CREATE:
-          rc = hc_route_create(s, &command.object.route);
-          break;
 
-        case ACTION_DELETE:
-          rc = hc_route_delete(s, &command.object.route);
-          break;
+  rc = hc_execute(s, command.action, command.object_type, &command.object,
+                  &data);
 
-        case ACTION_LIST:
-          rc = hc_route_list(s, &data);
-          if (rc < 0) break;
-
-          INFO("Routes:");
-          foreach_route(r, data) {
-            if (hc_route_snprintf(buf_route, MAXSZ_HC_ROUTE, r) >=
-                MAXSZ_HC_ROUTE)
-              ERROR("Display error");
-            INFO("%s", buf_route);
-          }
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_LISTENER:
-      switch (command.action) {
-        case ACTION_CREATE:
-          rc = hc_listener_create(s, &command.object.listener);
-          break;
-
-        case ACTION_DELETE:
-          rc = hc_listener_delete(s, &command.object.listener);
-          break;
-
-        case ACTION_LIST:
-          rc = hc_listener_list(s, &data);
-          if (rc < 0) break;
-
-          INFO("Listeners:");
-          foreach_listener(l, data) {
-            if (hc_listener_snprintf(buf_listener, MAXSZ_HC_LISTENER + 17, l) >=
-                MAXSZ_HC_LISTENER)
-              ERROR("Display error");
-            INFO("[%d] %s", l->id, buf_listener);
-          }
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_CONNECTION:
-      switch (command.action) {
-        case ACTION_CREATE:
-          rc = hc_connection_create(s, &command.object.connection);
-          break;
-
-        case ACTION_DELETE:
-          rc = hc_connection_delete(s, &command.object.connection);
-          break;
-
-        case ACTION_LIST:
-          rc = hc_connection_list(s, &data);
-          if (rc < 0) break;
-
-          INFO("Connections:");
-          foreach_connection(c, data) {
-            if (hc_connection_snprintf(buf_connection, MAXSZ_HC_CONNECTION,
-                                       c) >= MAXSZ_HC_CONNECTION)
-              ERROR("Display error");
-            INFO("[%d] %s", c->id, buf_connection);
-          }
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_CACHE:
-      switch (command.action) {
-        case ACTION_SERVE:
-          rc = hc_cache_set_serve(s, &command.object.cache);
-          break;
-
-        case ACTION_STORE:
-          rc = hc_cache_set_store(s, &command.object.cache);
-          break;
-
-        case ACTION_CLEAR:
-          rc = hc_cache_clear(s, &command.object.cache);
-          break;
-
-        case ACTION_LIST:
-          rc = hc_cache_list(s, &data);
-          if (rc < 0) break;
-
-          hc_cache_snprintf(buf, MAX_LEN, (hc_cache_info_t *)data->buffer);
-          printf("%s\n", buf);
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_STRATEGY:
-      switch (command.action) {
-        case ACTION_SET:
-          rc = hc_strategy_set(s, &command.object.strategy);
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_MAPME:
-      switch (command.action) {
-        case ACTION_UPDATE:
-          rc = hc_mapme_send_update(s, &command.object.mapme);
-          break;
-        case ACTION_SET:
-          if (command.object.mapme.target == MAPME_TARGET_ENABLE) {
-            rc = hc_mapme_set(s, &command.object.mapme);
-          } else if (command.object.mapme.target == MAPME_TARGET_DISCOVERY) {
-            rc = hc_mapme_set_discovery(s, &command.object.mapme);
-          } else if (command.object.mapme.target == MAPME_TARGET_TIMESCALE) {
-            rc = hc_mapme_set_timescale(s, &command.object.mapme);
-          } else if (command.object.mapme.target == MAPME_TARGET_RETX) {
-            rc = hc_mapme_set_retx(s, &command.object.mapme);
-          }
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_LOCAL_PREFIX:
-      switch (command.action) {
-        case ACTION_CREATE:
-          rc = hc_strategy_add_local_prefix(s, &command.object.strategy);
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-    case OBJECT_SUBSCRIPTION:
-      // Disable socket recv timeout
-      hc_sock_set_recv_timeout_ms(s, 0);
-
-      rc = hc_subscription_create(s, &command.object.subscription);
-      if (rc < 0) break;
-      INFO("Subscription sent");
-
-      while (!stop) {
-        int rc = hc_sock_callback(s, &data);
-        if (rc < 0 && !stop) ERROR("Notification error");
-
-        if (!stop) {
-          event_type_t event_type = rc;
-          INFO("Notification recevied %s [%d]", event_str(event_type),
-               event_type);
-
-          if (event_type == EVENT_INTERFACE_UPDATE) {
-            hc_event_interface_update_t *event =
-                (hc_event_interface_update_t *)(data->buffer);
-            INFO("Interface update event received: %u", event->interface_type);
-          }
-        }
-      }
-
-      INFO("Unsubscribing...");
-      rc = hc_subscription_delete(s, &command.object.subscription);
-      break;
-
-    case OBJECT_STATS:
-      switch (command.action) {
-        case ACTION_GET:
-          rc = hc_stats_get(s, &data);
-          if (rc < 0) break;
-
-          hc_stats_snprintf(buf, MAX_LEN, (hicn_light_stats_t *)data->buffer);
-          INFO("\n%s", buf);
-          break;
-
-        case ACTION_LIST:
-          rc = hc_stats_list(s, &data);
-          if (rc < 0) break;
-
-          cmd_stats_list_item_t *conn_stats =
-              (cmd_stats_list_item_t *)data->buffer;
-          cmd_stats_list_item_t *end =
-              (cmd_stats_list_item_t *)(data->buffer +
-                                        data->size * data->out_element_size);
-          while (conn_stats < end) {
-            INFO("Connection #%d:", conn_stats->id);
-            INFO("\tinterests received: %d pkts (%d bytes)",
-                 conn_stats->stats.interests.rx_pkts,
-                 conn_stats->stats.interests.rx_bytes);
-            INFO("\tinterests transmitted: %d pkts (%d bytes)",
-                 conn_stats->stats.interests.tx_pkts,
-                 conn_stats->stats.interests.tx_bytes);
-            INFO("\tdata received: %d pkts (%d bytes)",
-                 conn_stats->stats.data.rx_pkts,
-                 conn_stats->stats.data.rx_bytes);
-            INFO("\tdata transmitted: %d pkts (%d bytes)",
-                 conn_stats->stats.data.tx_pkts,
-                 conn_stats->stats.data.tx_bytes);
-
-            conn_stats++;
-          }
-          break;
-
-        default:
-          break;
-      }
-      break;
-
-#ifdef TEST_FACE_CREATION
-    case OBJECT_FACE:
-      switch (command.action) {
-        case ACTION_CREATE: {
-          hc_face_t face = {0};
-          face.face.type = FACE_TYPE_UDP;
-          face.face.family = AF_INET;
-          face.face.local_addr = IPV4_LOOPBACK;
-          face.face.remote_addr = IPV4_LOOPBACK;
-          face.face.local_port = 9696;
-          face.face.remote_port = 9696;
-
-          rc = hc_face_create(s, &face);
-          break;
-        }
-        default:
-          break;
-      }
-      break;
-#endif
-
-    default:
-      break;
+  if (rc < 0) {
+    switch (rc) {
+      case INPUT_ERROR:
+        ERROR("Wrong input parameters");
+        break;
+      case UNSUPPORTED_CMD_ERROR:
+        ERROR("Unsupported command");
+        break;
+      default:
+        ERROR("Error executing command");
+        break;
+    }
+    goto ERR_COMMAND;
   }
+
+  if (!data) goto ERR_QUERY;
+  if (!hc_data_get_result(data)) goto ERR_DATA;
+
+  if (command.action == ACTION_LIST) {
+    char buf[MAXSZ_HC_OBJECT];
+    hc_data_foreach(data, obj, {
+      rc = hc_object_snprintf(buf, MAXSZ_HC_OBJECT, command.object_type, obj);
+      if (rc < 0)
+        WARN("Display error");
+      else if (rc >= MAXSZ_HC_OBJECT)
+        WARN("Output truncated");
+      else
+        printf("%s\n", buf);
+    });
+  }
+
   hc_data_free(data);
+  hc_sock_free(s);
+  return EXIT_SUCCESS;
 
-  if (rc < -1) {
-    if (rc == INPUT_ERROR) ERROR("Wrong input parameters");
-    if (rc == UNSUPPORTED_CMD_ERROR) ERROR("Unsupported command");
-    goto ERR_CMD;
-  }
-  if (rc < 0) ERROR("Error executing command");
-
-  // Remove the connection created to send the command
-  command.object.connection.id = 0;
-  rc = strcpy_s(command.object.connection.name,
-                sizeof(command.object.connection.name), "SELF");
-  if (rc != EOK || hc_connection_delete(s, &command.object.connection) < 0)
-    fprintf(stderr, "Error removing local connection to forwarder\n");
-
-  exit(EXIT_SUCCESS);
-
-ERR_CMD:
+ERR_DATA:
+  hc_data_free(data);
+ERR_QUERY:
+ERR_COMMAND:
 ERR_CONNECT:
   hc_sock_free(s);
-ERR_SOCK:
+ERR_SOCKET:
 ERR_PARSE:
 ERR_PARAM:
-  exit(EXIT_FAILURE);
+  ERROR("Error");
+  return EXIT_FAILURE;
 }

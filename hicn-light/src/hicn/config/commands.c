@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -42,7 +42,8 @@
 #include <hicn/core/listener.h>  //the listener list
 #include <hicn/core/listener_table.h>
 #include <hicn/core/subscription.h>
-#include <hicn/ctrl/hicn-light-ng.h>
+#include <hicn/ctrl/hicn-light.h>
+//#include <hicn/utils/utils.h>
 #include <hicn/utils/punting.h>
 #include <hicn/util/log.h>
 #include <hicn/validation.h>
@@ -55,8 +56,17 @@
 #define DEFAULT_COST 1
 #define DEFAULT_PORT 1234
 
-#define make_ack(msg) ((msg_header_t *)msg)->header.message_type = ACK_LIGHT
-#define make_nack(msg) ((msg_header_t *)msg)->header.message_type = NACK_LIGHT
+#define make_ack(msg)                                       \
+  do {                                                      \
+    ((msg_header_t *)msg)->header.message_type = ACK_LIGHT; \
+    ((msg_header_t *)msg)->header.length = 0;               \
+  } while (0)
+
+#define make_nack(msg)                                       \
+  do {                                                       \
+    ((msg_header_t *)msg)->header.message_type = NACK_LIGHT; \
+    ((msg_header_t *)msg)->header.length = 0;                \
+  } while (0)
 
 #define msg_malloc_list(msg, COMMAND_ID, N, seq_number)                  \
   do {                                                                   \
@@ -138,6 +148,7 @@ uint8_t *configuration_on_listener_add(forwarder_t *forwarder, uint8_t *packet,
     case FACE_TYPE_HICN_LISTENER:
       break;
     default:
+      ERROR("Wrong listener type");
       goto NACK;
   }
 
@@ -266,8 +277,11 @@ uint8_t *configuration_on_listener_remove(forwarder_t *forwarder,
       continue;
 
     unsigned conn_id =
-        (unsigned int)connection_table_get_connection_id(table, connection);
+        (unsigned)connection_table_get_connection_id(table, connection);
+
     /* Remove connection from the FIB */
+    // XXX TODO get entries, raise notifications...
+    // XXX isn't it possible to implement this in the forwarder ?????
     forwarder_remove_connection_id_from_routes(forwarder, conn_id);
 
     /* Remove connection */
@@ -288,10 +302,8 @@ NACK:
 }
 
 // TODO(eloparco): Unused forwarder param
-static inline void fill_listener_command(forwarder_t *forwarder,
-                                         listener_t *listener,
+static inline void fill_listener_command(const listener_t *listener,
                                          cmd_listener_list_item_t *cmd) {
-  assert(forwarder);
   assert(listener);
   assert(cmd);
 
@@ -306,15 +318,15 @@ static inline void fill_listener_command(forwarder_t *forwarder,
   switch (addr->as_ss.ss_family) {
     case AF_INET:
       sin = (struct sockaddr_in *)addr;
-      cmd->family = AF_INET;
-      cmd->address.v4.as_inaddr = sin->sin_addr;
-      cmd->port = sin->sin_port;
+      cmd->family = (uint8_t)AF_INET;
+      cmd->local_addr.v4.as_inaddr = sin->sin_addr;
+      cmd->local_port = sin->sin_port;
       break;
     case AF_INET6:
       sin6 = (struct sockaddr_in6 *)addr;
-      cmd->family = AF_INET6;
-      cmd->address.v6.as_in6addr = sin6->sin6_addr;
-      cmd->port = sin6->sin6_port;
+      cmd->family = (uint8_t)AF_INET6;
+      cmd->local_addr.v6.as_in6addr = sin6->sin6_addr;
+      cmd->local_port = sin6->sin6_port;
       break;
     default:
       break;
@@ -344,9 +356,8 @@ uint8_t *configuration_on_listener_list(forwarder_t *forwarder, uint8_t *packet,
   if (!msg) goto NACK;
 
   cmd_listener_list_item_t *payload = &msg->payload;
-  listener_t *listener;
   listener_table_foreach(table, listener, {
-    fill_listener_command(forwarder, listener, payload);
+    fill_listener_command(listener, payload);
     payload++;
   });
 
@@ -406,41 +417,10 @@ uint8_t *configuration_on_connection_add(forwarder_t *forwarder,
                                 control->remote_port) < 0)
     goto NACK;
 
-  connection_t *connection = connection_table_get_by_pair(table, &pair);
-#ifdef WITH_MAPME
-  connection_event_t event;
-#endif /* WITH_MAPME */
-
-  if (!connection) {
-    connection =
-        connection_create(control->type, symbolic_name, &pair, forwarder);
-    if (!connection) {
-      ERROR("Failed to create %s connection", face_type_str(control->type));
-      goto NACK;
-    }
-
-#ifdef WITH_MAPME
-    event = CONNECTION_EVENT_CREATE;
-#endif /* WITH_MAPME */
-  } else {
-    WARN("Connection already exists");
-
-#ifdef WITH_MAPME
-    event = CONNECTION_EVENT_UPDATE;
-#endif /* WITH_MAPME */
-  }
-
-#ifdef WITH_POLICY
-  connection_set_tags(connection, control->tags);
-  connection_set_priority(connection, control->priority);
-#endif /* WITH_POLICY */
-
-  connection_set_admin_state(connection, control->admin_state);
-
-#ifdef WITH_MAPME
-  /* Hook: new connection created through the control protocol */
-  forwarder_on_connection_event(forwarder, connection, event);
-#endif /* WITH_MAPME */
+  if (forwarder_add_connection(forwarder, symbolic_name, control->type, &pair,
+                               control->tags, control->priority,
+                               control->admin_state) < 0)
+    goto NACK;
 
   make_ack(msg);
   return (uint8_t *)msg;
@@ -486,24 +466,20 @@ uint8_t *configuration_on_connection_remove(forwarder_t *forwarder,
     goto NACK;
   }
 
-  /* Remove connection from the FIB */
-  forwarder_remove_connection_id_from_routes(forwarder, conn_id);
+  /*
+   *
+   * Don't close the fd for SELF otherwise it won't be possible
+   * to send the reply back. The connection is finalized later in
+   * _forwarder_finalize_connection_if_self
+   */
+  bool finalize = (strcmp(control->symbolic_or_connid, "SELF") != 0);
 
-  /* Remove connection */
-  connection_table_t *table = forwarder_get_connection_table(forwarder);
-  connection_t *connection = connection_table_get_by_id(table, conn_id);
-  connection_table_remove_by_id(table, conn_id);
+  if (forwarder_remove_connection(forwarder, conn_id, finalize) < 0) goto NACK;
 
-  // Don't close the fd for SELF otherwise it won't be possible
-  // to send the reply back
-  if (strcmp(control->symbolic_or_connid, "SELF") != 0)
-    connection_finalize(connection);
-  WITH_DEBUG(connection_table_print_by_pair(table);)
-
-#ifdef WITH_MAPME
-  /* Hook: new connection created through the control protocol */
-  forwarder_on_connection_event(forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
+  WITH_DEBUG({
+    connection_table_t *table = forwarder_get_connection_table(forwarder);
+    connection_table_print_by_pair(table);
+  })
 
   make_ack(msg);
   return (uint8_t *)msg;
@@ -519,10 +495,8 @@ static inline void tolower_str(char *str) {
 }
 
 // TODO(eloparco): Forwarder param not used
-static inline void fill_connections_command(forwarder_t *forwarder,
-                                            connection_t *connection,
+static inline void fill_connections_command(const connection_t *connection,
                                             cmd_connection_list_item_t *cmd) {
-  assert(forwarder);
   assert(connection);
   assert(cmd);
 
@@ -531,12 +505,12 @@ static inline void fill_connections_command(forwarder_t *forwarder,
   const address_pair_t *pair = connection_get_pair(connection);
 
   cmd->id = connection_get_id(connection),
-  cmd->state = connection_get_state(connection),
-  cmd->admin_state = connection_get_admin_state(connection),
-  cmd->type = connection_get_type(connection),
+  cmd->state = (uint8_t)connection_get_state(connection),
+  cmd->admin_state = (uint8_t)connection_get_admin_state(connection),
+  cmd->type = (uint8_t)connection_get_type(connection),
 #ifdef WITH_POLICY
   cmd->priority = connection_get_priority(connection),
-  cmd->tags = connection_get_tags(connection),
+  cmd->tags = (uint8_t)connection_get_tags(connection),
 #endif /* WITH_POLICY */
 
   snprintf(cmd->name, SYMBOLIC_NAME_LEN, "%s", connection_get_name(connection));
@@ -547,7 +521,7 @@ static inline void fill_connections_command(forwarder_t *forwarder,
 
   switch (pair->local.as_ss.ss_family) {
     case AF_INET:
-      cmd->family = AF_INET;
+      cmd->family = (uint8_t)AF_INET;
 
       sin = (struct sockaddr_in *)(&pair->local);
       cmd->local_port = sin->sin_port;
@@ -559,7 +533,7 @@ static inline void fill_connections_command(forwarder_t *forwarder,
       break;
 
     case AF_INET6:
-      cmd->family = AF_INET6;
+      cmd->family = (uint8_t)AF_INET6;
 
       sin6 = (struct sockaddr_in6 *)(&pair->local);
       cmd->local_port = sin6->sin6_port;
@@ -594,6 +568,7 @@ uint8_t *configuration_on_connection_list(forwarder_t *forwarder,
   // -1 since current connection (i.e. the one used to send
   // the command) is not considered
   size_t n = connection_table_len(table) - 1;
+
   msg_connection_list_t *msg_received = (msg_connection_list_t *)packet;
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
@@ -603,10 +578,9 @@ uint8_t *configuration_on_connection_list(forwarder_t *forwarder,
   if (!msg) goto NACK;
 
   cmd_connection_list_item_t *payload = &msg->payload;
-  connection_t *connection;
-  connection_table_foreach(table, connection, {
+  connection_table_foreach_new(table, connection, {
     if (connection->id == ingress_id) continue;
-    fill_connections_command(forwarder, connection, payload);
+    fill_connections_command(connection, payload);
     payload++;
   });
 
@@ -619,6 +593,7 @@ NACK:
   return (uint8_t *)msg;
 }
 
+#if 0
 uint8_t *configuration_on_connection_set_admin_state(forwarder_t *forwarder,
                                                      uint8_t *packet,
                                                      unsigned ingress_id,
@@ -640,13 +615,11 @@ uint8_t *configuration_on_connection_set_admin_state(forwarder_t *forwarder,
 
   connection_set_admin_state(conn, control->admin_state);
 
-#ifdef WITH_MAPME
   /* Hook: connection event */
   forwarder_on_connection_event(forwarder, conn,
                                 control->admin_state == FACE_STATE_UP
                                     ? CONNECTION_EVENT_SET_UP
                                     : CONNECTION_EVENT_SET_DOWN);
-#endif /* WITH_MAPME */
 
   make_ack(msg);
   return (uint8_t *)msg;
@@ -656,6 +629,7 @@ NACK:
   return (uint8_t *)msg;
 }
 
+#endif
 uint8_t *configuration_on_connection_update(forwarder_t *forwarder,
                                             uint8_t *packet,
                                             unsigned ingress_id,
@@ -684,6 +658,8 @@ NACK:
   return (uint8_t *)msg;
 }
 
+#if 0
+
 uint8_t *configuration_on_connection_set_priority(forwarder_t *forwarder,
                                                   uint8_t *packet,
                                                   unsigned ingress_id,
@@ -701,11 +677,9 @@ uint8_t *configuration_on_connection_set_priority(forwarder_t *forwarder,
 
   connection_set_priority(conn, control->priority);
 
-#ifdef WITH_MAPME
   /* Hook: connection event */
   forwarder_on_connection_event(forwarder, conn,
                                 CONNECTION_EVENT_PRIORITY_CHANGED);
-#endif /* WITH_MAPME */
 
   make_ack(msg);
   return (uint8_t *)msg;
@@ -733,10 +707,8 @@ uint8_t *configuration_on_connection_set_tags(forwarder_t *forwarder,
 
   connection_set_tags(conn, control->tags);
 
-#ifdef WITH_MAPME
   /* Hook: connection event */
   forwarder_on_connection_event(forwarder, conn, CONNECTION_EVENT_TAGS_CHANGED);
-#endif /* WITH_MAPME */
 
   make_ack(msg);
   return (uint8_t *)msg;
@@ -746,6 +718,8 @@ NACK:
   make_nack(msg);
   return (uint8_t *)msg;
 }
+
+#endif
 
 /* Route */
 
@@ -763,9 +737,9 @@ uint8_t *configuration_on_route_add(forwarder_t *forwarder, uint8_t *packet,
       forwarder, control->symbolic_or_connid, ingress_id);
   if (!connection_id_is_valid(conn_id)) goto NACK;
 
-  ip_prefix_t prefix = {.family = control->family,
-                        .address = control->address,
-                        .len = control->len};
+  hicn_ip_prefix_t prefix = {.family = control->family,
+                             .address = control->address,
+                             .len = control->len};
 
   if (!forwarder_add_or_update_route(forwarder, &prefix, conn_id)) goto NACK;
 
@@ -792,9 +766,9 @@ uint8_t *configuration_on_route_remove(forwarder_t *forwarder, uint8_t *packet,
       symbolic_to_conn_id(forwarder, control->symbolic_or_connid);
   if (!connection_id_is_valid(conn_id)) goto NACK;
 
-  ip_prefix_t prefix = {.family = control->family,
-                        .address = control->address,
-                        .len = control->len};
+  hicn_ip_prefix_t prefix = {.family = control->family,
+                             .address = control->address,
+                             .len = control->len};
 
   if (!forwarder_remove_route(forwarder, &prefix, conn_id)) goto NACK;
 
@@ -804,6 +778,29 @@ uint8_t *configuration_on_route_remove(forwarder_t *forwarder, uint8_t *packet,
 NACK:
   make_nack(msg);
   return (uint8_t *)msg;
+}
+
+static inline void fill_route_command(const fib_entry_t *entry,
+                                      cmd_route_list_item_t *cmd) {
+  const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+  assert(nexthops_get_len(nexthops) == nexthops_get_curlen(nexthops));
+  size_t num_nexthops = nexthops_get_len(nexthops);
+
+  if (num_nexthops == 0) return;
+
+  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
+  const hicn_ip_address_t *address = hicn_prefix_get_ip_address(prefix);
+  int family = hicn_ip_address_get_family(address);
+
+  nexthops_foreach(nexthops, nexthop, {
+    cmd->family = family;
+    cmd->remote_addr = *address;
+    cmd->face_id = nexthop;
+    cmd->len = hicn_prefix_get_len(prefix);
+    cmd->cost = DEFAULT_COST;
+
+    cmd++;
+  });
 }
 
 uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
@@ -816,7 +813,6 @@ uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
   const fib_t *fib = forwarder_get_fib(forwarder);
-  fib_entry_t *entry;
 
   /*
    * Two step approach to precompute the number of entries to allocate
@@ -835,38 +831,7 @@ uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
   if (!msg) goto NACK;
 
   cmd_route_list_item_t *payload = &msg->payload;
-  fib_foreach_entry(fib, entry, {
-    const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
-    assert(nexthops_get_len(nexthops) == nexthops_get_curlen(nexthops));
-    size_t num_nexthops = nexthops_get_len(nexthops);
-
-    if (num_nexthops == 0) continue;
-
-    NameBitvector *prefix = name_GetContentName(fib_entry_get_prefix(entry));
-
-    unsigned nexthop;
-    nexthops_foreach(nexthops, nexthop, {
-      address_t address;
-      nameBitvector_ToAddress(prefix, &address);
-      switch (address_family(&address)) {
-        case AF_INET:
-          payload->family = AF_INET;
-          payload->address.v4.as_inaddr = address4_ip(&address);
-          break;
-        case AF_INET6:
-          payload->family = AF_INET6;
-          payload->address.v6.as_in6addr = address6_ip(&address);
-          break;
-        default:
-          break;
-      }
-      payload->connection_id = nexthop;
-      payload->len = nameBitvector_GetLength(prefix);
-      payload->cost = DEFAULT_COST;
-
-      payload++;
-    });
-  });
+  fib_foreach_entry(fib, entry, { fill_route_command(entry, payload); });
 
   *reply_size = sizeof(msg->header) + n * sizeof(msg->payload);
   return (uint8_t *)msg;
@@ -983,12 +948,12 @@ uint8_t *configuration_on_strategy_set(forwarder_t *forwarder, uint8_t *packet,
   cmd_strategy_set_t *control = &msg->payload;
 
   char prefix_s[MAXSZ_IP_PREFIX];
-  ip_prefix_t prefix = {
+  hicn_ip_prefix_t prefix = {
       .family = control->family,
       .address = control->address,
       .len = control->len,
   };
-  int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
+  int rc = hicn_ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
   assert(rc < MAXSZ_IP_PREFIX);
   if (rc < 0) goto NACK;
 
@@ -998,9 +963,10 @@ uint8_t *configuration_on_strategy_set(forwarder_t *forwarder, uint8_t *packet,
       configuration_get_strategy(config, prefix_s);
   strategy_options_t *options = NULL;
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, control->family, control->address,
-                         control->len);
+  // XXX check control->family
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&control->address, control->len,
+                                         &name_prefix);
 
   // The strategy is not present in the hash table
   // or has to be updated or to be restarted
@@ -1012,9 +978,9 @@ uint8_t *configuration_on_strategy_set(forwarder_t *forwarder, uint8_t *packet,
     forwarder_set_strategy(forwarder, &name_prefix, strategy, options);
   } else {
     WITH_WARN({
-      char *nameString = name_ToString(&name_prefix);
-      WARN("Strategy for prefix %s not updated", nameString);
-      free(nameString);
+      char buf[MAXSZ_HICN_PREFIX];
+      hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, &name_prefix);
+      WARN("Strategy for prefix %s not updated", buf);
     })
   }
 
@@ -1040,12 +1006,12 @@ uint8_t *configuration_on_strategy_add_local_prefix(forwarder_t *forwarder,
   cmd_strategy_add_local_prefix_t *control = &msg->payload;
 
   char prefix_s[MAXSZ_IP_PREFIX];
-  ip_prefix_t prefix = {
+  hicn_ip_prefix_t prefix = {
       .family = control->family,
       .address = control->address,
       .len = control->len,
   };
-  int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
+  int rc = hicn_ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
   assert(rc < MAXSZ_IP_PREFIX);
   if (rc < 0) goto NACK;
 
@@ -1060,17 +1026,17 @@ uint8_t *configuration_on_strategy_add_local_prefix(forwarder_t *forwarder,
       strategy != STRATEGY_TYPE_REPLICATION)
     goto NACK;
 
-  Name name_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&name_prefix, control->family, control->address,
-                         control->len);
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&control->address, control->len,
+                                         &name_prefix);
 
   strategy_options_t options;
-  Name local_prefix = EMPTY_NAME;
-  name_CreateFromAddress(&local_prefix, control->local_family,
-                         control->local_address, control->local_len);
+  hicn_prefix_t local_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&control->address, control->len,
+                                         &local_prefix);
 
-  // for the moment bestpath and replication are the same but we distinguish the
-  // two in case they will diverge in the future
+  // for the moment bestpath and replication are the same but we distinguish
+  // the two in case they will diverge in the future
   if (strategy == STRATEGY_TYPE_BESTPATH) {
     options.bestpath.local_prefixes = create_local_prefixes();
     local_prefixes_add_prefix(options.bestpath.local_prefixes, &local_prefix);
@@ -1212,11 +1178,11 @@ uint8_t *configuration_on_punting_add(forwarder_t *forwarder, uint8_t *packet,
     goto NACK;
   }
 
-  ip_prefix_t prefix = {.family = control->family,
-                        .address = control->address,
-                        .len = control->len};
+  hicn_ip_prefix_t prefix = {.family = control->family,
+                             .address = control->address,
+                             .len = control->len};
   char prefix_s[MAXSZ_IP_PREFIX];
-  int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
+  int rc = hicn_ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
   assert(rc < MAXSZ_IP_PREFIX);
   if (rc < 0) goto NACK;
 
@@ -1359,12 +1325,11 @@ uint8_t *configuration_on_mapme_send_update(forwarder_t *forwarder,
   mapme_t *mapme = forwarder_get_mapme(forwarder);
 
   /*
-   * The command triggers a mapme update for all prefixes produced on this face
+   * The command triggers a mapme update for all prefixes produced on this
+   * face
    * */
-  fib_entry_t *entry;
   fib_foreach_entry(fib, entry, {
     const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
-    unsigned nexthop;
     nexthops_foreach(nexthops, nexthop, {
       if (nexthop != ingress_id) continue;
       /* This entry points to the producer face */
@@ -1393,9 +1358,9 @@ uint8_t *configuration_on_policy_add(forwarder_t *forwarder, uint8_t *packet,
   msg_policy_add_t *msg = (msg_policy_add_t *)packet;
   cmd_policy_add_t *control = &msg->payload;
 
-  ip_prefix_t prefix = {.family = control->family,
-                        .address = control->address,
-                        .len = control->len};
+  hicn_ip_prefix_t prefix = {.family = control->family,
+                             .address = control->address,
+                             .len = control->len};
 
   if (!forwarder_add_or_update_policy(forwarder, &prefix, &control->policy))
     goto NACK;
@@ -1419,9 +1384,9 @@ uint8_t *configuration_on_policy_remove(forwarder_t *forwarder, uint8_t *packet,
   msg_policy_remove_t *msg = (msg_policy_remove_t *)packet;
   cmd_policy_remove_t *control = &msg->payload;
 
-  ip_prefix_t prefix = {.family = control->family,
-                        .address = control->address,
-                        .len = control->len};
+  hicn_ip_prefix_t prefix = {.family = control->family,
+                             .address = control->address,
+                             .len = control->len};
 
   if (!forwarder_remove_policy(forwarder, &prefix)) goto NACK;
 
@@ -1432,6 +1397,39 @@ NACK:
 #endif /* WITH_POLICY */
   make_nack(msg);
   return (uint8_t *)msg;
+}
+
+static inline void fill_policy_command(const fib_entry_t *entry,
+                                       cmd_policy_list_item_t *cmd) {
+  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
+  const hicn_ip_address_t *ip_address = hicn_prefix_get_ip_address(prefix);
+  cmd->remote_addr = *ip_address;
+  cmd->family = hicn_ip_address_get_family(ip_address);
+  cmd->len = hicn_prefix_get_len(prefix);
+
+  hicn_policy_t policy = fib_entry_get_policy(entry);
+  _hicn_policy_t _policy = {
+      .stats = {
+          .wired = {.throughput = htonf(policy.stats.wired.throughput),
+                    .latency = htonf(policy.stats.wired.latency),
+                    .loss_rate = htonf(policy.stats.wired.loss_rate)},
+          .wifi = {.throughput = htonf(policy.stats.wifi.throughput),
+                   .latency = htonf(policy.stats.wifi.latency),
+                   .loss_rate = htonf(policy.stats.wifi.loss_rate)},
+          .cellular = {.throughput = htonf(policy.stats.cellular.throughput),
+                       .latency = htonf(policy.stats.cellular.latency),
+                       .loss_rate = htonf(policy.stats.cellular.loss_rate)},
+          .all = {.throughput = htonf(policy.stats.all.throughput),
+                  .latency = htonf(policy.stats.all.latency),
+                  .loss_rate = htonf(policy.stats.all.loss_rate)}}};
+  for (unsigned i = 0; i < POLICY_TAG_N; i++) {
+    _policy.tags[i] = (_policy_tag_state_t){
+        .state = policy.tags[i].state,
+        .disabled = policy.tags[i].disabled,
+    };
+  }
+  memcpy(_policy.app_name, policy.app_name, APP_NAME_LEN);
+  memcpy(cmd->policy, &_policy, sizeof(_policy));
 }
 
 uint8_t *configuration_on_policy_list(forwarder_t *forwarder, uint8_t *packet,
@@ -1454,30 +1452,8 @@ uint8_t *configuration_on_policy_list(forwarder_t *forwarder, uint8_t *packet,
 
   cmd_policy_list_item_t *payload = &msg->payload;
 
-  fib_entry_t *entry;
-
   fib_foreach_entry(fib, entry, {
-    NameBitvector *prefix = name_GetContentName(fib_entry_get_prefix(entry));
-    address_t address;
-    nameBitvector_ToAddress(prefix, &address);
-
-    switch (address_family(&address)) {
-      case AF_INET:
-        payload->family = AF_INET;
-        payload->address.v4.as_inaddr = address4_ip(&address);
-        break;
-
-      case AF_INET6:
-        payload->family = AF_INET6;
-        payload->address.v6.as_in6addr = address6_ip(&address);
-        break;
-
-      default:
-        break;
-    }
-    payload->len = nameBitvector_GetLength(prefix);
-    payload->policy = fib_entry_get_policy(entry);
-
+    fill_policy_command(entry, payload);
     payload++;
   });
 
@@ -1544,9 +1520,17 @@ uint8_t *configuration_on_subscription_remove(forwarder_t *forwarder,
   return (uint8_t *)msg;
 }
 
+uint8_t *configuration_on_active_interface_update(forwarder_t *forwarder,
+                                                  uint8_t *packet,
+                                                  unsigned ingress_id,
+                                                  size_t *reply_size) {
+  msg_active_interface_update_t *msg = (msg_active_interface_update_t *)packet;
+  make_nack(msg);
+  return (uint8_t *)msg;
+}
+
 uint8_t *command_process(forwarder_t *forwarder, uint8_t *packet,
-                         command_type_t command_type, unsigned ingress_id,
-                         size_t *reply_size) {
+                         unsigned ingress_id, size_t *reply_size) {
   uint8_t *reply = NULL;
 
   /*
@@ -1557,6 +1541,7 @@ uint8_t *command_process(forwarder_t *forwarder, uint8_t *packet,
    *
    * XXX rework this part.
    */
+  command_type_t command_type = ((msg_header_t *)packet)->header.command_id;
   switch (command_type) {
 #define _(l, u)                                                              \
   case COMMAND_TYPE_##u:                                                     \
@@ -1586,28 +1571,100 @@ ssize_t command_process_msgbuf(forwarder_t *forwarder, msgbuf_t *msgbuf) {
   uint8_t *reply = NULL;
   size_t reply_size = 0;
 
-  command_type_t command_type = msgbuf_get_command_type(msgbuf);
-
-  reply =
-      command_process(forwarder, packet, command_type, ingress_id, &reply_size);
+  reply = command_process(forwarder, packet, ingress_id, &reply_size);
   if (connection_id_is_valid(msgbuf->connection_id)) {
     connection_table_t *table = forwarder_get_connection_table(forwarder);
     const connection_t *connection = connection_table_at(table, ingress_id);
     connection_send_packet(connection, reply, reply_size);
   }
 
-  switch (msgbuf->command.type) {
-    case COMMAND_TYPE_LISTENER_LIST:
-    case COMMAND_TYPE_CONNECTION_LIST:
-    case COMMAND_TYPE_ROUTE_LIST:
-    case COMMAND_TYPE_POLICY_LIST:
-      /* Free replies that have been allocated (not NACK's) */
-      if (((msg_header_t *)reply)->header.message_type != NACK_LIGHT)
-        free(reply);
-      break;
-    default:
-      break;
-  }
-
+  /* Free allocated replies */
+  if (reply != packet) free(reply);
   return msgbuf_get_len(msgbuf);
+}
+
+void commands_notify(const forwarder_t *forwarder, hc_topic_t topic,
+                     uint8_t *msg, size_t size) {
+  // Retrieve subscribed connections
+  subscription_table_t *subscriptions = forwarder_get_subscriptions(forwarder);
+  unsigned *subscribed_conn_ids =
+      subscription_table_get_connections_for_topic(subscriptions, topic);
+
+  // Send notification to subscribed connections
+  const connection_table_t *table = forwarder_get_connection_table(forwarder);
+  for (int i = 0; i < vector_len(subscribed_conn_ids); i++) {
+    const connection_t *conn =
+        connection_table_at(table, subscribed_conn_ids[i]);
+    connection_send_packet(conn, msg, size);
+  }
+}
+
+void commands_notify_connection(const forwarder_t *forwarder,
+                                connection_event_t event,
+                                const connection_t *connection) {
+#if 0
+  uint8_t command_id;
+  switch (event) {
+    case CONNECTION_EVENT_CREATE:
+      command_id = COMMAND_TYPE_CONNECTION_ADD;
+      break;
+    case CONNECTION_EVENT_DELETE:
+      command_id = COMMAND_TYPE_CONNECTION_REMOVE;
+      break;
+    case CONNECTION_EVENT_UPDATE:
+    case CONNECTION_EVENT_SET_UP:
+    case CONNECTION_EVENT_SET_DOWN:
+    case CONNECTION_EVENT_PRIORITY_CHANGED:
+    case CONNECTION_EVENT_TAGS_CHANGED:
+      command_id = COMMAND_TYPE_CONNECTION_UPDATE;
+      break;
+    case CONNECTION_EVENT_UNDEFINED:
+    case CONNECTION_EVENT_N:
+    default:
+      return;
+  }
+#endif
+
+  msg_connection_notify_t msg = {.header = {
+                                     .message_type = NOTIFICATION_LIGHT,
+                                     .command_id = OBJECT_TYPE_CONNECTION,
+                                     .length = 1,
+                                     .seq_num = 0,
+                                 }};
+  fill_connections_command(connection, &msg.payload);
+
+  commands_notify(forwarder, TOPIC_CONNECTION, (uint8_t *)&msg, sizeof(msg));
+}
+
+void commands_notify_route(const forwarder_t *forwarder,
+                           const fib_entry_t *entry) {
+  const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+  size_t n = nexthops_get_len(nexthops);
+  msg_route_notify_t *msg = NULL;
+  msg_malloc_list(msg, OBJECT_TYPE_ROUTE, n, 0);
+  if (!msg) return;
+
+  fill_route_command(entry, &msg->payload);
+
+  commands_notify(forwarder, TOPIC_ROUTE, (uint8_t *)&msg, sizeof(msg));
+}
+
+void commands_notify_active_interface_update(const forwarder_t *forwarder,
+                                             hicn_ip_prefix_t *prefix,
+                                             netdevice_flags_t flags) {
+  struct {
+    cmd_header_t header;
+    hc_active_interface_t payload;
+  } msg = {.header =
+               {
+                   .message_type = NOTIFICATION_LIGHT,
+                   .command_id = OBJECT_TYPE_ACTIVE_INTERFACE,
+                   .length = 1,
+                   .seq_num = 0,
+               },
+           .payload = {.prefix = *prefix, .interface_types = flags}};
+
+  INFO("Notify active interface");
+  commands_notify(forwarder, TOPIC_ACTIVE_INTERFACE, (uint8_t *)&msg,
+                  sizeof(msg));
 }

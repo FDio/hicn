@@ -29,11 +29,10 @@
 #include "../core/msgbuf.h"
 #include "../core/strategy.h"
 #include <hicn/ctrl/api.h>
-#include <hicn/ctrl/hicn-light-ng.h>
+#include <hicn/ctrl/hicn-light.h>
 
 uint8_t *command_process(forwarder_t *forwarder, uint8_t *packet,
-                         command_type_t command_type, unsigned ingress_id,
-                         size_t *reply_size);
+                         unsigned ingress_id, size_t *reply_size);
 
 ssize_t command_process_msgbuf(forwarder_t *forwarder, msgbuf_t *msgbuf);
 
@@ -151,5 +150,16 @@ uint8_t *configuration_on_policy_list(forwarder_t *forwarder, uint8_t *packet,
 
 uint8_t *configuration_on_stats_list(forwarder_t *forwarder, uint8_t *packet,
                                      unsigned ingress_id, size_t *reply_size);
+
+void commands_notify_connection(const forwarder_t *forwarder,
+                                connection_event_t event,
+                                const connection_t *connection);
+
+void commands_notify_route(const forwarder_t *forwarder,
+                           const fib_entry_t *entry);
+
+void commands_notify_active_interface_update(const forwarder_t *forwarder,
+                                             hicn_ip_prefix_t *prefix,
+                                             netdevice_flags_t flags);
 
 #endif  // HICNLIGHT_COMMANDS_H

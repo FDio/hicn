@@ -104,10 +104,8 @@ int main() {
               .remote_port = 6000,
               .admin_state = FACE_STATE_UNDEFINED,
               .state = FACE_STATE_UNDEFINED,
-#ifdef WITH_POLICY
               .priority = 0,
               .tags = POLICY_TAGS_EMPTY,
-#endif /* WITH_POLICY */
           },
   };
   if (netdevice_set_name(&face.face.netdevice, if_name) < 0) {

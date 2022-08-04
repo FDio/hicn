@@ -160,10 +160,13 @@ connection_t *_connection_table_get_by_id(connection_table_t *table, off_t id);
  * @return off_t The index of the specified connection in the connection table.
  */
 #define connection_table_get_connection_id(table, conn) \
-  (conn - table->connections)
+  (unsigned)(conn - table->connections)
 
 #define connection_table_foreach(table, conn, BODY) \
   pool_foreach(table->connections, (conn), BODY)
+
+#define connection_table_foreach_new(table, CONN, BODY) \
+  pool_foreach_typed(table->connections, connection_t *, CONN, BODY)
 
 #define connection_table_enumerate(table, i, conn, BODY) \
   pool_enumerate(table->connections, (i), (conn), BODY)

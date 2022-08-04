@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -33,7 +33,7 @@ void usage() {
   std::cerr << "-f\t<filename>\t\t\t"
             << "Log file" << std::endl;
   std::cerr << "-z\t<io_module>\t\t\t"
-            << "IO module to use. Default: hicnlightng_module" << std::endl;
+            << "IO module to use. Default: hicnlight_module" << std::endl;
   std::cerr << "-F\t<conf_file>\t\t\t"
             << "Path to optional configuration file for libtransport"
             << std::endl;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
   char *log_file = nullptr;
   transport::interface::global_config::IoModuleConfiguration config;
   std::string conf_file;
-  config.name = "hicnlightng_module";
+  config.name = "hicnlight_module";
 
   // Consumer
   ClientConfiguration client_configuration;
@@ -290,8 +290,8 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 'w': {
-        client_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
-        server_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
+        client_configuration.packet_format_ = HICN_PACKET_FORMAT_IPV6_UDP;
+        server_configuration.packet_format_ = HICN_PACKET_FORMAT_IPV6_UDP;
         break;
       }
       case 'k': {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -53,9 +53,6 @@ class Configuration {
   bool verbose_;
   bool dump_;
   bool jump_;
-  bool open_;
-  bool always_syn_;
-  bool always_ack_;
   bool quiet_;
   uint32_t jump_freq_;
   uint32_t jump_size_;
@@ -73,9 +70,6 @@ class Configuration {
     verbose_ = false;
     dump_ = false;
     jump_ = false;
-    open_ = false;
-    always_syn_ = false;
-    always_ack_ = false;
     quiet_ = false;
     jump_freq_ = 0;
     jump_size_ = 0;
@@ -155,12 +149,10 @@ class Client : interface::Portal::TransportCallback {
       std::cout << "<<< interest name: " << interest.getName()
                 << " (n_suffixes=" << interest.numberOfSuffixes() << ")"
                 << " src port: " << interest.getSrcPort()
-                << " dst port: " << interest.getDstPort()
-                << " flags: " << interest.printFlags() << std::endl;
+                << " dst port: " << interest.getDstPort() << std::endl;
       std::cout << "<<< object name: " << object.getName()
                 << " src port: " << object.getSrcPort()
-                << " dst port: " << object.getDstPort()
-                << " flags: " << object.printFlags() << " path label "
+                << " dst port: " << object.getDstPort() << " path label "
                 << object.getPathLabel() << " ("
                 << (object.getPathLabel() >> 24) << ")"
                 << " TTL: " << (int)object.getTTL() << std::endl;
@@ -185,12 +177,6 @@ class Client : interface::Portal::TransportCallback {
 
     if (!config_->quiet_) std::cout << std::endl;
 
-    if (!config_->always_syn_) {
-      if (object.testSyn() && object.testAck() && state_ == SYN_STATE) {
-        state_ = ACK_STATE;
-      }
-    }
-
     received_++;
     processed_++;
     if (processed_ >= config_->maxPing_) {
@@ -202,8 +188,7 @@ class Client : interface::Portal::TransportCallback {
     if (config_->verbose_) {
       std::cout << "### timeout for " << name
                 << " src port: " << interest->getSrcPort()
-                << " dst port: " << interest->getDstPort()
-                << " flags: " << interest->printFlags() << std::endl;
+                << " dst port: " << interest->getDstPort() << std::endl;
     } else if (!config_->quiet_) {
       std::cout << "### timeout for " << name << std::endl;
     }
@@ -231,11 +216,11 @@ class Client : interface::Portal::TransportCallback {
 
   void doPing() {
     const Name interest_name(config_->name_, (uint32_t)sequence_number_);
-    hicn_format_t format;
+    hicn_packet_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
-      format = signer_ ? HF_INET_TCP_AH : HF_INET_TCP;
+      format = HICN_PACKET_FORMAT_IPV4_TCP;
     } else {
-      format = signer_ ? HF_INET6_TCP_AH : HF_INET6_TCP;
+      format = HICN_PACKET_FORMAT_IPV6_TCP;
     }
 
     size_t additional_header_size = 0;
@@ -244,17 +229,6 @@ class Client : interface::Portal::TransportCallback {
                                                additional_header_size);
 
     interest->setLifetime(uint32_t(config_->interestLifetime_));
-    if (!signer_) interest->resetFlags();
-
-    if (config_->open_ || config_->always_syn_) {
-      if (state_ == SYN_STATE) {
-        interest->setSyn();
-      } else if (state_ == ACK_STATE) {
-        interest->setAck();
-      }
-    } else if (config_->always_ack_) {
-      interest->setAck();
-    }
 
     interest->setSrcPort(config_->srcPort_);
     interest->setDstPort(config_->dstPort_);
@@ -270,7 +244,6 @@ class Client : interface::Portal::TransportCallback {
       std::cout << ">>> send interest " << interest->getName()
                 << " src port: " << interest->getSrcPort()
                 << " dst port: " << interest->getDstPort()
-                << " flags: " << interest->printFlags()
                 << " TTL: " << (int)interest->getTTL()
                 << " suffixes in manifest: "
                 << config_->num_int_manifest_suffixes_ << std::endl;
@@ -362,13 +335,6 @@ void help() {
   std::cout << "                  e.g. '-m 6 -a -2' sends two interest (0 and "
                "3) with 2 suffixes each (1,2 and 4,5 respectively)"
             << std::endl;
-  std::cout << "-O                open tcp connection (three way handshake) "
-               "(default false)"
-            << std::endl;
-  std::cout << "-S                send always syn messages (default false)"
-            << std::endl;
-  std::cout << "-A                send always ack messages (default false)"
-            << std::endl;
   std::cout << "HICN options" << std::endl;
   std::cout << "-n <val>          hicn name (default b001::1)" << std::endl;
   std::cout
@@ -383,7 +349,7 @@ void help() {
             << std::endl;
   std::cout << "-q                quiet, not prints (default false)"
             << std::endl;
-  std::cerr << "-z <io_module>    IO module to use. Default: hicnlightng_module"
+  std::cerr << "-z <io_module>    IO module to use. Default: hicnlight_module"
             << std::endl;
   std::cerr << "-F <conf_file>    Path to optional configuration file for "
                "libtransport"
@@ -405,7 +371,7 @@ int main(int argc, char *argv[]) {
 
   std::string conf_file;
   transport::interface::global_config::IoModuleConfiguration io_config;
-  io_config.name = "hicnlightng_module";
+  io_config.name = "hicnlight_module";
 
   while ((opt = getopt(argc, argv, "a:j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) !=
          -1) {
@@ -444,21 +410,6 @@ int main(int argc, char *argv[]) {
         break;
       case 'D':
         c->dump_ = true;
-        break;
-      case 'O':
-        c->always_syn_ = false;
-        c->always_ack_ = false;
-        c->open_ = true;
-        break;
-      case 'S':
-        c->always_syn_ = true;
-        c->always_ack_ = false;
-        c->open_ = false;
-        break;
-      case 'A':
-        c->always_syn_ = false;
-        c->always_ack_ = true;
-        c->open_ = false;
         break;
       case 'q':
         c->quiet_ = true;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -42,7 +42,7 @@ ssize_t io_read_single_fd(int fd, msgbuf_t *msgbuf, address_t *address) {
       return -1;
     }
 
-    msgbuf->length = (unsigned int)n;
+    msgbuf_set_len(msgbuf, (size_t)n);
     *address = ADDRESS_ANY(AF_UNSPEC, 0);  // XXX placeholder, see hicn.c
   }
 
@@ -50,12 +50,18 @@ ssize_t io_read_single_fd(int fd, msgbuf_t *msgbuf, address_t *address) {
 }
 
 ssize_t io_read_single_socket(int fd, msgbuf_t *msgbuf, address_t *address) {
-  struct sockaddr_storage *sa = &address->as_ss;
+  struct sockaddr *sa = &(address->as_sa);
   socklen_t sa_len = sizeof(sa);
   uint8_t *packet = msgbuf_get_packet(msgbuf);
 
   ssize_t n = recvfrom(fd, packet, MTU, 0, (struct sockaddr *)sa, &sa_len);
-  msgbuf->length = (unsigned int)n;
+  msgbuf_set_len(msgbuf, (size_t)n);
+
+#ifdef __APPLE__
+  // set __uint8_t sin_len to 0
+  uint8_t *ptr = (uint8_t *)sa;
+  *ptr = 0x0;
+#endif /* __APPLE__ */
 
   return n;
 }
@@ -92,6 +98,7 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t **msgbuf, address_t **address,
   for (;;) {
     n = recvmmsg(fd, msghdr, batch_size, /* flags */ 0,
                  /* timeout */ NULL);
+    // INFO("Got n=%d messages", n);
     if (n == 0) return 0;
     if (n < 0) {
       if (errno == EINTR) continue;  // XXX was break;
@@ -112,7 +119,7 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t **msgbuf, address_t **address,
      */
     for (int i = 0; i < n; i++) {
       struct mmsghdr *msg = &msghdr[i];
-      msgbuf[i]->length = msg->msg_len;
+      msgbuf_set_len(msgbuf[i], msg->msg_len);
 
       memcpy(address[i], msg->msg_hdr.msg_name, msg->msg_hdr.msg_namelen);
     }

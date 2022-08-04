@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -42,7 +42,7 @@ class AuthTest : public ::testing::Test {
 
 TEST_F(AuthTest, VoidVerifier) {
   // Create a content object
-  core::ContentObject packet(HF_INET6_TCP_AH);
+  core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH);
 
   // Fill it with bogus data
   uint8_t buffer[256] = {0};
@@ -74,7 +74,8 @@ TEST_F(AuthTest, AsymmetricRSA) {
       CryptoSuite::RSA_SHA256, privateKey, pubKey);
 
   // Create a content object
-  core::ContentObject packet(HF_INET6_TCP_AH, signer->getSignatureSize());
+  core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                             signer->getSignatureSize());
 
   // Fill it with bogus data
   uint8_t buffer[256] = {0};
@@ -87,7 +88,7 @@ TEST_F(AuthTest, AsymmetricRSA) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<AsymmetricVerifier>(pubKey);
 
-  EXPECT_EQ(packet.getFormat(), HF_INET6_TCP_AH);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::RSA_SHA256);
   EXPECT_EQ(signer->getSignatureSize(), 256u);
@@ -189,7 +190,8 @@ TEST_F(AuthTest, AsymmetricVerifierDSA) {
       CryptoSuite::DSA_SHA256, privateKey, pubKey);
 
   // Create a content object
-  core::ContentObject packet(HF_INET6_TCP_AH, signer->getSignatureSize());
+  core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                             signer->getSignatureSize());
 
   // Fill it with bogus data
   uint8_t buffer[256] = {0};
@@ -200,7 +202,7 @@ TEST_F(AuthTest, AsymmetricVerifierDSA) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<AsymmetricVerifier>(cert);
 
-  EXPECT_EQ(packet.getFormat(), HF_INET6_TCP_AH);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::DSA_SHA256);
   EXPECT_EQ(verifier->verifyPackets(&packet), VerificationPolicy::ACCEPT);
@@ -259,14 +261,15 @@ TEST_F(AuthTest, AsymmetricVerifierECDSA) {
   std::shared_ptr<AsymmetricVerifier> verifier =
       std::make_shared<AsymmetricVerifier>(pubKey);
   for (int i = 0; i < 100; i++) {
-    core::ContentObject packet(HF_INET6_TCP_AH, signer->getSignatureSize());
+    core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                               signer->getSignatureSize());
 
     // Fill it with bogus data
     uint8_t buffer[256] = {0};
     packet.appendPayload(buffer, 256);
     signer->signPacket(&packet);
 
-    EXPECT_EQ(packet.getFormat(), HF_INET6_TCP_AH);
+    EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
     EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
     EXPECT_EQ(signer->getSuite(), CryptoSuite::ECDSA_SHA256);
     EXPECT_EQ(verifier->verifyPackets(&packet), VerificationPolicy::ACCEPT);
@@ -279,7 +282,8 @@ TEST_F(AuthTest, HMACbuffer) {
       std::make_shared<SymmetricSigner>(CryptoSuite::HMAC_SHA256, PASSPHRASE);
 
   // Create a content object
-  core::ContentObject packet(HF_INET6_TCP_AH, signer->getSignatureSize());
+  core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                             signer->getSignatureSize());
 
   std::string payload = "bonjour";
   std::vector<uint8_t> buffer(payload.begin(), payload.end());
@@ -296,7 +300,8 @@ TEST_F(AuthTest, HMACVerifier) {
       std::make_shared<SymmetricSigner>(CryptoSuite::HMAC_SHA256, PASSPHRASE);
 
   // Create a content object
-  core::ContentObject packet(HF_INET6_TCP_AH, signer->getSignatureSize());
+  core::ContentObject packet(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                             signer->getSignatureSize());
 
   // Fill it with bogus data
   uint8_t buffer[256] = {0};
@@ -309,7 +314,7 @@ TEST_F(AuthTest, HMACVerifier) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<SymmetricVerifier>(PASSPHRASE);
 
-  EXPECT_EQ(packet.getFormat(), HF_INET6_TCP_AH);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::HMAC_SHA256);
   EXPECT_EQ(signer->getSignatureSize(), 32u);

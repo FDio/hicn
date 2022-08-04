@@ -21,7 +21,7 @@
 #endif
 
 #include "logo.h"
-#include "../config/parse.h"
+#include <hicn/ctrl/parse.h>
 #include <hicn/util/sstrncpy.h>
 
 #define PORT 9695
@@ -181,9 +181,9 @@ int main(int argc, char *const *argv) {
 #define BUFSIZE 255
     char url[BUFSIZE];
     snprintf(url, BUFSIZE, "tcp://%s:%d/", server_ip, server_port);
-    s = hc_sock_create_forwarder_url(HICNLIGHT_NG, url);
+    s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, url);
   } else {
-    s = hc_sock_create_forwarder(HICNLIGHT_NG);
+    s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   }
   if (!s) {
     fprintf(stderr, "Could not create socket.\n");

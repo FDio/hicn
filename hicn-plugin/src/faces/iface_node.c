@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,6 +20,9 @@
 #include "../infra.h"
 #include "../cache_policies/cs_lru.h"
 #include "../parser.h"
+
+#include <hicn/error.h>
+#include <hicn/util/ip_address.h>
 
 /**
  * @File
@@ -200,7 +203,8 @@ typedef enum
       ip_hdr = (IP_HEADER_##ipv *) vlib_buffer_get_current (b0);              \
                                                                               \
       /* Parse packet and cache useful info in opaque2 */                     \
-      ret0 = hicn_interest_parse_pkt (b0);                                    \
+      ret0 =                                                                  \
+	hicn_interest_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));   \
       is_icmp0 = (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                    \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
 	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
@@ -304,8 +308,10 @@ typedef enum
       stats.pkts_interest_count += 2;                                         \
                                                                               \
       /* Parse packet and cache useful info in opaque2 */                     \
-      ret0 = hicn_interest_parse_pkt (b0);                                    \
-      ret1 = hicn_interest_parse_pkt (b1);                                    \
+      ret0 =                                                                  \
+	hicn_interest_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));   \
+      ret1 =                                                                  \
+	hicn_interest_parse_pkt (b1, vlib_buffer_length_in_chain (vm, b1));   \
       is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       is_icmp1 = ret1 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
@@ -655,17 +661,19 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
 
   vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
   *next = iface->dpo.dpoi_next_node;
-  hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
-  ip46_address_t temp_addr;
-  ip46_address_reset (&temp_addr);
-  hicn_type_t type = hicn_get_buffer (b0)->type;
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
+
+  hicn_ip_address_t temp_addr;
+  ip46_address_reset (&(temp_addr.as_ip46));
+
+  hicn_ip_address_t *iface_nat_addr = (hicn_ip_address_t *) &(iface->nat_addr);
+
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
 
-  ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-					     &(iface->nat_addr), &(temp_addr),
-					     iface->pl_id, reset_pl);
+  ret = hicn_data_rewrite (pkbuf, iface_nat_addr, &(temp_addr), iface->pl_id,
+			   reset_pl);
 
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
@@ -693,17 +701,17 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
   vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
   *next = iface->dpo.dpoi_next_node;
 
-  hicn_header_t *hicn = vlib_buffer_get_current (b0);
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
 
-  ip46_address_t temp_addr;
-  ip46_address_reset (&temp_addr);
-  hicn_type_t type = hicn_get_buffer (b0)->type;
+  hicn_ip_address_t temp_addr;
+  ip46_address_reset (&(temp_addr.as_ip46));
+
+  hicn_ip_address_t *iface_nat_addr = (hicn_ip_address_t *) &(iface->nat_addr);
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
 
-  ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-					     &(iface->nat_addr), &(temp_addr),
-					     iface->pl_id, reset_pl);
+  ret = hicn_data_rewrite (pkbuf, iface_nat_addr, &(temp_addr), iface->pl_id,
+			   reset_pl);
 
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {

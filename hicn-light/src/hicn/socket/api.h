@@ -83,7 +83,7 @@ typedef struct hicn_socket_s {
 
   union {
     struct {
-      ip_prefix_t tun_ip_address;
+      hicn_ip_prefix_t tun_ip_address;
       uint32_t interface_id;
 
       /* ID of the corresponding table : avoid default values of 0, 32766 and
@@ -162,8 +162,8 @@ void hicn_free(hicn_socket_helper_t *hicn);
  *
  * @return 0 in case of success, -1 otherwise.
  */
-int hicn_get_local_address(const ip_prefix_t *remote_address,
-                           ip_prefix_t *local_address);
+int hicn_get_local_address(const hicn_ip_prefix_t *remote_address,
+                           hicn_ip_prefix_t *local_address);
 
 /* hICN socket */
 

@@ -53,14 +53,15 @@ static vapi_error_e register_prod_app_cb(
   if (reply == NULL) return rv;
 
   output_params->cs_reserved = reply->cs_reserved;
-  output_params->prod_addr = (ip_address_t *)malloc(sizeof(ip_address_t));
-  memset(output_params->prod_addr, 0, sizeof(ip_address_t));
+  output_params->prod_addr =
+      (hicn_ip_address_t *)malloc(sizeof(hicn_ip_address_t));
+  memset(output_params->prod_addr, 0, sizeof(hicn_ip_address_t));
   if (reply->prod_addr.af == ADDRESS_IP6)
     memcpy(&output_params->prod_addr->v6, reply->prod_addr.un.ip6,
-           sizeof(ip6_address_t));
+           sizeof(ipv6_address_t));
   else
     memcpy(&output_params->prod_addr->v4, reply->prod_addr.un.ip4,
-           sizeof(ip4_address_t));
+           sizeof(ipv4_address_t));
   output_params->face_id = reply->faceid;
 
   return reply->retval;
@@ -73,13 +74,14 @@ int hicn_vapi_register_prod_app(vapi_ctx_t ctx,
   vapi_msg_hicn_api_register_prod_app *msg =
       vapi_alloc_hicn_api_register_prod_app(ctx);
 
-  if (ip_address_is_v4((ip_address_t *)&input_params->prefix->address)) {
+  if (hicn_ip_address_is_v4(
+          (hicn_ip_address_t *)&input_params->prefix->address)) {
     memcpy(&msg->payload.prefix.address.un.ip4, &input_params->prefix->address,
-           sizeof(ip4_address_t));
+           sizeof(ipv4_address_t));
     msg->payload.prefix.address.af = ADDRESS_IP4;
   } else {
     memcpy(&msg->payload.prefix.address.un.ip6, &input_params->prefix->address,
-           sizeof(ip6_address_t));
+           sizeof(ipv6_address_t));
     msg->payload.prefix.address.af = ADDRESS_IP6;
   }
   msg->payload.prefix.len = input_params->prefix->len;
@@ -121,14 +123,14 @@ static vapi_error_e register_cons_app_cb(
 
   if (reply == NULL) return rv;
 
-  output_params->src6 = (ip_address_t *)malloc(sizeof(ip_address_t));
-  output_params->src4 = (ip_address_t *)malloc(sizeof(ip_address_t));
-  memset(output_params->src6, 0, sizeof(ip_address_t));
-  memset(output_params->src4, 0, sizeof(ip_address_t));
+  output_params->src6 = (hicn_ip_address_t *)malloc(sizeof(hicn_ip_address_t));
+  output_params->src4 = (hicn_ip_address_t *)malloc(sizeof(hicn_ip_address_t));
+  memset(output_params->src6, 0, sizeof(hicn_ip_address_t));
+  memset(output_params->src4, 0, sizeof(hicn_ip_address_t));
   memcpy(&output_params->src6->v6, &reply->src_addr6.un.ip6,
-         sizeof(ip6_address_t));
+         sizeof(ipv6_address_t));
   memcpy(&output_params->src4->v4, &reply->src_addr4.un.ip4,
-         sizeof(ip4_address_t));
+         sizeof(ipv4_address_t));
 
   output_params->face_id1 = reply->faceid1;
   output_params->face_id2 = reply->faceid2;
@@ -185,27 +187,27 @@ int hicn_vapi_register_route(vapi_ctx_t ctx,
   vapi_msg_ip_route_add_del *msg = vapi_alloc_ip_route_add_del(ctx, 1);
 
   msg->payload.is_add = 1;
-  if (ip_address_is_v4((ip_address_t *)(input_params->prod_addr))) {
+  if (hicn_ip_address_is_v4((hicn_ip_address_t *)(input_params->prod_addr))) {
     memcpy(&msg->payload.route.prefix.address.un.ip4,
-           &input_params->prefix->address.v4, sizeof(ip4_address_t));
+           &input_params->prefix->address.v4, sizeof(ipv4_address_t));
     msg->payload.route.prefix.address.af = ADDRESS_IP4;
     msg->payload.route.prefix.len = input_params->prefix->len;
   } else {
     memcpy(&msg->payload.route.prefix.address.un.ip6,
-           &input_params->prefix->address.v6, sizeof(ip6_address_t));
+           &input_params->prefix->address.v6, sizeof(ipv6_address_t));
     msg->payload.route.prefix.address.af = ADDRESS_IP6;
     msg->payload.route.prefix.len = input_params->prefix->len;
   }
 
   msg->payload.route.paths[0].sw_if_index = ~0;
   msg->payload.route.paths[0].table_id = 0;
-  if (ip_address_is_v4((ip_address_t *)(input_params->prod_addr))) {
+  if (hicn_ip_address_is_v4((hicn_ip_address_t *)(input_params->prod_addr))) {
     memcpy(&(msg->payload.route.paths[0].nh.address.ip4),
-           input_params->prod_addr->v4.as_u8, sizeof(ip4_address_t));
+           input_params->prod_addr->v4.as_u8, sizeof(ipv4_address_t));
     msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP4;
   } else {
     memcpy(&(msg->payload.route.paths[0].nh.address.ip6),
-           input_params->prod_addr->v6.as_u8, sizeof(ip6_address_t));
+           input_params->prod_addr->v6.as_u8, sizeof(ipv6_address_t));
     msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP6;
   }
 

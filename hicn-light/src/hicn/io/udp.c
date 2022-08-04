@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -58,7 +58,6 @@
 #include "../core/forwarder.h"
 #include "../core/listener.h"
 #include "../core/listener_vft.h"
-#include "../core/messageHandler.h"
 #include "../core/msgbuf.h"
 //#include "../hicn-light/config.h"
 
@@ -336,11 +335,12 @@ static int connection_udp_initialize(connection_t *connection) {
 static void connection_udp_finalize(connection_t *connection) {
   assert(connection);
   assert(connection->type == FACE_TYPE_UDP);
-
+#ifdef __linux__
   connection_udp_data_t *data = connection->data;
   assert(data);
 
   ring_free(data->ring);
+#endif /* __linux__ */
 }
 
 static bool connection_udp_flush(connection_t *connection) {
@@ -374,7 +374,7 @@ SEND:
     msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     // update path label
-    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
+    if (msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_DATA) {
       msgbuf_update_pathlabel(msgbuf, connection_get_id(connection));
 
       connection->stats.data.tx_pkts++;
@@ -460,7 +460,7 @@ static bool connection_udp_send(connection_t *connection, msgbuf_t *msgbuf,
 #endif /* __linux__ */
     /* Send one */
     // update the path label befor send the packet
-    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
+    if (msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_DATA) {
       msgbuf_update_pathlabel(msgbuf, connection_get_id(connection));
 
       connection->stats.data.tx_pkts++;
@@ -478,8 +478,9 @@ static bool connection_udp_send(connection_t *connection, msgbuf_t *msgbuf,
         return false;
       } else {
         // this print is for debugging
-        printf("Incorrect write length %zd, expected %u: (%d) %s\n",
-               writeLength, msgbuf_get_len(msgbuf), errno, strerror(errno));
+        printf("Incorrect write length %zd, expected %lu: (%d) %s\n",
+               writeLength, (long unsigned int)msgbuf_get_len(msgbuf), errno,
+               strerror(errno));
         return false;
       }
     }
@@ -532,8 +533,8 @@ connection_udp_sendv(const connection_t * connection, struct iovec * iov,
 }
 #endif
 
-static int connection_udp_send_packet(const connection_t *connection,
-                                      const uint8_t *packet, size_t size) {
+static bool connection_udp_send_packet(const connection_t *connection,
+                                       const uint8_t *packet, size_t size) {
   assert(connection);
   assert(packet);
 
@@ -555,16 +556,16 @@ static int connection_udp_send_packet(const connection_t *connection,
   ssize_t n = send(connection->fd, packet, size, 0);
   if (n < 0) {
     perror("sendto");
-    return -1;
+    return false;
   }
 #else
   const address_t *remote = connection_get_remote(connection);
   ssize_t n = sendto(connection->fd, packet, size, 0, address_sa(remote),
                      address_socklen(remote));
-  if (n < 0) return -1;
+  if (n < 0) return false;
 #endif
 
-  return 0;
+  return true;
 }
 
 #define connection_udp_read_single \

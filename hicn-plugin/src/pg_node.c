@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,6 +18,9 @@
 #include <vnet/pg/pg.h>
 #include <vnet/ip/ip.h>
 #include <vnet/ethernet/ethernet.h>
+#include <vnet/ip/ip4_packet.h>
+#include <vnet/ip/ip6_packet.h>
+#include <vnet/tcp/tcp_packet.h>
 
 #include "hicn.h"
 #include "pg.h"
@@ -130,6 +133,7 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u8 isv6_0;
   u8 isv6_1;
   u32 n_left_to_next;
+  uword size;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -178,7 +182,8 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  vnet_buffer (b1)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
-	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b0);
+	  if (hicn_interest_parse_pkt (b0, size) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      isv6_0 = hicn_buffer_is_v6 (b0);
@@ -204,7 +209,8 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      next0 = isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 				     HICNPG_INTEREST_NEXT_V4_LOOKUP;
 	    }
-	  if (hicn_interest_parse_pkt (b1) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b1);
+	  if (hicn_interest_parse_pkt (b1, size) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      isv6_1 = hicn_buffer_is_v6 (b1);
@@ -292,7 +298,8 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
-	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b0);
+	  if (hicn_interest_parse_pkt (b0, size) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      isv6_0 = hicn_buffer_is_v6 (b0);
@@ -363,30 +370,28 @@ void
 hicn_rewrite_interestv4 (vlib_main_t *vm, vlib_buffer_t *b0, u32 seq_number,
 			 u16 interest_lifetime, u32 next_flow, u32 iface)
 {
-  hicn_header_t *h0 = vlib_buffer_get_current (b0);
-
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
   /* Generate the right src and dst corresponding to flow and iface */
   ip46_address_t src_addr = {
     .ip4 = hicnpg_main.pgen_clt_src_addr.ip4,
   };
   hicn_name_t dst_name = {
-    .prefix.ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
+    .prefix.v4.as_u32 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4.as_u32,
     .suffix = seq_number,
   };
 
   src_addr.ip4.as_u32 += clib_host_to_net_u32 (iface);
-  dst_name.prefix.ip4.as_u32 += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.v4.as_u32 += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
-  hicn_type_t type = hicn_get_buffer (b0)->type;
-  HICN_OPS4->set_interest_locator (type, &h0->protocol, &src_addr);
-  HICN_OPS4->set_interest_name (type, &h0->protocol, &dst_name);
+  hicn_interest_set_locator (pkbuf, (hicn_ip_address_t *) &src_addr);
+  hicn_interest_set_name (pkbuf, &dst_name);
 
   /* Update lifetime  (currently L4 checksum is not updated) */
-  HICN_OPS4->set_lifetime (type, &h0->protocol, interest_lifetime);
+  hicn_interest_set_lifetime (pkbuf, interest_lifetime);
 
   /* Update checksums */
-  HICN_OPS4->update_checksums (type, &h0->protocol, 0, 0);
+  hicn_packet_compute_checksum (pkbuf);
 }
 
 /**
@@ -409,28 +414,27 @@ void
 hicn_rewrite_interestv6 (vlib_main_t *vm, vlib_buffer_t *b0, u32 seq_number,
 			 u16 interest_lifetime, u32 next_flow, u32 iface)
 {
-  hicn_header_t *h0 = vlib_buffer_get_current (b0);
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
 
   /* Generate the right src and dst corresponding to flow and iface */
   ip46_address_t src_addr = {
     .ip6 = hicnpg_main.pgen_clt_src_addr.ip6,
   };
   hicn_name_t dst_name = {
-    .prefix.ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
+    .prefix = (hicn_ip_address_t) (hicnpg_main.pgen_clt_hicn_name->fp_addr),
     .suffix = seq_number,
   };
   src_addr.ip6.as_u32[3] += clib_host_to_net_u32 (iface);
-  dst_name.prefix.ip6.as_u32[3] += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.v6.as_u32[3] += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
-  hicn_type_t type = hicn_get_buffer (b0)->type;
-  HICN_OPS6->set_interest_locator (type, &h0->protocol, &src_addr);
-  HICN_OPS6->set_interest_name (type, &h0->protocol, &dst_name);
-
+  hicn_interest_set_locator (pkbuf, (hicn_ip_address_t *) &src_addr);
+  hicn_interest_set_name (pkbuf, &dst_name);
   /* Update lifetime */
-  HICN_OPS6->set_lifetime (type, &h0->protocol, interest_lifetime);
+  hicn_interest_set_lifetime (pkbuf, interest_lifetime);
 
   /* Update checksums */
+  hicn_packet_compute_checksum (pkbuf);
   calculate_tcp_checksum_v6 (vm, b0);
 }
 
@@ -811,6 +815,7 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u32 hpgi0, hpgi1;
   hicnpg_server_t *hpg0, *hpg1;
   u32 n_left_to_next;
+  uword size;
 
   from = vlib_frame_vector_args (frame);
 
@@ -863,7 +868,8 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hpg0 = hicnpg_server_get (hpgi0);
 	  hpg1 = hicnpg_server_get (hpgi1);
 
-	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b0);
+	  if (hicn_interest_parse_pkt (b0, size) == HICN_ERROR_NONE)
 	    {
 	      vlib_buffer_t *rb = NULL;
 	      rb = vlib_get_buffer (vm, hpg0->buffer_index);
@@ -875,7 +881,8 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				   HICNPG_SERVER_NEXT_V4_LOOKUP;
 	    }
 
-	  if (hicn_interest_parse_pkt (b1) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b1);
+	  if (hicn_interest_parse_pkt (b1, size) == HICN_ERROR_NONE)
 	    {
 	      vlib_buffer_t *rb = NULL;
 	      rb = vlib_get_buffer (vm, hpg1->buffer_index);
@@ -944,7 +951,8 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hpgi0 = vnet_buffer (b0)->ip.adj_index[VLIB_TX];
 	  hpg0 = hicnpg_server_get (hpgi0);
 
-	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
+	  size = vlib_buffer_length_in_chain (vm, b0);
+	  if (hicn_interest_parse_pkt (b0, size) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      vlib_buffer_t *rb = NULL;
@@ -995,10 +1003,10 @@ void
 convert_interest_to_data_v4 (vlib_main_t *vm, vlib_buffer_t *b0,
 			     vlib_buffer_t *rb, u32 bi0)
 {
-  hicn_header_t *h0 = vlib_buffer_get_current (b0);
+  ip4_header_t *ip4 = vlib_buffer_get_current (b0);
 
   /* Get the packet length */
-  u16 pkt_len = clib_net_to_host_u16 (h0->v4.ip.len);
+  u16 pkt_len = clib_net_to_host_u16 (ip4->length);
 
   /*
    * Rule of thumb: We want the size of the IP packet to be <= 1500 bytes
@@ -1013,14 +1021,14 @@ convert_interest_to_data_v4 (vlib_main_t *vm, vlib_buffer_t *b0,
 
   b0 = vlib_get_buffer (vm, bi0);
 
-  h0 = vlib_buffer_get_current (b0);
+  ip4 = vlib_buffer_get_current (b0);
 
-  ip4_address_t src_addr = h0->v4.ip.saddr;
-  h0->v4.ip.saddr = h0->v4.ip.daddr;
-  h0->v4.ip.daddr = src_addr;
+  ip4_address_t src_addr = ip4->src_address;
+  ip4->src_address = ip4->dst_address;
+  ip4->dst_address = src_addr;
 
-  h0->v4.ip.len = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b0));
-  h0->v4.ip.csum = ip4_header_checksum ((ip4_header_t *) &(h0->v4.ip));
+  ip4->length = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b0));
+  ip4->checksum = ip4_header_checksum (ip4);
   calculate_tcp_checksum_v4 (vm, b0);
 }
 
@@ -1028,11 +1036,11 @@ void
 convert_interest_to_data_v6 (vlib_main_t *vm, vlib_buffer_t *b0,
 			     vlib_buffer_t *rb, u32 bi0)
 {
-  hicn_header_t *h0 = vlib_buffer_get_current (b0);
+  ip6_header_t *ip6 = vlib_buffer_get_current (b0);
 
   /* Get the packet length */
   uint16_t pkt_len =
-    clib_net_to_host_u16 (h0->v6.ip.len) + sizeof (ip6_header_t);
+    clib_net_to_host_u16 (ip6->payload_length) + sizeof (ip6_header_t);
 
   /*
    * Figure out how many bytes we can add to the content
@@ -1049,15 +1057,17 @@ convert_interest_to_data_v6 (vlib_main_t *vm, vlib_buffer_t *b0,
 
   b0 = vlib_get_buffer (vm, bi0);
 
-  h0 = vlib_buffer_get_current (b0);
-  ip6_address_t src_addr = h0->v6.ip.saddr;
-  h0->v6.ip.saddr = h0->v6.ip.daddr;
-  h0->v6.ip.daddr = src_addr;
+  ip6 = vlib_buffer_get_current (b0);
+  ip6_address_t src_addr = ip6->src_address;
+  ip6->src_address = ip6->dst_address;
+  ip6->dst_address = src_addr;
 
-  h0->v6.ip.len = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b0) -
-					sizeof (ip6_header_t));
-  h0->v6.tcp.data_offset_and_reserved |= 0x0f;
-  h0->v6.tcp.urg_ptr = htons (0xffff);
+  ip6->payload_length = clib_host_to_net_u16 (
+    vlib_buffer_length_in_chain (vm, b0) - sizeof (ip6_header_t));
+
+  tcp_header_t *tcp = (tcp_header_t *) (ip6 + 1);
+  tcp->data_offset_and_reserved |= 0x0f;
+  tcp->urgent_pointer = htons (0xffff);
 
   calculate_tcp_checksum_v6 (vm, b0);
 }

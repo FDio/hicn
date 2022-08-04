@@ -257,7 +257,7 @@ ERR_ND:
 int parse_addr(struct nlmsghdr *h, facelet_t **facelet, char *interface_name,
                size_t interface_name_size, char *interface_address,
                size_t interface_address_size) {
-  ip_address_t local_addr = IP_ADDRESS_EMPTY;
+  hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
   struct ifaddrmsg *ifa;  // structure for network interface data
   struct rtattr *tba[IFA_MAX + 1];
 
@@ -298,8 +298,8 @@ int parse_addr(struct nlmsghdr *h, facelet_t **facelet, char *interface_name,
   /* See comment in parse_link */
   if (interface_address) {
     assert(tba[IFA_ADDRESS]);
-    ip_address_snprintf(interface_address, interface_address_size, &local_addr,
-                        ifa->ifa_family);
+    hicn_ip_address_snprintf(interface_address, interface_address_size,
+                             &local_addr);
   }
 
   netdevice_t *netdevice = netdevice_create_from_index(ifa->ifa_index);

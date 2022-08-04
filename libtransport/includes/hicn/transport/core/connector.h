@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -160,18 +160,25 @@ class Connector : public std::enable_shared_from_this<Connector> {
                                                 std::size_t size) {
     utils::MemBuf::Ptr ret;
 
-    auto format = Packet::getFormatFromBuffer(buffer, size);
+    hicn_packet_buffer_t pkbuf;
+    hicn_packet_set_buffer(&pkbuf, buffer, size, size);
+    hicn_packet_analyze(&pkbuf);
+    hicn_packet_type_t type = hicn_packet_get_type(&pkbuf);
 
-    if (TRANSPORT_EXPECT_TRUE(format != HF_UNSPEC && !_is_icmp(format))) {
-      if (Packet::isInterest(buffer)) {
+    // XXX reuse pkbuf when creating the packet, to avoid reanalyzing it
+
+    switch (type) {
+      case HICN_PACKET_TYPE_INTEREST:
         ret = core::PacketManager<>::getInstance()
                   .getPacketFromExistingBuffer<Interest>(buffer, size);
-      } else {
+        break;
+      case HICN_PACKET_TYPE_DATA:
         ret = core::PacketManager<>::getInstance()
                   .getPacketFromExistingBuffer<ContentObject>(buffer, size);
-      }
-    } else {
-      ret = core::PacketManager<>::getInstance().getMemBuf(buffer, size);
+        break;
+      default:
+        ret = core::PacketManager<>::getInstance().getMemBuf(buffer, size);
+        break;
     }
 
     return ret;

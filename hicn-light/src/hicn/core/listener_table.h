@@ -161,9 +161,13 @@ listener_t *_listener_table_get_by_id(listener_table_t *table, off_t id);
 #define listener_table_get_listener_id(table, listener) \
   (listener - table->listeners)
 
-#define listener_table_foreach(table, listener, BODY) \
-  pool_foreach(                                       \
-      table->listeners, listener, do { BODY } while (0))
+#define listener_table_foreach(table, listener, BODY)       \
+  do {                                                      \
+    listener_t *listener;                                   \
+    (void)listener;                                         \
+    pool_foreach(                                           \
+        table->listeners, listener, do { BODY } while (0)); \
+  } while (0)
 
 #define listener_table_enumerate(table, i, conn, BODY) \
   pool_enumerate(table->listeners, (i), (conn), BODY)

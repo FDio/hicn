@@ -1,19 +1,13 @@
-# Copyright (c) 2021 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 
 include(BuildMacros)
 
 list(APPEND TESTS_SRC
-  test-bitmap.cc
   test-configuration.cc
-  test-hash.cc
-  test-khash.cc
+  test-fib.cc
   test-loop.cc
-  test-pool.cc
   test-parser.cc
   test-ctrl.cc
-  test-ring.cc
-  test-vector.cc
-  test-interest_manifest.cc
   test-msgbuf_pool.cc
   test-nexthops.cc
   test-connection_table.cc
@@ -26,8 +20,8 @@ list(APPEND TESTS_SRC
   test-subscription.cc
   test-local_prefixes.cc
   test-probe_generator.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/../config/command_listener.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../config/command_route.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_listener.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_route.c
   main.cc
 )
 
@@ -39,6 +33,7 @@ build_executable(hicn_light_tests
     DEPENDS gtest ${LIBHICNCTRL_STATIC} ${LIBHICN_LIGHT_SHARED}
     COMPONENT ${HICN_LIGHT}
     DEFINITIONS "${COMPILER_DEFINITIONS}"
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )
 
 add_test_internal(hicn_light_tests)

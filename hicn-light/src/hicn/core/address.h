@@ -63,8 +63,8 @@ static inline bool _address6_is_local(struct sockaddr_in6 *sin6) {
   ((address)->as_ss.ss_family == AF_INET) ? address4_is_local(address) \
                                           : address6_is_local(address)
 
-int address_from_ip_port(address_t *address, int family, ip_address_t *addr,
-                         uint16_t port);
+int address_from_ip_port(address_t *address, int family,
+                         hicn_ip_address_t *addr, uint16_t port);
 
 static inline address_t ADDRESS4(in_addr_t in_addr, int port) {
   address_t address = {

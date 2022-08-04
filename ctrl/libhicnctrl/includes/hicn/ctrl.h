@@ -21,5 +21,6 @@
 #define HICNCTRL_H
 
 #include <hicn/ctrl/api.h>
+#include <hicn/ctrl/socket.h>
 
 #endif /* HICNCTRL_H */

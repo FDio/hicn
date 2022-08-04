@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -100,16 +100,16 @@ match_ip6_name (u8 *name, const fib_prefix_t *prefix)
 }
 
 static_always_inline u32
-hicn_face_prod_next_from_data_hdr (vlib_buffer_t *b)
+hicn_face_prod_next_from_data_hdr (vlib_main_t *vm, vlib_buffer_t *b)
 {
   u8 is_v6;
   int match_res = 1;
   int ret = 0;
-  hicn_name_t *name;
+  hicn_name_t name;
   hicn_face_prod_state_t *prod_face = NULL;
 
   // 1 - ensure the packet is hicn and its format is correct
-  ret = hicn_data_parse_pkt (b);
+  ret = hicn_data_parse_pkt (b, vlib_buffer_length_in_chain (vm, b));
   if (PREDICT_FALSE (ret))
     {
       return HICN_FACE_PROD_NEXT_ERROR_DROP;
@@ -124,14 +124,14 @@ hicn_face_prod_next_from_data_hdr (vlib_buffer_t *b)
   // of this face
   const fib_prefix_t *prefix = &prod_face->prefix;
   is_v6 = hicn_buffer_is_v6 (b);
-  name = &hicn_get_buffer (b)->name;
+  hicn_packet_get_name (&hicn_get_buffer (b)->pkbuf, &name);
   if (PREDICT_TRUE (!is_v6 && ip46_address_is_ip4 (&prefix->fp_addr)))
     {
-      match_res = match_ip4_name (&name->prefix.ip4.as_u32, prefix);
+      match_res = match_ip4_name (&name.prefix.v4.as_u32, prefix);
     }
   else if (PREDICT_TRUE (is_v6 && !ip46_address_is_ip4 (&prefix->fp_addr)))
     {
-      match_res = match_ip6_name (name->prefix.ip6.as_u8, prefix);
+      match_res = match_ip6_name (name.prefix.v6.as_u8, prefix);
     }
 
   // 4 - if match found, forward data to next hicn node
@@ -230,10 +230,10 @@ hicn_face_prod_input_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicnb3->flags = HICN_FACE_FLAGS_DEFAULT;
 
 	  // parse packets and get next node
-	  next0 = hicn_face_prod_next_from_data_hdr (b0);
-	  next1 = hicn_face_prod_next_from_data_hdr (b1);
-	  next2 = hicn_face_prod_next_from_data_hdr (b2);
-	  next3 = hicn_face_prod_next_from_data_hdr (b3);
+	  next0 = hicn_face_prod_next_from_data_hdr (vm, b0);
+	  next1 = hicn_face_prod_next_from_data_hdr (vm, b1);
+	  next2 = hicn_face_prod_next_from_data_hdr (vm, b2);
+	  next3 = hicn_face_prod_next_from_data_hdr (vm, b3);
 	  stats.pkts_data_count += 4;
 
 	  // counters
@@ -304,7 +304,7 @@ hicn_face_prod_input_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicnb0 = hicn_get_buffer (b0);
 	  hicnb0->flags = HICN_FACE_FLAGS_DEFAULT;
 
-	  next0 = hicn_face_prod_next_from_data_hdr (b0);
+	  next0 = hicn_face_prod_next_from_data_hdr (vm, b0);
 	  stats.pkts_data_count++;
 
 	  // counters

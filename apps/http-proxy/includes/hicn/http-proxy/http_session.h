@@ -21,7 +21,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wshorten-64-to-32"
 #endif
-#include <asio.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 #ifdef __APPLE__
 #pragma clang diagnostic pop
 #endif

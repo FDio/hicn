@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,7 +18,6 @@
 #include <hicn/hicn-light/config.h>
 #include <hicn/core/fib_entry.h>
 #include <hicn/core/strategy.h>
-#include <hicn/core/nameBitvector.h>
 
 #ifdef WITH_MAPME
 #include <hicn/core/ticks.h>
@@ -38,17 +37,22 @@
 #include <hicn/core/policy_stats.h>
 #endif /* WITH_POLICY_STATS */
 
-fib_entry_t *fib_entry_create(Name *name, strategy_type_t strategy_type,
+fib_entry_t *fib_entry_create(const hicn_prefix_t *prefix,
+                              strategy_type_t strategy_type,
                               strategy_options_t *strategy_options,
                               const forwarder_t *forwarder) {
-  assert(name);
-  assert(forwarder);
+  assert(prefix);
+  /*
+   * For tests, we allow forwarder to be NULL, some
+   * functions cannot be called but otherwise we need a main loop, etc.
+   */
+  // assert(forwarder);
 
   fib_entry_t *entry = malloc(sizeof(fib_entry_t));
   if (!entry) goto ERR_MALLOC;
 
   memset(entry, 0, sizeof(*entry));
-  name_Copy(name, &entry->name);
+  hicn_prefix_copy(&entry->prefix, prefix);
   entry->nexthops = NEXTHOPS_EMPTY;
 
   fib_entry_add_strategy_options(entry, STRATEGY_TYPE_BESTPATH, NULL);
@@ -148,8 +152,10 @@ void fib_entry_set_strategy(fib_entry_t *entry, strategy_type_t strategy_type,
   strategy_initialize(&entry->strategy, entry->forwarder);
 }
 
-#ifdef WITH_POLICY
-
+/*
+ * Filters the set of nexthops passed as parameters (and not the one stored in
+ * the FIB entry
+ */
 nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
                                       unsigned ingress_id, bool prefer_local) {
   assert(entry);
@@ -165,7 +171,6 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
   const connection_table_t *table =
       forwarder_get_connection_table(entry->forwarder);
   connection_t *conn;
-  unsigned nexthop, i;
   uint_fast32_t flags;
 
   hicn_policy_t policy = fib_entry_get_policy(entry);
@@ -205,6 +210,7 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
     conn = connection_table_at(table, nexthop);
     nexthops_disable_if(nexthops, i, (connection_is_local(conn)));
 
+#ifdef WITH_POLICY
     /* Policy filtering : next hops */
     nexthops_disable_if(
         nexthops, i,
@@ -238,6 +244,7 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
         nexthops, i,
         (policy.tags[POLICY_TAG_TRUSTED].state == POLICY_STATE_PROHIBIT) &&
             (connection_has_tag(conn, POLICY_TAG_TRUSTED)));
+#endif /* WITH_POLICY */
   });
 
   if (nexthops_get_curlen(nexthops) == 0) {
@@ -248,6 +255,7 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
 
   /* We have at least one matching next hop, implement heuristic */
 
+#ifdef WITH_POLICY
   /*
    * As VPN connections might trigger duplicate uses of one interface, we start
    * by filtering out interfaces based on trust status.
@@ -329,6 +337,8 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
     });
     if (nexthops_get_curlen(nexthops) == 0) nexthops->flags = flags;
   }
+// XXX backup curlen ???
+#endif /* WITH_POLICY */
 
   DEBUG("[fib_entry_filter_nexthops] before face priority num=%d/%d",
         nexthops_get_curlen(nexthops), nexthops_get_len(nexthops));
@@ -349,7 +359,60 @@ nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
   DEBUG("[fib_entry_filter_nexthops] result num=%d/%d",
         nexthops_get_curlen(nexthops), nexthops_get_len(nexthops));
 
+  /* Nexthop priority */
+
+  /*
+   * Filter out nexthops with lowest strategy priority.
+   * Initializing at 0 allows to disable nexthops with a negative priority
+   */
+  max_priority = 0;
+  nexthops_enumerate(nexthops, i, nexthop, {
+    (void)nexthop;
+    int priority = nexthops->state[i].priority;
+    if (priority > max_priority) max_priority = priority;
+  });
+  nexthops_enumerate(nexthops, i, nexthop, {
+    int priority = nexthops->state[i].priority;
+    nexthops_disable_if(nexthops, i, (priority < max_priority));
+  });
+
+  /*
+   * If multipath is disabled, we don't offer much choice to the forwarding
+   * strategy, but still go through it for accounting purposes.
+   */
+  if ((policy.tags[POLICY_TAG_MULTIPATH].state == POLICY_STATE_PROHIBIT) ||
+      (policy.tags[POLICY_TAG_MULTIPATH].state == POLICY_STATE_AVOID)) {
+    DEBUG(
+        "[fib_entry_get_nexthops_from_strategy] select single nexthops due to "
+        "multipath policy");
+    nexthops_select_first(nexthops);
+  }
+
   return nexthops;
+}
+
+/*
+ * Retrieve all candidate nexthops for sending mapme updates == all non local
+ * connections. We don't apply the policy at this stage.
+ */
+nexthops_t *fib_entry_get_mapme_nexthops(fib_entry_t *entry,
+                                         nexthops_t *new_nexthops) {
+  assert(new_nexthops);
+
+  const connection_table_t *table =
+      forwarder_get_connection_table(entry->forwarder);
+
+  /* We create a nexthop structure based on connections */
+  // XXX This should be done close to where it is needed
+  connection_t *connection;
+  connection_table_foreach(table, connection, {
+    if (connection_is_local(connection)) continue;
+    new_nexthops->elts[nexthops_get_len(new_nexthops)] =
+        connection_table_get_connection_id(table, connection);
+    nexthops_inc(new_nexthops);
+  });
+
+  return new_nexthops;
 }
 
 /*
@@ -397,13 +460,20 @@ nexthops_t *fib_entry_get_available_nexthops(fib_entry_t *entry,
 #endif
 }
 
+#ifdef WITH_POLICY
+
 hicn_policy_t fib_entry_get_policy(const fib_entry_t *entry) {
   return entry->policy;
 }
 
 void fib_entry_set_policy(fib_entry_t *entry, hicn_policy_t policy) {
+  INFO("fib_entry_set_policy");
   entry->policy = policy;
 
+  forwarder_on_route_event(entry->forwarder, entry);
+
+  // XXX generic mechanism to perform a mapme update
+#if 0
 #ifdef WITH_MAPME
   /*
    * Skip entries that do not correspond to a producer ( / have a locally
@@ -411,8 +481,8 @@ void fib_entry_set_policy(fib_entry_t *entry, hicn_policy_t policy) {
    */
   if (!fib_entry_has_local_nexthop(entry)) return;
   mapme_t *mapme = forwarder_get_mapme(entry->forwarder);
-  mapme_set_all_adjacencies(mapme, entry);
 #endif /* WITH_MAPME */
+#endif
 }
 
 #endif /* WITH_POLICY */
@@ -475,10 +545,7 @@ nexthops_t *fib_entry_get_nexthops_from_strategy(fib_entry_t *entry,
    * Initializing at 0 allows to disable nexthops with a negative priority
    */
   unsigned max_priority = 0;
-  unsigned i;
-  nexthop_t nexthop;
   nexthops_enumerate(nexthops, i, nexthop, {
-    (void)nexthop;
     int priority = nexthops->state[i].priority;
     if (priority > max_priority) max_priority = priority;
   });
@@ -546,9 +613,9 @@ void fib_entry_on_timeout(fib_entry_t *entry,
   strategy_on_timeout(&entry->strategy, &entry->nexthops, timeout_nexthops);
 }
 
-const Name *fib_entry_get_prefix(const fib_entry_t *entry) {
+const hicn_prefix_t *fib_entry_get_prefix(const fib_entry_t *entry) {
   assert(entry);
-  return &(entry->name);
+  return &(entry->prefix);
 }
 
 /*
@@ -557,7 +624,6 @@ const Name *fib_entry_get_prefix(const fib_entry_t *entry) {
 bool fib_entry_has_local_nexthop(const fib_entry_t *entry) {
   connection_table_t *table = forwarder_get_connection_table(entry->forwarder);
 
-  unsigned nexthop;
   nexthops_foreach(fib_entry_get_nexthops(entry), nexthop, {
     const connection_t *conn = connection_table_at(table, nexthop);
     /* Ignore non-local connections */

@@ -27,6 +27,7 @@
 extern "C" {
 #define WITH_TESTS
 #include <hicn/core/listener_table.h>
+#include <hicn/util/log.h>
 }
 
 #define LISTENER_NAME "listener_name_test"
@@ -217,7 +218,6 @@ TEST_F(ListenerTableTest, Iterate) {
   listener_2->key = key_2;
 
   // Iterate over the listener table and count the listeners
-  listener_t *l;
   int count = 0;
   listener_table_foreach(listener_table_, l, { count++; });
   EXPECT_EQ(count, 2);

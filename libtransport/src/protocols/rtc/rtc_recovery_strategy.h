@@ -21,6 +21,7 @@
 #include <protocols/rtc/rtc_state.h>
 
 #include <map>
+#include <optional>
 #include <unordered_map>
 
 namespace transport {

@@ -20,11 +20,13 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <hicn/ctrl/hicn-light.h>
 #include <hicn/config/configuration_file.h>
 #include <hicn/util/sstrncpy.h>
 
 #include "commands.h"
-#include "parse.h"
+#include <hicn/ctrl/parse.h>
 
 #define BUFFERLEN 2048
 
@@ -62,12 +64,17 @@ bool configuration_file_process(forwarder_t *forwarder, const char *filename) {
 
   char buffer[BUFFERLEN];
   bool success = true;
+
+#if 0
   // TODO(eloparco): We could use a fake socket since we only need the vft
-  hc_sock_t *s = hc_sock_create_forwarder(HICNLIGHT_NG);
+  hc_sock_t *s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   if (!s) {
     ERROR("Could not create socket");
     goto ERR_SOCK;
   }
+#else
+  hc_sock_initialize_module(NULL);
+#endif
 
   while (success && fgets(buffer, BUFFERLEN, f) != NULL) {
     linesRead++;
@@ -83,42 +90,31 @@ bool configuration_file_process(forwarder_t *forwarder, const char *filename) {
       continue;
     }
 
-    // TODO(eloparco): Handle all commands
-    hc_result_t *result = NULL;
-    if (command.action == ACTION_CREATE) {
-      if (command.object.type == OBJECT_LISTENER) {
-        result = hc_listener_create_conf(s, &command.object.listener);
-      } else if (command.object.type == OBJECT_CONNECTION) {
-        result = hc_connection_create_conf(s, &command.object.connection);
-      } else if (command.object.type == OBJECT_ROUTE) {
-        result = hc_route_create_conf(s, &command.object.route);
-      } else if (command.object.type == OBJECT_LOCAL_PREFIX) {
-        result = hc_strategy_add_local_prefix_conf(s, &command.object.strategy);
-      }
-    } else if (command.action == ACTION_SET) {
-      if (command.object.type == OBJECT_STRATEGY) {
-        result = hc_strategy_set_conf(s, &command.object.strategy);
-      }
-    }
-    if (result == NULL) {
-      ERROR("Command '%s' not supported", cmd);
-      continue;
+    /* Serialize request into message */
+    // hc_msg_t msg;
+    uint8_t msg[1024];
+    ssize_t msg_len = hc_light_command_serialize(
+        command.action, command.object_type, &command.object, msg);
+    switch (msg_len) {
+      case -1:
+      case -2:
+        ERROR("Command '%s' not supported", cmd);
+        continue;
+      case -3:
+        ERROR("Error during command serialization '%s'", cmd);
+        continue;
+      default:
+        break;
     }
 
     size_t _unused;
-    hc_msg_t *msg = hc_result_get_msg(s, result);
-    command_type_t cmd_id = hc_result_get_cmd_id(s, result);
-    bool success = hc_result_get_success(s, result);
-    if (success == false) {
-      ERROR("Error serializing command : '%s'", cmd);
-      continue;
-    }
-
-    command_process(forwarder, (uint8_t *)msg, cmd_id, CONNECTION_ID_UNDEFINED,
+    command_process(forwarder, (uint8_t *)msg, CONNECTION_ID_UNDEFINED,
                     &_unused);
-    hc_result_free(result);
   }
+
+#if 0
   hc_sock_free(s);
+#endif
 
   if (ferror(f)) {
     ERROR("Error on input file %s line %d: (%d) %s", filename, linesRead, errno,
@@ -128,8 +124,10 @@ bool configuration_file_process(forwarder_t *forwarder, const char *filename) {
   fclose(f);
   return true;
 
+#if 0
 ERR_SOCK:
   hc_sock_free(s);
+#endif
 ERR_READ:
   fclose(f);
 ERR_OPEN:

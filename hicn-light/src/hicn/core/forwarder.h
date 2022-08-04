@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -74,7 +74,7 @@ void forwarder_setup_local_listeners(forwarder_t *forwarder, uint16_t port);
 
 configuration_t *forwarder_get_configuration(forwarder_t *forwarder);
 
-subscription_table_t *forwarder_get_subscriptions(forwarder_t *forwarder);
+subscription_table_t *forwarder_get_subscriptions(const forwarder_t *forwarder);
 
 /**
  * Returns the set of currently active listeners
@@ -84,7 +84,7 @@ subscription_table_t *forwarder_get_subscriptions(forwarder_t *forwarder);
  * @retval non-null The set of active listeners
  * @retval null An error
  */
-listener_table_t *forwarder_get_listener_table(forwarder_t *forwarder);
+listener_table_t *forwarder_get_listener_table(const forwarder_t *forwarder);
 
 /**
  * Returns the forwrder's connection table
@@ -122,40 +122,43 @@ void forwarder_cs_clear(forwarder_t *forwarder);
 /**
  * @brief Adds or updates a route on all the message processors
  */
-bool forwarder_add_or_update_route(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_add_or_update_route(forwarder_t *forwarder,
+                                   hicn_ip_prefix_t *prefix,
                                    unsigned ingress_id);
 
 /**
  * @brief Removes a route from all the message processors
  */
-bool forwarder_remove_route(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_remove_route(forwarder_t *forwarder, hicn_ip_prefix_t *prefix,
                             unsigned ingress_id);
 
 #ifdef WITH_POLICY
 /**
  * @brief Adds or updates a policy on the message processor
  */
-bool forwarder_add_or_update_policy(forwarder_t *forwarder, ip_prefix_t *prefix,
+bool forwarder_add_or_update_policy(forwarder_t *forwarder,
+                                    hicn_ip_prefix_t *prefix,
                                     hicn_policy_t *policy);
 
 /**
  * @brief Removes a policy from the message processor
  */
-bool forwarder_remove_policy(forwarder_t *forwarder, ip_prefix_t *prefix);
+bool forwarder_remove_policy(forwarder_t *forwarder, hicn_ip_prefix_t *prefix);
 
 #endif /* WITH_POLICY */
 
 /**
  * Removes a connection id from all routes
  */
-void forwarder_remove_connection_id_from_routes(forwarder_t *forwarder,
+void forwarder_remove_connection_id_from_routes(const forwarder_t *forwarder,
                                                 unsigned connection_id);
 
-void forwarder_add_strategy_options(forwarder_t *forwarder, Name *name_prefix,
+void forwarder_add_strategy_options(forwarder_t *forwarder,
+                                    hicn_prefix_t *name_prefix,
                                     strategy_type_t strategy_type,
                                     strategy_options_t *strategy_options);
 
-void forwarder_set_strategy(forwarder_t *forwarder, Name *name_prefix,
+void forwarder_set_strategy(forwarder_t *forwarder, hicn_prefix_t *prefix,
                             strategy_type_t strategy_type,
                             strategy_options_t *strategy_options);
 
@@ -178,7 +181,7 @@ void forwarder_acquired_msgbuf_ids_push(const forwarder_t *forwarder,
  * @param[in] forwarder - Pointer to the forwarder.
  * @returns Pointer to the hICN FIB.
  */
-fib_t *forwarder_get_fib(forwarder_t *forwarder);
+fib_t *forwarder_get_fib(const forwarder_t *forwarder);
 
 /**
  * @brief Return the forwarder packet pool.
@@ -189,6 +192,16 @@ fib_t *forwarder_get_fib(forwarder_t *forwarder);
 msgbuf_pool_t *forwarder_get_msgbuf_pool(const forwarder_t *forwarder);
 
 #ifdef WITH_MAPME
+
+void forwarder_on_route_event(const forwarder_t *forwarder, fib_entry_t *entry);
+
+int forwarder_add_connection(const forwarder_t *forwarder,
+                             const char *symbolic_name, face_type_t type,
+                             address_pair_t *pair, policy_tags_t tags,
+                             int priority, face_state_t admin_state);
+
+int forwarder_remove_connection(const forwarder_t *forwarder,
+                                unsigned connection_id, bool finalize);
 
 /**
  * @brief Callback fired upon addition of a new connection through the

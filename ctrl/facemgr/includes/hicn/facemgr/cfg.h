@@ -76,8 +76,9 @@ int facemgr_cfg_rule_set_ipv6(facemgr_cfg_rule_t* cfg_rule, bool status);
 int facemgr_cfg_rule_unset_ipv6(facemgr_cfg_rule_t* cfg_rule);
 
 int facemgr_cfg_rule_set_overlay(facemgr_cfg_rule_t* rule, int family,
-                                 ip_address_t* local_addr, uint16_t local_port,
-                                 ip_address_t* remote_addr,
+                                 hicn_ip_address_t* local_addr,
+                                 uint16_t local_port,
+                                 hicn_ip_address_t* remote_addr,
                                  uint16_t remote_port);
 int facemgr_rule_unset_overlay(facemgr_cfg_rule_t* rule, int family);
 
@@ -93,8 +94,9 @@ int facemgr_cfg_set_ipv6(facemgr_cfg_t* cfg, bool status);
 int facemgr_cfg_unset_ipv6(facemgr_cfg_t* cfg);
 
 int facemgr_cfg_set_overlay(facemgr_cfg_t* cfg, int family,
-                            ip_address_t* local_addr, uint16_t local_port,
-                            ip_address_t* remote_addr, uint16_t remote_port);
+                            hicn_ip_address_t* local_addr, uint16_t local_port,
+                            hicn_ip_address_t* remote_addr,
+                            uint16_t remote_port);
 int facemgr_cfg_unset_overlay(facemgr_cfg_t* cfg, int family);
 
 int facemgr_cfg_add_rule(facemgr_cfg_t* cfg, facemgr_cfg_rule_t* rule);
@@ -128,7 +130,7 @@ int facemgr_cfg_get_ipv6(const facemgr_cfg_t* cfg, const netdevice_t* netdevice,
 int facemgr_cfg_get_overlay_local_addr(const facemgr_cfg_t* cfg,
                                        const netdevice_t* netdevice,
                                        netdevice_type_t netdevice_type,
-                                       int family, ip_address_t* addr);
+                                       int family, hicn_ip_address_t* addr);
 int facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t* cfg,
                                        const netdevice_t* netdevice,
                                        netdevice_type_t netdevice_type,
@@ -136,7 +138,7 @@ int facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t* cfg,
 int facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t* cfg,
                                         const netdevice_t* netdevice,
                                         netdevice_type_t netdevice_type,
-                                        int family, ip_address_t* addr);
+                                        int family, hicn_ip_address_t* addr);
 int facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t* cfg,
                                         const netdevice_t* netdevice,
                                         netdevice_type_t netdevice_type,
@@ -154,11 +156,13 @@ int facemgr_cfg_rule_get_ignore(const facemgr_cfg_rule_t* cfg_rule,
 int facemgr_cfg_rule_get_ipv4(const facemgr_cfg_rule_t* cfg_rule, bool* status);
 int facemgr_cfg_rule_get_ipv6(const facemgr_cfg_rule_t* cfg_rule, bool* status);
 int facemgr_cfg_rule_get_overlay_local_addr(const facemgr_cfg_rule_t* rule,
-                                            int family, ip_address_t* addr);
+                                            int family,
+                                            hicn_ip_address_t* addr);
 int facemgr_cfg_rule_get_overlay_local_port(const facemgr_cfg_rule_t* rule,
                                             int family, uint16_t* port);
 int facemgr_cfg_rule_get_overlay_remote_addr(const facemgr_cfg_rule_t* rule,
-                                             int family, ip_address_t* addr);
+                                             int family,
+                                             hicn_ip_address_t* addr);
 int facemgr_cfg_rule_get_overlay_remote_port(const facemgr_cfg_rule_t* rule,
                                              int family, uint16_t* port);
 

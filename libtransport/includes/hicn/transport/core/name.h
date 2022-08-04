@@ -96,7 +96,7 @@ class Name {
 
   Name &setSuffix(uint32_t seq_number);
 
-  ip_prefix_t toIpAddress() const;
+  hicn_ip_prefix_t toIpAddress() const;
 
   void copyPrefixToDestination(uint8_t *destination) const;
 

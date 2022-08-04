@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -106,21 +106,24 @@ int nexthops_disable(nexthops_t *nexthops, off_t offset);
 
 void nexthops_reset(nexthops_t *nexthops);
 
-#define nexthops_enumerate(NH, i, X, BODY)             \
+#define nexthops_enumerate(NH, I, X, BODY)             \
   do {                                                 \
-    for ((i) = 0; (i) < nexthops_get_len(NH); (i)++) { \
-      if (nexthops_is_disabled((NH), (i))) continue;   \
-      X = (NH)->elts[(i)];                             \
+    nexthop_t X;                                       \
+    (void)X;                                           \
+    unsigned I;                                        \
+    (void)I;                                           \
+    for ((I) = 0; (I) < nexthops_get_len(NH); (I)++) { \
+      if (nexthops_is_disabled((NH), (I))) continue;   \
+      X = (NH)->elts[(I)];                             \
       do {                                             \
         BODY                                           \
       } while (0);                                     \
     }                                                  \
   } while (0)
 
-#define nexthops_foreach(NH, X, BODY)                        \
-  do {                                                       \
-    unsigned _nexthops_var(i);                               \
-    nexthops_enumerate((NH), _nexthops_var(i), (X), {BODY}); \
+#define nexthops_foreach(NH, X, BODY)                      \
+  do {                                                     \
+    nexthops_enumerate((NH), _nexthops_var(i), X, {BODY}); \
   } while (0)
 
 off_t nexthops_add(nexthops_t *nexthops, nexthop_t nexthop);
@@ -172,5 +175,7 @@ bool nexthops_equal(nexthops_t *a, nexthops_t *b);
 void nexthops_copy(nexthops_t *src, nexthops_t *dst);
 
 #endif /* WITH_POLICY */
+
+uint32_t nexthops_get_hash(nexthops_t *nexthops);
 
 #endif /* HICNLIGHT_NEXTHOPS_H */
