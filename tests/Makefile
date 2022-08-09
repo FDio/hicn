@@ -1,12 +1,12 @@
 # Use when building for the fist time,
 # then `make test` forces a rebuild if local changes
 build:
-	BASE_IMAGE=hicn DOCKERFILE=Dockerfile.dev BUILD_SOFTWARE=1 \
+	DOCKERFILE=Dockerfile.dev BUILD_SOFTWARE=1 \
 		docker-compose -f build.yml up --force-recreate --remove-orphans
 
 # Rebuild from scratch (to avoid cmake cache)
 rebuild:
-	BASE_IMAGE=hicn DOCKERFILE=Dockerfile.dev BUILD_SOFTWARE=1 \
+	DOCKERFILE=Dockerfile.dev BUILD_SOFTWARE=1 \
 		REBUILD=1 \
 		docker-compose -f build.yml up --force-recreate --remove-orphans
 
