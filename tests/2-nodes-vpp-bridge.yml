@@ -18,7 +18,7 @@ services:
         sudo tee /etc/vpp/startup.conf <<EOF
         cpu { main-core 1 }
         plugins {
-            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }
@@ -70,7 +70,7 @@ services:
         sudo tee /etc/vpp/startup.conf <<EOF
         cpu { main-core 2 }
         plugins {
-            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }
