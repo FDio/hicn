@@ -4,8 +4,6 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
-      args:
-        BASE_IMAGE: ${BASE_IMAGE}
     image: hicn-base
     privileged: true
     container_name: forwarder

@@ -13,7 +13,7 @@
 
 
 export WS_ROOT=$(CURDIR)
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 FUNCTIONAL := tests/run-functional.sh
 MKDIR := mkdir -p
 RM := rm
