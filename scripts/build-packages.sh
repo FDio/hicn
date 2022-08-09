@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2017-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -28,7 +28,7 @@ function build_package() {
     echo "*******************************************************************"
 
     # Make the package
-    make -C ${SCRIPT_PATH}/.. INSTALL_PREFIX=/usr test package-release
+    make -C "${SCRIPT_PATH}/.." BUILD_PATH="${SCRIPT_PATH}/../packages" INSTALL_PREFIX=/usr test package-release
 
     pushd ${SCRIPT_PATH}/../build-release-${ID}
       find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
@@ -37,6 +37,19 @@ function build_package() {
 
     echo "*******************************************************************"
     echo "*****************  BUILD COMPLETED SUCCESSFULLY *******************"
+    echo "*******************************************************************"
+}
+
+function functional_test() {
+    echo "*******************************************************************"
+    echo "********************* STARTING FUNCTIONAL TESTS *******************"
+    echo "*******************************************************************"
+
+    # Run functional tests
+    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./tests/run-functional.sh
+
+    echo "*******************************************************************"
+    echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
     echo "*******************************************************************"
 }
 
@@ -69,6 +82,7 @@ case "${1}" in
     ;;
   packages)
     build_package
+    functional_test
     ;;
   *)
     usage

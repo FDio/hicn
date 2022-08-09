@@ -4,8 +4,6 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
-      args:
-        BASE_IMAGE: ${BASE_IMAGE}
     stdin_open: true
     tty: true
     working_dir: /workspace
@@ -26,7 +24,7 @@ services:
         cpu { main-core 1 }
         buffers { buffers-per-numa 600000 }
         plugins {
-            path /hicn-root/lib/vpp_plugins:/usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /hicn-root/lib/vpp_plugins:/usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }
@@ -75,8 +73,6 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
-      args:
-        BASE_IMAGE: ${BASE_IMAGE}
     stdin_open: true
     tty: true
     working_dir: /workspace
@@ -98,7 +94,7 @@ services:
         buffers { buffers-per-numa 600000 }
 
         plugins {
-            path /hicn-root/lib/vpp_plugins:/usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /hicn-root/lib/vpp_plugins:/usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }
