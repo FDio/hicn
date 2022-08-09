@@ -1,5 +1,40 @@
-ARG BASE_IMAGE
+FROM ubuntu:focal
 
-FROM ${BASE_IMAGE}
+ARG DEBIAN_FRONTEND=noninteractive
+ARG DEB_FOLDER="./packages"
 
-RUN sudo sed -i 's,secure_path="\(.*\)",secure_path="/hicn-root/bin:\1",' /etc/sudoers
+WORKDIR /hicn-release
+
+################################################################
+# Copy DEB files
+################################################################
+COPY ${DEB_FOLDER} deb
+
+################################################################
+# Install VPP and hicn debs
+################################################################
+ARG VERSION_PATH=/tmp/versions.cmake
+COPY versions.cmake ${VERSION_PATH}
+ARG INSTALL_VPP_SCRIPT=/tmp/install-vpp.sh
+COPY scripts/install-vpp.sh ${INSTALL_VPP_SCRIPT}
+
+RUN bash -x ${INSTALL_VPP_SCRIPT}                       \
+    && cd deb                                                   \
+    && apt-get install -y                                  \
+    iproute2 sudo \
+    ./libhicn_*.deb                                         \
+    ./hicn-light_*.deb                                      \
+    ./hicn-plugin_*.deb                                     \
+    ./libhicnctrl_*.deb                                     \
+    ./libhicnctrl-modules_*.deb                             \
+    ./libhicntransport-io-modules_*.deb                     \
+    ./libhicntransport_*.deb                                \
+    ./facemgr_*.deb                                         \
+    ./hicn-apps_*.deb                                       \
+    && rm ${VERSION_PATH}                                  \
+    && rm -rf deb                                          \
+    && rm -rf /var/lib/apt/lists/*                         \
+    && apt-get autoremove -y                               \
+    && apt-get clean
+
+WORKDIR /
