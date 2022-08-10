@@ -17,7 +17,7 @@ services:
         cpu { main-core 1 }
         buffers { buffers-per-numa 600000 }
         plugins {
-            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }
@@ -75,7 +75,7 @@ services:
         buffers { buffers-per-numa 600000 }
 
         plugins {
-            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
             plugin default { disable }
             plugin acl_plugin.so { enable }
             plugin nat_plugin.so { enable }

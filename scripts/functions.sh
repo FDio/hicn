@@ -56,6 +56,8 @@ function call_once() {
 
 # Install dependencies
 function install_deps() {
+  curl -fsSL https://get.docker.com -o get-docker.sh
+  sudo sh get-docker.sh
   make -C ${SCRIPT_PATH}/.. deps
 }
 
