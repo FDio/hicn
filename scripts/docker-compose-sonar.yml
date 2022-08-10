@@ -1,0 +1,13 @@
+version: "3"
+services:
+  sonar:
+    build:
+      context: ../
+      dockerfile: scripts/Dockerfile.sonarcloud
+    container_name: sonarcloud
+    hostname: sonarcloud
+    volumes:
+      - ..:/workspace
+    command:
+      - |
+        /workspace/scripts/build-sonar.sh
