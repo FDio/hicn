@@ -1,7 +1,0 @@
-<face-ip-add xmlns="urn:sysrepo:hicn">
-    <lip4>192.168.20.10</lip4>
-    <lip6>-1</lip6>
-    <rip4>192.168.100.1</rip4>
-    <rip6>-1</rip6>
-    <swif>0</swif>
-</face-ip-add>

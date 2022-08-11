@@ -20,11 +20,7 @@ list(APPEND CMAKE_MODULE_PATH
 include("${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake")
 set (DESTDIR ${CMAKE_BINARY_DIR}/extras-root)
 
-# add_subdirectory(router-plugin)
 add_subdirectory(libmemif)
-# add_subdirectory(libyang)
-# add_subdirectory(sysrepo)
-
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   include(Packager)

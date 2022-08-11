@@ -1,6 +1,0 @@
-<punting-add xmlns="urn:sysrepo:hicn">
-    <ip4>192.168.0.1</ip4>
-    <ip6>-1</ip6>
-    <len>24</len>
-    <swif>0</swif>
-</punting-add>
