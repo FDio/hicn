@@ -10,4 +10,4 @@ services:
       - ..:/workspace
     command:
       - |
-        /workspace/scripts/build-sonar.sh
+        /workspace/scripts/run-sonar.sh
