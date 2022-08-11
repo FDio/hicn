@@ -1,27 +1,16 @@
+# Copyright (c) 2017-2022 Cisco and/or its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at:
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #!/bin/bash
 
-# SONAR_HOST_URL=https://sonarcloud.io
-# PROJECT_KEY=fdio_hicn
-# PROJECT_ORGANIZATION=fdio
-
-export SONAR_TOKEN=$API_TOKEN
-export SONAR_SCANNER_VERSION=4.7.0.2747
-export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-$SONAR_SCANNER_VERSION-linux
-curl --create-dirs -sSLo $HOME/.sonar/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONAR_SCANNER_VERSION-linux.zip
-unzip -o $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
-export PATH=$SONAR_SCANNER_HOME/bin:$PATH
-export SONAR_SCANNER_OPTS="-server"
-curl --create-dirs -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
-unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
-export PATH=$HOME/.sonar/build-wrapper-linux-x86:$PATH
-
-cd /workspace
-
-$HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output make build
-
-$SONAR_SCANNER_HOME/bin/sonar-scanner \
--Dsonar.organization=$PROJECT_ORGANIZATION \
--Dsonar.projectKey=$PROJECT_KEY \
--Dsonar.sources=/workspace \
--Dsonar.cfamily.build-wrapper-output=bw-output \
--Dsonar.host.url=$SONAR_HOST_URL
+docker-compose -f docker-compose-sonar.yaml up
