@@ -17,6 +17,9 @@ export PATH=$HOME/.sonar/build-wrapper-linux-x86:$PATH
 
 cd /workspace
 
+git config --global --add safe.directory /workspace
+git config --global --add safe.directory /workspace/cmake
+
 $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output make build
 
 $SONAR_SCANNER_HOME/bin/sonar-scanner \
