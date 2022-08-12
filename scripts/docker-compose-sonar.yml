@@ -12,7 +12,7 @@ services:
       PROJECT_KEY: $PROJECT_KEY
       PROJECT_ORGANIZATION: $PROJECT_ORGANIZATION
     volumes:
-      - ..:/workspace
+      - ..:/workspace:z
     command:
       - |
         /workspace/scripts/run-sonar.sh
