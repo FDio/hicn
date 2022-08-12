@@ -86,8 +86,11 @@ case "${1}" in
     build_package
     functional_test
     ;;
+  vpp_master)
+    ;;
   *)
     usage
+    exit 1
 esac
 
 exit 0
