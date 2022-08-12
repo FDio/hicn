@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 # SONAR_HOST_URL=https://sonarcloud.io
 # PROJECT_KEY=fdio-hicn
 # PROJECT_ORGANIZATION=fdio
