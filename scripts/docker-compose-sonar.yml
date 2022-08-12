@@ -6,6 +6,11 @@ services:
       dockerfile: scripts/Dockerfile.sonarcloud
     container_name: sonarcloud
     hostname: sonarcloud
+    environment:
+      API_TOKEN: $API_TOKEN
+      SONAR_HOST_URL: $SONAR_HOST_URL
+      PROJECT_KEY: $PROJECT_KEY
+      PROJECT_ORGANIZATION: $PROJECT_ORGANIZATION
     volumes:
       - ..:/workspace
     command:

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # SONAR_HOST_URL=https://sonarcloud.io
-# PROJECT_KEY=fdio_hicn
+# PROJECT_KEY=fdio-hicn
 # PROJECT_ORGANIZATION=fdio
 
 export SONAR_TOKEN=$API_TOKEN
