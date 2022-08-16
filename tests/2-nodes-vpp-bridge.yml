@@ -2,8 +2,6 @@ version: "3"
 services:
   client:
     container_name: ${TEST_VPP_BRIDGE}-client
-    volumes:
-      - ..:/workspace
     command:
       - |
         if [ -d /workspace/build-dev ]; then
@@ -54,8 +52,6 @@ services:
 
   server:
     container_name: ${TEST_VPP_BRIDGE}-server
-    volumes:
-      - ..:/workspace
     command:
       - |
         if [ -d /workspace/build-dev ]; then
