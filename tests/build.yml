@@ -1,0 +1,41 @@
+version: "3"
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+    image: hicn-base
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    container_name: dev
+    hostname: dev
+    environment:
+      - BUILD_SOFTWARE
+    volumes:
+      - ..:/workspace
+    entrypoint: [/bin/bash, -ex, -c]
+    command:
+      - |
+        whoami
+
+        if [[ "${BUILD_SOFTWARE}" -ne 1 ]]; then
+          exit 0
+        fi
+
+        if [[ ! -z "${REBUILD}" ]]; then
+          rm -fr build-dev
+        fi
+
+        git config --global --add safe.directory \*
+
+        mkdir -p build-dev
+        cd build-dev
+        cmake -G Ninja \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_APPS=ON \
+              -DBUILD_TESTS=ON \
+              -DENABLE_RELY=OFF \
+              -DBUILD_HICNPLUGIN=ON ..
+        sudo ninja install
