@@ -9,7 +9,7 @@ services:
     container_name: forwarder
     working_dir: /workspace
     volumes:
-      - ..:/workspace
+      - ..:/workspace:z
     entrypoint: [/bin/bash, -ex, -c]
     command:
       - |
