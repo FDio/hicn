@@ -10,8 +10,8 @@ services:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-client
     hostname: client
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     entrypoint: [/bin/bash, -c]
     command:
       - |
@@ -79,8 +79,8 @@ services:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-server
     hostname: server
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     entrypoint: [/bin/bash, -c]
     command:
       - |
