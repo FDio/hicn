@@ -2,12 +2,10 @@ version: "3"
 services:
   client:
     container_name: ${TEST_VPP_BRIDGE}-client
-    volumes:
-      - ..:/workspace
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo ip link add br0 type bridge
@@ -54,12 +52,10 @@ services:
 
   server:
     container_name: ${TEST_VPP_BRIDGE}-server
-    volumes:
-      - ..:/workspace
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo ip link add br0 type bridge

@@ -106,8 +106,14 @@ debug-tools:
 
 define build_folder
 	$(eval LOWER_BUILDTYPE=$(shell echo $(2) | tr A-Z a-z))
-	$(eval BUILD_FOLDER=$(or $(BUILD_PATH), build-$(LOWER_BUILDTYPE)-$(OS_ID)))
+	$(eval BUILD_FOLDER=$(or $(BUILD_PATH), $(WS_ROOT)/build-$(LOWER_BUILDTYPE)-$(OS_ID)))
 	$(1) := $$(BUILD_FOLDER)
+endef
+
+define install_folder
+	$(eval LOWER_BUILDTYPE=$(shell echo $(2) | tr A-Z a-z))
+	$(eval INSTALL_FOLDER=$(or $(INSTALL_PREFIX), $(WS_ROOT)/install-$(LOWER_BUILDTYPE)))
+	$(1) := $$(INSTALL_FOLDER)
 endef
 
 define configure
@@ -137,9 +143,14 @@ define configure
 		-DBUILD_TESTS=ON
 endef
 
-define build
+define install
 	$(eval $(call build_folder,BUILD_FOLDER,$(1)))
 	cmake --build $(BUILD_FOLDER) -- -j 4 install
+endef
+
+define build
+	$(eval $(call build_folder,BUILD_FOLDER,$(1)))
+	cmake --build $(BUILD_FOLDER) -- -j 4
 endef
 
 define build_coverage
@@ -186,10 +197,19 @@ package: build
 package-release: build-release
 	$(call package,Release,)
 
+.PHONY = install
+install: build
+	$(call install,Debug,)
+
+.PHONY = install-release
+install-release: build-release
+	$(call install,Release,)
+
 define wipe
-	$(eval LOWER_BUILDTYPE=$(shell echo $(1) | tr A-Z a-z))
-	$(RM) -rf build-$(LOWER_BUILDTYPE)-$(OS_ID)
-	$(RM) -rf install-$(LOWER_BUILDTYPE)
+	$(eval $(call build_folder,BUILD_FOLDER,$(1)))
+	$(eval $(call install_folder,INSTALL_FOLDER,$(1)))
+	$(RM) -rf $(BUILD_FOLDER)
+	$(RM) -rf $(INSTALL_FOLDER)
 endef
 
 .PHONY = wipe
