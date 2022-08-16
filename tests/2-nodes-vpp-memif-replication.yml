@@ -10,13 +10,13 @@ services:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-client
     hostname: client
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     entrypoint: [/bin/bash, -c]
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo mkdir -p /var/log/vpp
@@ -79,13 +79,13 @@ services:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-server
     hostname: server
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     entrypoint: [/bin/bash, -c]
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo mkdir -p /var/log/vpp

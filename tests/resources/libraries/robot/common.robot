@@ -10,7 +10,7 @@ Library    String
 Build Topology
     [Arguments]          ${TEST_TOPOLOGY}=${NONE}                                    ${TEST_CONFIGURATION}=${NONE}
     Log to console       Building topology ${TEST_TOPOLOGY} ${TEST_CONFIGURATION}
-    ${result_setup} =    Run Process                                                 ${EXECDIR}/config.sh              build    setup    ${TEST_TOPOLOGY}    ${TEST_CONFIGURATION}
+    ${result_setup} =    Run Process                                                 ${EXECDIR}/config.sh              build    setup    ${TEST_TOPOLOGY}    ${TEST_CONFIGURATION}   stdout=${TEMPDIR}/stdout.txt    stderr=${TEMPDIR}/stderr.txt
     Log to console       Done
     Log Many             stdout: ${result_setup.stdout}                              stderr: ${result_setup.stderr}
     Should Be Equal As Integers  ${result_setup.rc}  0
