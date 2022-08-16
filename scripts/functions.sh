@@ -56,8 +56,6 @@ function call_once() {
 
 # Install dependencies
 function install_deps() {
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
   make -C ${SCRIPT_PATH}/.. deps
 }
 
@@ -74,4 +72,22 @@ function setup_extras() {
 
   call_once install_deps
   call_once install_collectd_headers
+}
+
+# Run functional tests
+function functional_test() {
+    echo "*******************************************************************"
+    echo "********************* STARTING FUNCTIONAL TESTS *******************"
+    echo "*******************************************************************"
+
+    sudo pip install robotframework
+
+    # Run functional tests
+    pushd ${SCRIPT_PATH}/../tests
+      bash ./run-functional.sh
+    popd
+
+    echo "*******************************************************************"
+    echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
+    echo "*******************************************************************"
 }
