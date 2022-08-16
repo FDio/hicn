@@ -56,8 +56,6 @@ function call_once() {
 
 # Install dependencies
 function install_deps() {
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
   make -C ${SCRIPT_PATH}/.. deps
 }
 
@@ -74,4 +72,45 @@ function setup_extras() {
 
   call_once install_deps
   call_once install_collectd_headers
+}
+
+# Download artifacts of this patchset from jenkins
+function download_artifacts() {
+  if [[ -n ${GERRIT_HOST:-} ]] &&
+    [[ -n ${GERRIT_CHANGE_NUMBER:-} ]] &&
+    [[ -n ${GERRIT_PATCHSET_NUMBER:-} ]]; then
+
+    # Retrieve the Jenkins URL of the build relative to this PATCHSET
+    JENKINS_URL=$(
+      curl -s "https://${GERRIT_HOST}/r/changes/${GERRIT_CHANGE_NUMBER}/detail" |
+        tail -n +2 | jq '.messages[].message?' |
+        grep -E "Patch Set ${GERRIT_PATCHSET_NUMBER}:.*hicn-verify-build.*build_success-hicn-ubuntu2004-$(uname -m)" |
+        grep -Eo "https?://jenkins.fd.io/job/hicn-verify-build-hicn-ubuntu2004-$(uname -m)[^ ]+"
+    )
+    ARTIFACTS_URL="${JENKINS_URL}/artifact/packages/*zip*/packages.zip"
+
+    # Download artifacts
+    curl -o "${SCRIPT_PATH}/../packages.zip" -L "${ARTIFACTS_URL}"
+
+    # Unzip them
+    unzip "${SCRIPT_PATH}/../packages.zip" -d "${SCRIPT_PATH}/.."
+  fi
+}
+
+# Run functional tests
+function functional_test() {
+  echo "*******************************************************************"
+  echo "********************* STARTING FUNCTIONAL TESTS *******************"
+  echo "*******************************************************************"
+
+  download_artifacts
+
+  # Run functional tests
+  pushd ${SCRIPT_PATH}/../tests
+  BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./run-functional.sh
+  popd
+
+  echo "*******************************************************************"
+  echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
+  echo "*******************************************************************"
 }
