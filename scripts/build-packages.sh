@@ -40,21 +40,6 @@ function build_package() {
     echo "*******************************************************************"
 }
 
-function functional_test() {
-    echo "*******************************************************************"
-    echo "********************* STARTING FUNCTIONAL TESTS *******************"
-    echo "*******************************************************************"
-
-    # Run functional tests
-    pushd ${SCRIPT_PATH}/..
-      BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./tests/run-functional.sh
-    popd
-
-    echo "*******************************************************************"
-    echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
-    echo "*******************************************************************"
-}
-
 build_sphinx() {
     setup
 
