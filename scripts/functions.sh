@@ -75,3 +75,19 @@ function setup_extras() {
   call_once install_deps
   call_once install_collectd_headers
 }
+
+# Run functional tests
+function functional_test() {
+    echo "*******************************************************************"
+    echo "********************* STARTING FUNCTIONAL TESTS *******************"
+    echo "*******************************************************************"
+
+    # Run functional tests
+    pushd ${SCRIPT_PATH}/..
+      BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./tests/run-functional.sh
+    popd
+
+    echo "*******************************************************************"
+    echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
+    echo "*******************************************************************"
+}
