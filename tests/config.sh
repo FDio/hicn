@@ -171,7 +171,7 @@ function error() {
 
 function build() {
   docker-compose -f build.yml build
-  docker-compose -f build.yml up --force-recreate --remove-orphans >/dev/null
+  docker-compose -f build.yml up --force-recreate --remove-orphans
 }
 
 function setup() {

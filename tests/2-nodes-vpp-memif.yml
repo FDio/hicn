@@ -4,8 +4,8 @@ services:
     container_name: ${TEST_VPP_MEMIF}-client
     networks: []
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     command:
       - |
         if [ -d /workspace/build-dev ]; then
@@ -61,8 +61,8 @@ services:
     container_name: ${TEST_VPP_MEMIF}-server
     networks: []
     volumes:
-      - /tmp/memif:/memif
-      - ..:/workspace
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
     command:
       - |
         if [ -d /workspace/build-dev ]; then
