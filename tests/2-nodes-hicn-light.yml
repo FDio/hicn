@@ -5,7 +5,7 @@ services:
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo ip link add br0 type bridge
@@ -34,7 +34,7 @@ services:
     command:
       - |
         if [ -d /workspace/build-dev ]; then
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo ip link add br0 type bridge

@@ -56,8 +56,6 @@ function call_once() {
 
 # Install dependencies
 function install_deps() {
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
   make -C ${SCRIPT_PATH}/.. deps
 }
 
@@ -74,4 +72,37 @@ function setup_extras() {
 
   call_once install_deps
   call_once install_collectd_headers
+}
+
+# Download artifacts of this patchset from jenkins
+function download_artifacts() {
+  if [[ -n ${GERRIT_URL:-} ]] &&
+    [[ -n ${GERRIT_CHANGE_NUMBER:-} ]] &&
+    [[ -n ${GERRIT_PATCHSET_NUMBER:-} ]]; then
+
+    # Retrieve the Jenkins URL of the build relative to this PATCHSET
+    JENKINS_URL=$(curl -s "https://${GERRIT_HOST}/r/changes/${GERRIT_CHANGE_NUMBER}/detail" | tail -n +2 | jq '.messages[].message?' | grep -E "Patch Set ${GERRIT_PATCHSET_NUMBER}:.*hicn-docs-verify.*SUCCESS" | grep -Eo 'https?://jenkins.fd.io/[^ ]+')
+
+    # Download artifacts
+
+  fi
+
+}
+
+# Run functional tests
+function functional_test() {
+  echo "*******************************************************************"
+  echo "********************* STARTING FUNCTIONAL TESTS *******************"
+  echo "*******************************************************************"
+
+  sudo pip3 install robotframework
+
+  # Run functional tests
+  pushd ${SCRIPT_PATH}/../tests
+  bash ./run-functional.sh
+  popd
+
+  echo "*******************************************************************"
+  echo "**********  FUNCTIONAL TESTS COMPLETED SUCCESSFULLY ***************"
+  echo "*******************************************************************"
 }
