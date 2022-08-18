@@ -451,9 +451,13 @@ declare -A ctrl_tests=(
   ["routes"]="test_routes"
 )
 
+function ctrl_test_exists() {
+  [[ "${!ctrl_tests[*]}" =~ ${1} ]] && return 0 || return 1
+}
+
 function ctrl() {
   type=$1
-  if [[ ! -v "ctrl_tests[${type}]" ]]; then
+  if ! ctrl_test_exists "${type}"; then
     error "Error: hicn-light-contrl test does not exist."
     exit 1
   fi
