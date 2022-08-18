@@ -15,7 +15,7 @@ services:
       - |
         if [ -d /workspace/build-dev ]; then
           git config --global --add safe.directory \*
-          ninja -C /workspace/build-dev install
+          sudo ninja -C /workspace/build-dev install
         fi
 
         sudo ip addr add 192.168.1.1/24 dev eth0
