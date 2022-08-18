@@ -110,7 +110,10 @@ function functional_test() {
 
   # Run functional tests
   pushd ${SCRIPT_PATH}/../tests
-    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./run-functional.sh
+    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash -x ./config.sh build setup 1-node None
+    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash -x ./config.sh ctrl  listeners
+    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash -x ./config.sh ctrl  routes
+    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash -x ./config.sh ctrl connections
   popd
 
   echo "*******************************************************************"
