@@ -94,10 +94,13 @@ function download_artifacts() {
 
     # Unzip them
     unzip "${SCRIPT_PATH}/../packages.zip" -d "${SCRIPT_PATH}/.."
-  else
-    echo "GERRIT_* environment is not set. Impossible to download artifacts." >&2
-    exit 1
+
+    return 0
   fi
+
+  # Fall back to image re-build if artifacts cannot be downloaded
+  echo "GERRIT_* environment is not set. Image will be rebuilt from scratch" >&2
+  return 1
 }
 
 # Run functional tests
@@ -106,11 +109,17 @@ function functional_test() {
   echo "********************* STARTING FUNCTIONAL TESTS *******************"
   echo "*******************************************************************"
 
-  download_artifacts
+  if download_artifacts; then
+    local build_sw=0
+    local dockerfile_path="tests/Dockerfile.ci"
+  else
+    local build_sw=1
+    local dockerfile_path="Dockerfile.dev"
+  fi
 
   # Run functional tests
   pushd ${SCRIPT_PATH}/../tests
-    BUILD_SOFTWARE=0 DOCKERFILE="tests/Dockerfile.ci" bash ./run-functional.sh
+    BUILD_SOFTWARE=${build_sw} DOCKERFILE=${dockerfile_path} bash ./run-functional.sh
   popd
 
   echo "*******************************************************************"
