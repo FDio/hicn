@@ -240,7 +240,8 @@ typedef enum
                                                                               \
 	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
 	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr->src_address),       \
-	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
+	    hicnb0->port, sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],    \
+	    next_iface0);                                                     \
 	}                                                                     \
                                                                               \
       if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&              \
@@ -371,11 +372,13 @@ typedef enum
                                                                               \
 	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
 	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr0->src_address),      \
-	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
+	    hicnb0->port, sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],    \
+	    next_iface0);                                                     \
                                                                               \
 	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
 	    &(hicnb1->face_id), &hicnb1->flags, &(ip_hdr1->src_address),      \
-	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX], next_iface1);    \
+	    hicnb1->port, sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX],    \
+	    next_iface1);                                                     \
 	}                                                                     \
       else if (ret0 && !ret1)                                                 \
 	{                                                                     \
@@ -405,7 +408,8 @@ typedef enum
                                                                               \
 	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
 	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr0->src_address),      \
-	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
+	    hicnb0->port, sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],    \
+	    next_iface0);                                                     \
 	}                                                                     \
       else if (!ret0 && ret1)                                                 \
 	{                                                                     \
@@ -435,7 +439,8 @@ typedef enum
                                                                               \
 	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
 	    &(hicnb1->face_id), &hicnb1->flags, &(ip_hdr1->src_address),      \
-	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX], next_iface1);    \
+	    hicnb1->port, sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX],    \
+	    next_iface1);                                                     \
 	}                                                                     \
       else                                                                    \
 	{                                                                     \
@@ -672,6 +677,12 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
 
+  if (PREDICT_TRUE (pkbuf->format.l2 != IPPROTO_ICMP))
+    {
+      ret = hicn_packet_set_dst_port (pkbuf, iface->saved_port);
+      ASSERT (ret == HICN_LIB_ERROR_NONE);
+    }
+
   ret = hicn_data_rewrite (pkbuf, iface_nat_addr, &(temp_addr), iface->pl_id,
 			   reset_pl);
 
@@ -709,6 +720,12 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
   hicn_ip_address_t *iface_nat_addr = (hicn_ip_address_t *) &(iface->nat_addr);
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
+
+  if (PREDICT_TRUE (pkbuf->format.l2 != IPPROTO_ICMP))
+    {
+      ret = hicn_packet_set_dst_port (pkbuf, iface->saved_port);
+      ASSERT (ret == HICN_LIB_ERROR_NONE);
+    }
 
   ret = hicn_data_rewrite (pkbuf, iface_nat_addr, &(temp_addr), iface->pl_id,
 			   reset_pl);

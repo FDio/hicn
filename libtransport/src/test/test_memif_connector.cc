@@ -38,11 +38,12 @@ class Memif {
  public:
   Memif(asio::io_service &io_service)
       : io_service_(io_service),
+        work_(asio::make_work_guard(io_service_)),
         memif_connector_(std::make_shared<MemifConnector>(
             std::bind(&Memif::onPacketReceived, this, _1, _2, _3),
             std::bind(&Memif::onPacketSent, this, _1, _2),
             std::bind(&Memif::onClose, this, _1),
-            std::bind(&Memif::onReconnect, this, _1, _2), io_service_,
+            std::bind(&Memif::onReconnect, this, _1, _2),
             Master ? "test_master" : "test_slave")),
         recv_counter_(0),
         sent_counter_(0) {
@@ -55,11 +56,11 @@ class Memif {
   void startTest() {
     if constexpr (!Master) {
       auto &packet_manager = core::PacketManager<>::getInstance();
+      auto packet = packet_manager.getMemBuf();
+      packet->append(packet_size);
 
       // Send in busrt of 256 packet per time
       for (std::size_t i = 0; i < counter; i++) {
-        auto packet = packet_manager.getMemBuf();
-        packet->append(packet_size);
         memif_connector_->send(packet);
         sent_counter_++;
       }
@@ -86,6 +87,7 @@ class Memif {
         auto delta = utils::SteadyTime::getDurationUs(t0_, t1);
         double rate = double(recv_counter_) * 1.0e6 / double(delta.count());
         LOG(INFO) << "rate: " << rate << " packets/s";
+        work_.reset();
         io_service_.stop();
       }
     } else {
@@ -98,6 +100,7 @@ class Memif {
 
  private:
   asio::io_service &io_service_;
+  asio::executor_work_guard<asio::io_context::executor_type> work_;
   std::shared_ptr<MemifConnector> memif_connector_;
   std::size_t recv_counter_;
   std::size_t sent_counter_;

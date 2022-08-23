@@ -487,11 +487,13 @@ vl_api_hicn_api_register_prod_app_t_handler (
   ip_prefix_decode (&mp->prefix, &prefix);
   u32 swif = clib_net_to_host_u32 (mp->swif);
   u32 cs_reserved = clib_net_to_host_u32 (mp->cs_reserved);
+  u16 port = clib_net_to_host_u16 (mp->port);
   u32 faceid;
 
   ip46_address_t prod_addr;
   ip46_address_reset (&prod_addr);
-  rv = hicn_face_prod_add (&prefix, swif, &cs_reserved, &prod_addr, &faceid);
+  rv = hicn_face_prod_add (&prefix, swif, &cs_reserved, &prod_addr, &faceid,
+			   port);
 
   REPLY_MACRO2 (VL_API_HICN_API_REGISTER_PROD_APP_REPLY, ({
 		  ip_address_encode (&prod_addr, IP46_TYPE_ANY,
@@ -527,11 +529,12 @@ vl_api_hicn_api_register_cons_app_t_handler (
   ip46_address_t src_addr6 = ip46_address_initializer;
 
   u32 swif = clib_net_to_host_u32 (mp->swif);
+  u16 port = clib_net_to_host_u16 (mp->port);
   u32 faceid1;
   u32 faceid2;
 
-  rv = hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid1,
-			   &faceid2);
+  rv = hicn_face_cons_add (swif, port, &src_addr4.ip4, &src_addr6.ip6,
+			   &faceid1, &faceid2);
 
   REPLY_MACRO2 (
     VL_API_HICN_API_REGISTER_CONS_APP_REPLY, ({

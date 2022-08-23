@@ -43,10 +43,6 @@ namespace core {
 #define IF_NAME "vpp_connection"
 
 class MemifConnector : public Connector {
-  static inline std::size_t kbuf_size = 2048;
-  static inline std::size_t klog2_ring_size = 13;
-
-  using PacketRing = utils::CircularFifo<utils::MemBuf::Ptr, queue_size>;
   struct Details {
     // index
     uint16_t index;
@@ -69,11 +65,16 @@ class MemifConnector : public Connector {
   };
 
  public:
+  static inline std::size_t kbuf_size = 2048;
+  static inline std::size_t klog2_ring_size = 14;
+  static inline std::size_t kn_s2m_rings = 1;
+  static inline std::size_t kn_m2s_rings = 1;
+
+ public:
   MemifConnector(PacketReceivedCallback &&receive_callback,
                  PacketSentCallback &&packet_sent,
                  OnCloseCallback &&close_callback,
                  OnReconnectCallback &&on_reconnect,
-                 asio::io_service &io_service,
                  std::string app_name = "Libtransport");
 
   ~MemifConnector() override;
@@ -130,12 +131,9 @@ class MemifConnector : public Connector {
   std::atomic_bool timer_set_;
   utils::FdDeadlineTimer send_timer_;
   utils::FdDeadlineTimer disconnect_timer_;
-  asio::io_service &io_service_;
-  asio::executor_work_guard<asio::io_context::executor_type> work_;
   Details memif_connection_;
   uint16_t tx_buf_counter_;
 
-  PacketRing input_buffer_;
   bool is_reconnection_;
   bool data_available_;
   uint32_t memif_id_;

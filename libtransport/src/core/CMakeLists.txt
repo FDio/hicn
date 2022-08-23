@@ -25,6 +25,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/global_workers.h
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_listener.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/global_id_counter.h
   ${CMAKE_CURRENT_SOURCE_DIR}/global_module_manager.h
 )
 

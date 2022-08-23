@@ -15,6 +15,7 @@
 #include <vnet/fib/fib_entry_track.h>
 
 #include "face.h"
+#include "app/face_prod.h"
 #include "../hicn.h"
 #include "../params.h"
 #include "../error.h"
@@ -35,6 +36,8 @@ vlib_combined_counter_main_t *counters;
 dpo_type_t hicn_face_type;
 
 fib_node_type_t hicn_face_fib_node_type;
+
+u32 port_allocator_seed;
 
 const char *HICN_FACE_CTRX_STRING[] = {
 #define _(a, b, c) c,
@@ -159,6 +162,12 @@ hicn_face_module_init (vlib_main_t *vm)
   mhash_init (&hicn_face_hashtb, sizeof (hicn_face_id_t) /* value */,
 	      sizeof (hicn_face_key_t) /* key */);
 
+  /* Init local producer hash table */
+  mhash_init (&face_state_table, sizeof (hicn_face_prod_state_t),
+	      sizeof (hicn_face_prod_state_key_t));
+  vec_validate_aligned (swif_state_vec, MAX_PROD_APPS, CLIB_CACHE_LINE_BYTES);
+  vec_zero (swif_state_vec);
+
   /*
    * How much useful is the following registration?
    * So far it seems that we need it only for setting the dpo_type.
@@ -171,6 +180,8 @@ hicn_face_module_init (vlib_main_t *vm)
    */
   hicn_face_fib_node_type =
     fib_node_register_new_type ("hicn_face_fib_node", &hicn_face_fib_node_vft);
+
+  port_allocator_seed = (u32) clib_cpu_time_now ();
 }
 
 u8 *
@@ -186,9 +197,11 @@ format_hicn_face (u8 *s, va_list *args)
     {
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       s = format (s, "%U Face %d: ", format_white_space, indent, face_id);
-      s = format (s, "nat address %U locks %u, path_label %u",
-		  format_ip46_address, &face->nat_addr, IP46_TYPE_ANY,
-		  face->locks, face->pl_id);
+      s = format (
+	s,
+	"nat address %U saved-port %u random-port %u locks %u, path_label %u",
+	format_ip46_address, &face->nat_addr, IP46_TYPE_ANY, face->saved_port,
+	face->randomized_port, face->locks, face->pl_id);
 
       if ((face->flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " (producer)");
@@ -205,9 +218,11 @@ format_hicn_face (u8 *s, va_list *args)
     {
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       s = format (s, "%U iFace %d: ", format_white_space, indent, face_id);
-      s = format (s, "nat address %U locks %u, path_label %u",
-		  format_ip46_address, &face->nat_addr, IP46_TYPE_ANY,
-		  face->locks, face->pl_id);
+      s = format (
+	s,
+	"nat address %U saved-port %u random-port %u locks %u, path_label %u",
+	format_ip46_address, &face->nat_addr, IP46_TYPE_ANY, face->saved_port,
+	face->randomized_port, face->locks, face->pl_id);
 
       if ((face->flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " (producer)");
@@ -299,14 +314,14 @@ hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo)
  * the ip_adjacency has already been set up.
  */
 int
-hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
-	       hicn_face_id_t *pfaceid)
+hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, u16 port,
+	       int sw_if, hicn_face_id_t *pfaceid, u8 is_app_prod)
 {
 
   hicn_face_t *face;
 
-  face =
-    hicn_face_get_with_dpo (nat_address, sw_if, dpo_nh, &hicn_face_hashtb);
+  face = hicn_face_get_with_dpo (nat_address, port, sw_if, dpo_nh,
+				 &hicn_face_hashtb);
 
   if (face != NULL)
     {
@@ -314,23 +329,24 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
       return HICN_ERROR_FACE_ALREADY_CREATED;
     }
 
-  face =
-    hicn_face_get (nat_address, sw_if, &hicn_face_hashtb, dpo_nh->dpoi_index);
+  face = hicn_face_get (nat_address, port, sw_if, &hicn_face_hashtb,
+			dpo_nh->dpoi_index);
 
   dpo_id_t temp_dpo = DPO_INVALID;
   temp_dpo.dpoi_index = dpo_nh->dpoi_index;
   hicn_face_key_t key;
-  hicn_face_get_key (nat_address, sw_if, dpo_nh, &key);
+  hicn_face_get_key (nat_address, port, sw_if, dpo_nh, &key);
 
   if (face == NULL)
     {
 
-      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_index, 0);
+      hicn_iface_add (nat_address, port, sw_if, pfaceid, dpo_nh->dpoi_index,
+		      0);
       face = hicn_dpoi_get_from_idx (*pfaceid);
 
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
 
-      hicn_face_get_key (nat_address, sw_if, &temp_dpo, &key);
+      hicn_face_get_key (nat_address, port, sw_if, &temp_dpo, &key);
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
     }
   else

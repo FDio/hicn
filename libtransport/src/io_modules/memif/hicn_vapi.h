@@ -30,10 +30,12 @@ typedef struct {
   hicn_ip_prefix_t* prefix;
   uint32_t swif;
   uint32_t cs_reserved;
+  uint16_t port;
 } hicn_producer_input_params;
 
 typedef struct {
   uint32_t swif;
+  uint16_t port;
 } hicn_consumer_input_params;
 
 typedef struct {
@@ -56,6 +58,7 @@ typedef struct {
 typedef struct {
   hicn_ip_prefix_t* prefix;
   hicn_ip_address_t* prod_addr;
+  uint16_t port;
 } hicn_producer_set_route_params;
 
 int hicn_vapi_register_prod_app(vapi_ctx_t ctx,

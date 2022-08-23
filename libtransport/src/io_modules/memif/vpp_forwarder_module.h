@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/io_module.h>
 #include <hicn/transport/core/prefix.h>
+#include <io_modules/memif/memif_forwarder.h>
 
 #ifdef always_inline
 #undef always_inline
@@ -32,9 +33,6 @@ namespace core {
 class MemifConnector;
 
 class VPPForwarderModule : public IoModule {
-  static inline std::uint16_t interface_mtu = 1500;
-  static inline std::string const memif_socket_filename = "/run/vpp/memif.sock";
-
  public:
   VPPForwarderModule();
   ~VPPForwarderModule();
@@ -64,19 +62,17 @@ class VPPForwarderModule : public IoModule {
   void closeConnection() override;
 
  private:
-  uint32_t getMemifConfiguration();
   void consumerConnection();
   void producerConnection();
 
  private:
-  std::shared_ptr<MemifConnector> connector_;
-  uint32_t memif_id_;
-  uint32_t sw_if_index_;
+  MemifForwarder::Ptr memif_forwarder_;
   // A consumer socket in vpp has two faces (ipv4 and ipv6)
   uint32_t face_id1_;
   uint32_t face_id2_;
   bool is_consumer_;
-  vapi_ctx_t sock_;
+  Connector::Id connector_id_;
+  std::string name_;
 };
 
 extern "C" IoModule *create_module(void);

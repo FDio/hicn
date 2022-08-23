@@ -85,9 +85,9 @@ int hicn_vapi_register_prod_app(vapi_ctx_t ctx,
     msg->payload.prefix.address.af = ADDRESS_IP6;
   }
   msg->payload.prefix.len = input_params->prefix->len;
-
   msg->payload.swif = input_params->swif;
   msg->payload.cs_reserved = input_params->cs_reserved;
+  msg->payload.port = input_params->port;
 
   int ret = vapi_hicn_api_register_prod_app(ctx, msg, register_prod_app_cb,
                                             output_params);
@@ -146,6 +146,7 @@ int hicn_vapi_register_cons_app(vapi_ctx_t ctx,
       vapi_alloc_hicn_api_register_cons_app(ctx);
 
   msg->payload.swif = input_params->swif;
+  msg->payload.port = input_params->port;
 
   int ret = vapi_hicn_api_register_cons_app(ctx, msg, register_cons_app_cb,
                                             output_params);

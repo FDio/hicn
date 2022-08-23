@@ -38,6 +38,7 @@ list(APPEND MODULE_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/memif_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/memif_vapi.h
   ${CMAKE_CURRENT_SOURCE_DIR}/vpp_forwarder_module.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/memif_forwarder.h
 )
 
 list(APPEND MODULE_SOURCE_FILES

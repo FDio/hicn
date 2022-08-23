@@ -307,6 +307,12 @@ class Portal : public ::utils::NonCopyable,
     return false;
   }
 
+  void rewriteData(const Interest &i, ContentObject &c) {
+    c.setDstPort(i.getSrcPort());
+  }
+
+  void rewriteInterest(Interest &i) { i.setDstPort(9695); }
+
   /**
    * @brief Add interest to PIT
    *
@@ -319,7 +325,7 @@ class Portal : public ::utils::NonCopyable,
     uint32_t initial_hash = interest->getName().getHash32(false);
     auto hash = initial_hash + interest->getName().getSuffix();
     uint32_t seq = interest->getName().getSuffix();
-    const uint32_t *suffix = interest->firstSuffix();
+    uint32_t *suffix = interest->firstSuffix();
     auto n_suffixes = interest->numberOfSuffixes();
     uint32_t counter = 0;
     // Set timers
@@ -383,6 +389,7 @@ class Portal : public ::utils::NonCopyable,
         }
       } else {
         // Send content object to the network
+        rewriteData(*_int, content_object);
         io_module_->send(content_object);
       }
     } else if (is_consumer_) {
@@ -412,6 +419,9 @@ class Portal : public ::utils::NonCopyable,
           UNSET_CALLBACK) {
     DCHECK(std::this_thread::get_id() == worker_.getThreadId());
 
+    // Send it
+    interest->encodeSuffixes();
+    rewriteInterest(*interest);
     io_module_->send(*interest);
     addInterestToPIT(interest, lifetime, std::move(on_content_object_callback),
                      std::move(on_interest_timeout_callback));

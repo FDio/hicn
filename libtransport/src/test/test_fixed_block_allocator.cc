@@ -179,7 +179,7 @@ TEST_F(FixedBlockAllocatorTest, CheckMemoryIsAligned) {
   }
 }
 
-TEST_F(FixedBlockAllocatorTest, Multithreading) {
+TEST_F(FixedBlockAllocatorTest, DISABLED_Multithreading) {
   // Create 4 threads
   utils::EventThread threads[4];
   ::utils::FixedBlockAllocator<default_size, default_n_buffer>

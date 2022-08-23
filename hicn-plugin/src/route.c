@@ -218,7 +218,8 @@ get_address (ip46_address_t *nh, u32 sw_if, fib_protocol_t proto)
 }
 
 static void
-sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
+sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, u16 port,
+		     hicn_face_id_t **pvec_faces)
 {
   hicn_face_id_t *vec_faces = NULL;
   const dpo_id_t *dpo_loadbalance =
@@ -235,7 +236,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
   do                                                                          \
     {                                                                         \
       /* Careful, this adds a lock on the face if it exists */                \
-      hicn_face_add (dpo, nh, sw_if, &face_id);                               \
+      hicn_face_add (dpo, nh, port, sw_if, &face_id, 0);                      \
       vec_validate (vec_faces, index);                                        \
       vec_faces[index] = face_id;                                             \
       (index)++;                                                              \
@@ -370,7 +371,8 @@ disable_data_receiving_rm_fib_entry (vnet_main_t *vnm, vnet_sw_interface_t *si,
 }
 
 int
-hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
+hicn_route_enable_with_port (fib_prefix_t *prefix, u16 port,
+			     hicn_face_id_t **pvec_faces)
 {
 
   int ret = HICN_ERROR_NONE;
@@ -449,7 +451,7 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
 	  (FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT), &dpo);
 
       HICN_DEBUG ("Calling sync_hicn_fib_entry");
-      sync_hicn_fib_entry (fib_entry, pvec_faces);
+      sync_hicn_fib_entry (fib_entry, port, pvec_faces);
 
       /* We added a route, therefore add one lock to the table */
       fib_table_lock (fib_index, prefix->fp_proto, hicn_fib_src);
@@ -512,12 +514,18 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
 	    hicn_strategy_dpo_ctx_get (strategy_dpo_id->dpoi_index);
 
 	  HICN_DEBUG ("Calling sync_hicn_fib_entry");
-	  sync_hicn_fib_entry (hicn_fib_entry, pvec_faces);
+	  sync_hicn_fib_entry (hicn_fib_entry, port, pvec_faces);
 	}
     }
 
 done:
   return ret;
+}
+
+int
+hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
+{
+  return hicn_route_enable_with_port (prefix, 0, pvec_faces);
 }
 
 int
@@ -654,7 +662,7 @@ hicn_fib_back_walk_notify (fib_node_t *node, fib_node_back_walk_ctx_t *ctx)
 
   hicn_face_id_t *vec_faces = NULL;
   HICN_DEBUG ("Calling sync_hicn_fib_entry from hicn_fib_back_walk_notify");
-  sync_hicn_fib_entry (fib_entry, &vec_faces);
+  sync_hicn_fib_entry (fib_entry, 0, &vec_faces);
   if (vec_faces != NULL)
     vec_free (vec_faces);
 

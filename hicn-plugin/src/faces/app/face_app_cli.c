@@ -39,6 +39,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
   u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;
   int ret = HICN_ERROR_NONE;
   int sw_if;
+  u16 port = random_u32 (&port_allocator_seed) & PORT_MASK;
   int face_op = HICN_FACE_NONE;
   int prod = 0;
 
@@ -74,6 +75,8 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
 	      prod = 1;
 	    }
 	  else if (prod && unformat (line_input, "cs_size %d", &cs_reserved))
+	    ;
+	  else if (prod && unformat (line_input, "port %u", &port))
 	    ;
 	  else if (unformat (line_input, "cons"))
 	    ;
@@ -117,7 +120,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
 				      FIB_PROTOCOL_IP4 :
 				      FIB_PROTOCOL_IP6;
 	    rv = hicn_face_prod_add (&prefix, sw_if, &cs_reserved, &prod_addr,
-				     &face_id1);
+				     &face_id1, port);
 	    if (rv == HICN_ERROR_NONE)
 	      {
 		u8 *sbuf = NULL;
@@ -133,7 +136,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
 	  }
 	else
 	  {
-	    rv = hicn_face_cons_add (&cons_addr4, &cons_addr6, sw_if,
+	    rv = hicn_face_cons_add (sw_if, port, &cons_addr4, &cons_addr6,
 				     &face_id1, &face_id2);
 	    if (rv == HICN_ERROR_NONE)
 	      {

@@ -7,6 +7,7 @@ deb
 info.txt
 .vscode
 .DS_Store
+**/env
 
 # Local install
 install*

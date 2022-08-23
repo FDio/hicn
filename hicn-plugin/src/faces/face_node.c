@@ -165,8 +165,8 @@ typedef enum
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
 	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
-	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr->dst_address, sw_if0,   \
-	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
+	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr->dst_address, 0,        \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],                  \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
 	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
@@ -262,8 +262,8 @@ typedef enum
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
 	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
-	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, sw_if0,  \
-	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
+	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, 0,       \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],                  \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
 	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
@@ -276,8 +276,8 @@ typedef enum
 	    (1 - from_tunnel1) * vnet_buffer (b1)->sw_if_index[VLIB_RX];      \
                                                                               \
 	  ret1 = hicn_face_ip##ipv##_add_and_lock (                           \
-	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, sw_if1,  \
-	    vnet_buffer (b1)->ip.adj_index[VLIB_RX],                          \
+	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, 0,       \
+	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX],                  \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
 	  ASSERT (ret1 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
@@ -293,8 +293,8 @@ typedef enum
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
 	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
-	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, sw_if0,  \
-	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
+	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, 0,       \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX],                  \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
 	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
@@ -312,8 +312,8 @@ typedef enum
 	    (1 - from_tunnel1) * vnet_buffer (b1)->sw_if_index[VLIB_RX];      \
                                                                               \
 	  ret1 = hicn_face_ip##ipv##_add_and_lock (                           \
-	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, sw_if1,  \
-	    vnet_buffer (b1)->ip.adj_index[VLIB_RX],                          \
+	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, 0,       \
+	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX],                  \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
 	  ASSERT (ret1 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
@@ -562,6 +562,14 @@ hicn_face_rewrite_interest (vlib_main_t *vm, vlib_buffer_t *b0,
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
       ensure_offload_flags (b0, is_v4);
+    }
+
+  if (face->flags & HICN_FACE_FLAGS_APPFACE_PROD)
+    {
+      ret = hicn_packet_get_dst_port (pkbuf, &face->saved_port);
+      ASSERT (ret == HICN_ERROR_NONE);
+      ret = hicn_packet_set_dst_port (pkbuf, face->randomized_port);
+      ASSERT (ret == HICN_ERROR_NONE);
     }
 
   ASSERT (face->flags & HICN_FACE_FLAGS_FACE);

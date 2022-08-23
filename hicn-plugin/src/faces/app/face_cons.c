@@ -22,13 +22,10 @@
 #include "../../infra.h"
 
 int
-hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6, u32 swif,
-		    hicn_face_id_t *faceid1, hicn_face_id_t *faceid2)
+hicn_face_cons_add (u32 swif, u16 port, ip4_address_t *nh_addr4,
+		    ip6_address_t *nh_addr6, hicn_face_id_t *faceid1,
+		    hicn_face_id_t *faceid2)
 {
-  /* Create the corresponding appif if */
-  /* Retrieve a valid local ip address to assign to the appif */
-  /* Set the ip address and create the face in the face db */
-
   vlib_main_t *vm = vlib_get_main ();
   vnet_main_t *vnm = vnet_get_main ();
 
@@ -45,36 +42,39 @@ hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6, u32 swif,
     {
       return HICN_ERROR_FWD_NOT_ENABLED;
     }
+
+  // set interface up
   if_flags |= VNET_SW_INTERFACE_FLAG_ADMIN_UP;
   vnet_sw_interface_set_flags (vnm, swif, if_flags);
 
 #if 0
-  get_two_ip4_addresses (&(if_ip.ip4), nh_addr4);
+  // set ipv4 addresses to interface
+  get_two_ip4_addresses (&if_ip.ip4, nh_addr4);
   ip4_add_del_interface_address (vm, swif, &(if_ip.ip4), ADDR_MGR_IP4_CONS_LEN,
 				 0 /* is_del */);
-
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr4);
-
   index_t adj_index =
     adj_nbr_find (FIB_PROTOCOL_IP4, VNET_LINK_IP4, &nh_addr, swif);
-
-  hicn_iface_add (&nh_addr, swif, faceid1, DPO_PROTO_IP4, adj_index);
-
+  // FixMe create a complete face here
+  hicn_iface_add (&nh_addr, port, swif, faceid1, adj_index, 0);
   hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid1);
+  ASSERT (face);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
+#else
+  *faceid1 = ~0;
 #endif
 
+  // set ipv6 addresses to interface
   get_two_ip6_addresses (&(if_ip.ip6), nh_addr6);
   ip6_add_del_interface_address (vm, swif, &(if_ip.ip6), ADDR_MGR_IP6_CONS_LEN,
 				 0 /* is_del */);
-
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr6);
   index_t adj_index =
     adj_nbr_find (FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
-
-  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, adj_index, 0);
-
+  hicn_iface_add ((ip46_address_t *) nh_addr6, port, swif, faceid2, adj_index,
+		  0);
   hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid2);
+  ASSERT (face);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   return HICN_ERROR_NONE;
@@ -87,6 +87,7 @@ hicn_face_cons_del (hicn_face_id_t face_id)
     return HICN_ERROR_APPFACE_NOT_FOUND;
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+  ASSERT (face);
 
   if (face->flags & HICN_FACE_FLAGS_APPFACE_CONS)
     {
@@ -104,7 +105,7 @@ format_hicn_face_cons (u8 *s, va_list *args)
   CLIB_UNUSED (index_t index) = va_arg (*args, index_t);
   CLIB_UNUSED (u32 indent) = va_arg (*args, u32);
 
-  s = format (s, " (consumer face)");
+  s = format (s, " (consumer app)");
 
   return s;
 }

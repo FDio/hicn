@@ -107,6 +107,7 @@ hicn_face_prod_next_from_data_hdr (vlib_main_t *vm, vlib_buffer_t *b)
   int ret = 0;
   hicn_name_t name;
   hicn_face_prod_state_t *prod_face = NULL;
+  hicn_face_t *face = NULL;
 
   // 1 - ensure the packet is hicn and its format is correct
   ret = hicn_data_parse_pkt (b, vlib_buffer_length_in_chain (vm, b));
@@ -117,10 +118,26 @@ hicn_face_prod_next_from_data_hdr (vlib_main_t *vm, vlib_buffer_t *b)
 
   // 2 - make sure the packet refers to a valid producer app state and
   // retrieve app state information
-  prod_face = &face_state_vec[vnet_buffer (b)->sw_if_index[VLIB_RX]];
+  prod_face = face_state_table_get (hicn_get_buffer (b)->port,
+				    vnet_buffer (b)->sw_if_index[VLIB_RX]);
+  if (PREDICT_FALSE (prod_face == NULL))
+    {
+      return HICN_FACE_PROD_NEXT_ERROR_DROP;
+    }
   vnet_buffer (b)->ip.adj_index[VLIB_RX] = prod_face->adj_index;
+  face = hicn_dpoi_get_from_idx (prod_face->face_id);
+  ASSERT (face != NULL);
 
-  // 3 - make sure the address in the packet belongs to the producer prefix
+  // 3 - make sure the destination port matches the one set by the
+  // forwarder, and in that case restore the original port
+  if (PREDICT_FALSE (hicn_get_buffer (b)->port != face->randomized_port))
+    {
+      return HICN_FACE_PROD_NEXT_ERROR_DROP;
+    }
+
+  hicn_packet_set_src_port (&hicn_get_buffer (b)->pkbuf, face->saved_port);
+
+  // 4 - make sure the address in the packet belongs to the producer prefix
   // of this face
   const fib_prefix_t *prefix = &prod_face->prefix;
   is_v6 = hicn_buffer_is_v6 (b);
@@ -134,7 +151,7 @@ hicn_face_prod_next_from_data_hdr (vlib_main_t *vm, vlib_buffer_t *b)
       match_res = match_ip6_name (name.prefix.v6.as_u8, prefix);
     }
 
-  // 4 - if match found, forward data to next hicn node
+  // 5 - if match found, forward data to next hicn node
   return match_res ? HICN_FACE_PROD_NEXT_PCS : HICN_FACE_PROD_NEXT_ERROR_DROP;
 }
 

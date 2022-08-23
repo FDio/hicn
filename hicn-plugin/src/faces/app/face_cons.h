@@ -28,8 +28,7 @@
  * consumer application (co-located with the forwarder) that acts as a
  * consumer. The interface used by the consumer application face is
  * assumed to be reserved only for hICN traffic (e.g.,  dedicated memif that
- * connects the applictation to the forwarder). Only one application face can
- * be assigned to an interface.
+ * connects the applictation to the forwarder).
  *
  * In the vlib graph a consumer application face directly connect the
  * device-input node to the hicn-vface-ip node.
@@ -40,14 +39,17 @@
  *
  * The method creates the internal ip face and set the ip address to the
  * interface.
- * @param nh_addr4 ipv4 address to assign to interface used by the application
- * to send interest to the consumer face
- * @param nh_addr6 ipv6 address to assign to interface used by the application
- * to send interest to the consumer face
  * @param swif interface associated to the face
+ * @param port the port registered by the consumer socket
+ * @param nh_addr4 [RETURNED] ipv4 address to assign to interface used by the
+ * application to send interest to the consumer face
+ * @param nh_addr6 [RETURNED] ipv6 address to assign to interface used by the
+ * application to send interest to the consumer face
+ * @param faceid1 [RETURNED] the face id of the v4 face
+ * @param faceid1 [RETURNED] the face id of the v6 face
  */
-int hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6,
-			u32 swif, hicn_face_id_t *faceid1,
+int hicn_face_cons_add (u32 swif, u16 port, ip4_address_t *nh_addr4,
+			ip6_address_t *nh_addr6, hicn_face_id_t *faceid1,
 			hicn_face_id_t *faceid2);
 
 /**

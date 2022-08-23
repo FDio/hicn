@@ -103,6 +103,21 @@ int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
  * @Brief Enable an hICN for an ip prefix
  *
  * @param prefix Prefix for which we enable hICN
+ * @param port Port to register with the hicn face
+ * @param vec_faces [RETURNED] List of faces created after calling the API
+ * @return HICN_ERROR_NONE if hICN was enabled on the prefix
+ * HICN_ERROR_ROUTE_NO_LD if the first dpo for the fib entry corresponding to
+ * the prefix is not a load_balancer HICN_ERROR_ROUTE_DPO_NO_HICN if the
+ * loadbalancer in the vrf HICN already contains a dpo which is not an hICN one
+ * HICN_ERROR_ROUTE_MLT_LD if there are more than a dpo in the vpp loadbalancer
+ */
+int hicn_route_enable_with_port (fib_prefix_t *prefix, u16 port,
+				 hicn_face_id_t **vec_faces);
+
+/**
+ * @Brief Enable an hICN for an ip prefix
+ *
+ * @param prefix Prefix for which we enable hICN
  * @return HICN_ERROR_NONE if hICN was enabled on the prefix
  * HICN_ERROR_ROUTE_NO_LD if the first dpo for the fib entry corresponding to
  * the prefix is not a load_balancer HICN_ERROR_ROUTE_DPO_NO_HICN if the

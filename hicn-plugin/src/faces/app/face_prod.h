@@ -24,18 +24,12 @@
  *
  * @brief Producer application face.
  *
- * A producer application face is built upon an ip face and identify a local
+ * A producer application face is built upon an ip face and identifies a local
  * producer application (co-located with the forwarder) that acts as a
  * producer. In the current design an application face is either a face towards
  * a consumer face or towards a producer. The interface used by the producer
  * application face is assumed to be reserved only for hICN traffic (e.g.,
- * dedicated memif that connects the applictation to the forwarder). Only one
- * application face can be assigned to an interface.
- *
- * To each producer application face it is assigned a portion of the CS. Every
- * data arriving to a producer application will be stored in the portion of the
- * CS assigned to the face. The eviction policy is defined in the
- * face. Available eviction faces are list in the /cache_policy folder.
+ * dedicated memif that connects the applictation to the forwarder).
  *
  * In the vlib graph a producer application face is directly connected to the
  * device-input node (with the node hicn-face-prod-input) and passes every
@@ -45,15 +39,80 @@
 /**
  * @brief Producer application face state that refer to the hICN producer
  * socket created by the application.
- *
  */
 typedef struct
 {
   fib_prefix_t prefix;
   index_t adj_index;
+  u16 port;
+  hicn_face_id_t face_id;
 } hicn_face_prod_state_t;
 
-extern hicn_face_prod_state_t *face_state_vec;
+STATIC_ASSERT (sizeof (hicn_face_prod_state_t) <= CLIB_CACHE_LINE_BYTES,
+	       "sizeof hicn_face_prod_state_t should fit in a cache line");
+
+/**
+ * @brief jey used to retrieve the producer app state from the
+ * face_state_table.
+ */
+typedef struct
+{
+  u32 sw_if_id;
+  u32 port;
+} hicn_face_prod_state_key_t;
+
+STATIC_ASSERT (sizeof (hicn_face_prod_state_key_t) ==
+		 sizeof (u32) + sizeof (u32),
+	       "hicn_face_prod_state_key_t should not contain padding.");
+
+#define MAX_PROD_APPS 1024
+
+extern mhash_t face_state_table;
+extern u32 *swif_state_vec;
+
+always_inline void
+face_state_table_add (u16 port, u32 swif, hicn_face_id_t face_id,
+		      const fib_prefix_t *prefix, index_t adj_index)
+{
+  hicn_face_prod_state_key_t key = {
+    .sw_if_id = swif,
+    .port = port,
+  };
+
+  hicn_face_prod_state_t value = {
+    .prefix = *prefix, .adj_index = adj_index, .port = port, .face_id = face_id
+  };
+
+  mhash_set_mem (&face_state_table, &key, (uword *) &value, 0);
+}
+
+always_inline hicn_face_prod_state_t *
+face_state_table_get (u16 port, u32 swif)
+{
+  hicn_face_prod_state_key_t key = {
+    .port = port,
+    .sw_if_id = swif,
+  };
+
+  hicn_face_prod_state_t *value =
+    (hicn_face_prod_state_t *) mhash_get (&face_state_table, &key);
+
+  return value;
+}
+
+always_inline int
+face_state_table_del (u16 port, u32 swif,
+		      hicn_face_prod_state_t *deleted_state)
+{
+  hicn_face_prod_state_key_t key = {
+    .port = port,
+    .sw_if_id = swif,
+  };
+
+  int ret = mhash_unset (&face_state_table, &key, (uword *) deleted_state);
+
+  return ret ? HICN_ERROR_NONE : HICN_ERROR_APPFACE_NOT_FOUND;
+}
 
 #define DEFAULT_PROBING_PORT 3784
 
@@ -71,7 +130,8 @@ extern hicn_face_prod_state_t *face_state_vec;
  * send data to the producer face
  */
 int hicn_face_prod_add (fib_prefix_t *prefix, u32 swif, u32 *cs_reserved,
-			ip46_address_t *prod_addr, hicn_face_id_t *faceid);
+			ip46_address_t *prod_addr, hicn_face_id_t *faceid,
+			u16 port);
 
 /**
  * @brief Delete an existing application face

@@ -34,7 +34,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
                                PacketSentCallback &&packet_sent,
                                OnCloseCallback &&close_callback,
                                OnReconnectCallback &&on_reconnect,
-                               asio::io_service &io_service,
                                std::string app_name)
     : Connector(std::move(receive_callback), std::move(packet_sent),
                 std::move(close_callback), std::move(on_reconnect)),
@@ -43,8 +42,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       timer_set_(false),
       send_timer_(event_reactor_),
       disconnect_timer_(event_reactor_),
-      io_service_(io_service),
-      work_(asio::make_work_guard(io_service_)),
       memif_connection_({0}),
       tx_buf_counter_(0),
       is_reconnection_(false),
@@ -113,8 +110,8 @@ int MemifConnector::createMemif(uint32_t index, uint8_t is_master) {
   args.is_master = is_master;
   args.log2_ring_size = log2_ring_size_;
   args.buffer_size = buffer_size_;
-  args.num_s2m_rings = 1;
-  args.num_m2s_rings = 1;
+  args.num_s2m_rings = kn_s2m_rings;
+  args.num_m2s_rings = kn_m2s_rings;
   strcpy_s((char *)args.interface_name, sizeof(args.interface_name), IF_NAME);
   args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
   args.interface_id = index;
@@ -292,11 +289,10 @@ int MemifConnector::onConnect(memif_conn_handle_t conn, void *private_ctx) {
 
   DLOG_IF(INFO, VLOG_IS_ON(3)) << "Memif " << self->app_name_ << " connected";
 
-  // We are connected. Notify higher layers.
-  self->io_service_.post([self]() {
-    self->on_reconnect_callback_(self, make_error_code(core_error::success));
-  });
+  // Notify upper layers
+  self->on_reconnect_callback_(self, make_error_code(core_error::success));
 
+  // Send pending data
   self->doSend();
 
   return 0;
@@ -319,14 +315,15 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
   Details &c = connector->memif_connection_;
   std::weak_ptr<MemifConnector> self = connector->shared_from_this();
-  std::vector<::utils::MemBuf::Ptr> v;
+  std::vector<::utils::MemBuf::Ptr> buffers;
   std::error_code ec = make_error_code(core_error::success);
 
   int err = MEMIF_ERR_SUCCESS, ret_val;
   uint16_t rx = 0;
+  int max_rx = max_burst;
 
   do {
-    err = memif_rx_burst(conn, qid, c.rx_bufs, max_burst, &rx);
+    err = memif_rx_burst(conn, qid, c.rx_bufs, max_rx, &rx);
     ret_val = err;
 
     if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS &&
@@ -338,19 +335,14 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
     c.rx_buf_num += rx;
 
-    if (TRANSPORT_EXPECT_FALSE(connector->io_service_.stopped())) {
-      LOG(ERROR) << "socket stopped: ignoring " << rx << " packets";
-      goto error;
-    }
-
     std::size_t packet_length;
-    v.reserve(rx);
+    buffers.reserve(rx);
     for (int i = 0; i < rx; i++) {
       auto buffer = connector->getRawBuffer();
       packet_length = (c.rx_bufs + i)->len;
       std::memcpy(buffer.first, (c.rx_bufs + i)->data, packet_length);
       auto packet = connector->getPacketFromBuffer(buffer.first, packet_length);
-      v.emplace_back(std::move(packet));
+      buffers.emplace_back(std::move(packet));
     }
 
     /* mark memif buffers and shared memory buffers as free */
@@ -363,15 +355,11 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     }
 
     c.rx_buf_num -= rx;
+    max_rx -= rx;
+  } while (ret_val == MEMIF_ERR_NOBUF && max_rx > 0);
 
-  } while (ret_val == MEMIF_ERR_NOBUF);
-
-  connector->io_service_.post([self, buffers = std::move(v)]() {
-    if (auto c = self.lock()) {
-      c->receive_callback_(c.get(), buffers,
-                           std::make_error_code(std::errc(0)));
-    }
-  });
+  connector->receive_callback_(connector, buffers,
+                               std::make_error_code(std::errc(0)));
 
   return 0;
 
@@ -383,11 +371,7 @@ error:
   }
   c.rx_buf_num -= rx;
 
-  connector->io_service_.post([self, ec]() {
-    if (auto c = self.lock()) {
-      c->receive_callback_(c.get(), {}, ec);
-    }
-  });
+  connector->receive_callback_(connector, {}, ec);
 
   return 0;
 }
@@ -431,7 +415,7 @@ int MemifConnector::doSend() {
   if (memif_connection_.tx_buf_num > 0) {
     ret = txBurst(memif_connection_.tx_qid, ec);
     if (TRANSPORT_EXPECT_FALSE(ec.operator bool())) {
-      delay = 200;
+      delay = 100;
       goto done;
     }
   }
@@ -442,7 +426,7 @@ int MemifConnector::doSend() {
 
   ret = bufferAlloc(max, memif_connection_.tx_qid, ec);
   if (TRANSPORT_EXPECT_FALSE(ec.operator bool() && ret == 0)) {
-    delay = 200;
+    delay = 100;
     goto done;
   }
 
@@ -467,7 +451,7 @@ int MemifConnector::doSend() {
   ret = txBurst(memif_connection_.tx_qid, ec);
   if (TRANSPORT_EXPECT_FALSE(ec.operator bool())) {
     LOG(ERROR) << "Tx burst failed " << ec.message();
-    delay = 200;
+    delay = 100;
     goto done;
   }
 
@@ -481,12 +465,7 @@ done:
 
   // If error, signal to upper layers
   if (ec.operator bool()) {
-    std::weak_ptr<MemifConnector> self = shared_from_this();
-    io_service_.post([self, ec]() {
-      if (auto c = self.lock()) {
-        c->sent_callback_(c.get(), ec);
-      }
-    });
+    sent_callback_(this, ec);
   }
 
   return 0;

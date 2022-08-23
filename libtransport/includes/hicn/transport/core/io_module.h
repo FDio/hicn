@@ -48,6 +48,7 @@ class IoModule : utils::NonCopyable {
         inet6_address_({}),
         mtu_(1500),
         output_interface_(""),
+        src_port_(~0),
         content_store_reserved_(5000) {
     inet_address_.v4.as_u32 = portability::host_to_net(0x7f00001);
     inet6_address_.v6.as_u8[15] = 0x01;
@@ -84,18 +85,29 @@ class IoModule : utils::NonCopyable {
 
   virtual void closeConnection() = 0;
 
-  virtual void send(Packet &packet) {
+  void updateCounters(const utils::MemBuf &packet) {
     counters_.tx_packets++;
-    counters_.tx_bytes += packet.payloadSize() + packet.headerSize();
+    counters_.tx_bytes += packet.length();
+  }
 
+  void setLocatorAndPort(Packet &packet) {
     if (_is_ipv4(packet.getFormat())) {
       packet.setLocator(inet_address_);
     } else {
       packet.setLocator(inet6_address_);
     }
+
+    packet.setSrcPort(src_port_);
   }
 
-  virtual void send(const utils::MemBuf::Ptr &buffer) = 0;
+  virtual void send(Packet &packet) {
+    setLocatorAndPort(packet);
+    updateCounters(packet);
+  }
+
+  virtual void send(const utils::MemBuf::Ptr &packet) {
+    updateCounters(*packet);
+  }
 
   void setContentStoreSize(uint32_t cs_size) {
     content_store_reserved_ = cs_size;
@@ -114,6 +126,7 @@ class IoModule : utils::NonCopyable {
   hicn_ip_address_t inet6_address_;
   uint16_t mtu_;
   std::string output_interface_;
+  uint16_t src_port_;
   uint32_t content_store_reserved_;
   Counters counters_;
 };

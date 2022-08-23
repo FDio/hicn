@@ -81,14 +81,11 @@ typedef index_t hicn_face_id_t;
  * all the types of faces as well it leaves some space for storing additional
  * information specific to each type.
  */
-typedef struct __attribute__ ((packed)) hicn_face_s
+typedef struct hicn_face_s
 {
   /* Flags to idenfity if the face is incomplete (iface), complete (face) */
   /* And a network or application face (1B) */
   hicn_face_flags_t flags;
-
-  /* Align the upcoming fields */
-  u8 align;
 
   /* Path label (2B) */
   u16 pl_id;
@@ -106,6 +103,10 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   /* Local address of the interface sw_if */
   ip46_address_t nat_addr;
 
+  /* Source port - used to recognize input face at data reception */
+  u16 saved_port;
+  u16 randomized_port;
+
   /* local interface for the local ip address */
   u32 sw_if;
 
@@ -116,10 +117,16 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   u32 fib_sibling;
 } hicn_face_t;
 
+/* Make sure Face object fits in one cache line */
+STATIC_ASSERT (sizeof (hicn_face_t) <= CLIB_CACHE_LINE_BYTES,
+	       "hicn_face_t should fit in one cache line.");
+
 /* Pool of faces */
 extern hicn_face_t *hicn_dpoi_face_pool;
 
 #define HICN_FACE_NULL (hicn_face_id_t) ~0
+
+#define PORT_MASK ((1 << 16) - 1)
 
 /**
  * @brief Definition of the virtual functin table for an hICN FACE DPO.
@@ -168,6 +175,8 @@ extern dpo_type_t first_type;
 
 /* Per-face counters */
 extern vlib_combined_counter_main_t *counters;
+
+extern u32 port_allocator_seed;
 
 /**
  * @brief Return the face id from the face object
@@ -358,6 +367,7 @@ typedef struct __attribute__ ((packed)) hicn_face_key_s
     u64 align_dpo;
   };
   u32 sw_if;
+  u32 port;
 } hicn_face_key_t;
 
 /**
@@ -369,12 +379,13 @@ typedef struct __attribute__ ((packed)) hicn_face_key_s
  * @param key Pointer to an allocated hicn_face_ip_key_t object
  */
 always_inline void
-hicn_face_get_key (const ip46_address_t *addr, u32 sw_if, const dpo_id_t *dpo,
-		   hicn_face_key_t *key)
+hicn_face_get_key (const ip46_address_t *addr, u16 port, u32 sw_if,
+		   const dpo_id_t *dpo, hicn_face_key_t *key)
 {
   key->dpo = *dpo;
   key->addr = *addr;
   key->sw_if = sw_if;
+  key->port = port;
 }
 
 /**
@@ -388,8 +399,8 @@ hicn_face_get_key (const ip46_address_t *addr, u32 sw_if, const dpo_id_t *dpo,
  * @result Pointer to the face.
  */
 always_inline hicn_face_t *
-hicn_face_get (const ip46_address_t *addr, u32 sw_if, mhash_t *hashtb,
-	       index_t adj_index)
+hicn_face_get (const ip46_address_t *addr, u16 port, u32 sw_if,
+	       mhash_t *hashtb, index_t adj_index)
 {
   hicn_face_key_t key;
 
@@ -397,7 +408,7 @@ hicn_face_get (const ip46_address_t *addr, u32 sw_if, mhash_t *hashtb,
 
   dpo.dpoi_index = adj_index;
 
-  hicn_face_get_key (addr, sw_if, &dpo, &key);
+  hicn_face_get_key (addr, port, sw_if, &dpo, &key);
 
   hicn_face_id_t *dpoi_index = (hicn_face_id_t *) mhash_get (hashtb, &key);
 
@@ -422,12 +433,12 @@ hicn_face_get (const ip46_address_t *addr, u32 sw_if, mhash_t *hashtb,
  * @result Pointer to the face.
  */
 always_inline hicn_face_t *
-hicn_face_get_with_dpo (const ip46_address_t *addr, u32 sw_if,
+hicn_face_get_with_dpo (const ip46_address_t *addr, u16 port, u32 sw_if,
 			const dpo_id_t *dpo, mhash_t *hashtb)
 {
   hicn_face_key_t key;
 
-  hicn_face_get_key (addr, sw_if, dpo, &key);
+  hicn_face_get_key (addr, port, sw_if, dpo, &key);
 
   hicn_face_id_t *dpoi_index = (hicn_face_id_t *) mhash_get (hashtb, &key);
 
@@ -454,7 +465,8 @@ hicn_face_get_with_dpo (const ip46_address_t *addr, u32 sw_if,
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
-		   int sw_if, hicn_face_id_t *pfaceid);
+		   u16 port, int sw_if, hicn_face_id_t *pfaceid,
+		   u8 is_app_prod);
 
 /**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
@@ -467,7 +479,7 @@ int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 always_inline void
-hicn_iface_add (const ip46_address_t *nat_address, int sw_if,
+hicn_iface_add (ip46_address_t *nat_address, u16 port, int sw_if,
 		hicn_face_id_t *pfaceid, u32 adj_index, u8 flags)
 {
   hicn_face_t *face;
@@ -480,7 +492,7 @@ hicn_iface_add (const ip46_address_t *nat_address, int sw_if,
   face->dpo.dpoi_index = adj_index;
 
   hicn_face_key_t key;
-  hicn_face_get_key (nat_address, sw_if, &face->dpo, &key);
+  hicn_face_get_key (nat_address, port, sw_if, &face->dpo, &key);
 
   face->dpo.dpoi_next_node = 1;
 
@@ -488,6 +500,8 @@ hicn_iface_add (const ip46_address_t *nat_address, int sw_if,
   face->flags = HICN_FACE_FLAGS_IFACE;
   face->flags |= flags;
   face->locks = 1;
+  face->saved_port = port;
+  face->randomized_port = 0;
 
   *pfaceid = hicn_dpoi_get_index (face);
 
@@ -532,7 +546,7 @@ hicn4_iface_adj_walk_cb (adj_index_t ai, void *ctx)
  */
 always_inline int
 hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
-			    const ip4_address_t *nat_addr, u32 sw_if,
+			    const ip4_address_t *nat_addr, u16 port, u32 sw_if,
 			    u32 adj_index, u32 node_index)
 {
   int ret = HICN_ERROR_NONE;
@@ -543,14 +557,14 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 
   /* if the face exists, it adds a lock */
   hicn_face_t *face =
-    hicn_face_get (&ip_address, sw_if, &hicn_face_hashtb, adj_index);
+    hicn_face_get (&ip_address, port, sw_if, &hicn_face_hashtb, adj_index);
 
   if (face == NULL)
     {
       hicn_face_id_t idx;
       u8 face_flags = 0;
 
-      hicn_iface_add (&ip_address, sw_if, &idx, adj_index, face_flags);
+      hicn_iface_add (&ip_address, port, sw_if, &idx, adj_index, face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
 
@@ -575,11 +589,8 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       face->dpo.dpoi_index = adj_index;
       face->dpo.dpoi_next_node = node_index;
 
-      /* if (nat_addr->as_u32 == 0) */
-      /*   { */
       adj_nbr_walk (face->sw_if, FIB_PROTOCOL_IP4, hicn4_iface_adj_walk_cb,
 		    face);
-      /* } */
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
       *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
@@ -633,14 +644,14 @@ hicn6_iface_adj_walk_cb (adj_index_t ai, void *ctx)
  */
 always_inline int
 hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
-			    const ip6_address_t *nat_addr, u32 sw_if,
+			    const ip6_address_t *nat_addr, u16 port, u32 sw_if,
 			    u32 adj_index, u32 node_index)
 {
   int ret = HICN_ERROR_NONE;
 
   /*All (complete) faces are indexed by remote addess as well */
   /* if the face exists, it adds a lock */
-  hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
+  hicn_face_t *face = hicn_face_get ((ip46_address_t *) nat_addr, port, sw_if,
 				     &hicn_face_hashtb, adj_index);
 
   if (face == NULL)
@@ -648,7 +659,7 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       hicn_face_id_t idx;
       u8 face_flags = 0;
 
-      hicn_iface_add ((const ip46_address_t *) nat_addr, sw_if, &idx,
+      hicn_iface_add ((ip46_address_t *) nat_addr, port, sw_if, &idx,
 		      adj_index, face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
