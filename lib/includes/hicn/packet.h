@@ -38,12 +38,6 @@
 
 typedef struct __attribute__ ((packed))
 {
-  /* Packet format */
-  hicn_packet_format_t format;
-
-  /* Packet type */
-  hicn_packet_type_t type;
-
   /*
    * We store an offset to the packet header.
    *
@@ -56,7 +50,24 @@ typedef struct __attribute__ ((packed))
    */
   int64_t header;
 
-  /* Packet len */
+  /*
+   * Packet format [4]
+   */
+  hicn_packet_format_t format;
+
+  /*
+   * Packet type [2]
+   */
+  uint16_t type;
+
+  /*
+   * Buffer size [2]
+   */
+  uint16_t buffer_size;
+
+  /*
+   * Packet len [2]
+   */
   uint16_t len;
 
 #ifdef OPAQUE_IP
@@ -67,25 +78,32 @@ typedef struct __attribute__ ((packed))
     uint16_t ipv6;
   };
 #endif /* OPAQUE_IP */
+  /*
+   * L4 offset [1]
+   */
   union
   {
-    uint16_t tcp;
-    uint16_t udp;
-    uint16_t icmp;
+    uint8_t tcp;
+    uint8_t udp;
+    uint8_t icmp;
   };
-  uint16_t newhdr;
+  /*
+   * New header offset [1]
+   */
+  uint8_t newhdr;
+
+  /*
+   * AH offset [2]
+   */
   uint16_t ah;
+
+  /*
+   * Payload offset [2]
+   */
   uint16_t payload;
-
-  uint16_t buffer_size;
-  // uint16_t len;
-
-  /* Contiguous copy of the name */
-  // hicn_name_t *name;
-
 } hicn_packet_buffer_t;
 
-static_assert (sizeof (hicn_packet_buffer_t) == 28, "");
+static_assert (sizeof (hicn_packet_buffer_t) == 24, "");
 
 static inline uint8_t *
 _pkbuf_get_ipv4 (const hicn_packet_buffer_t *pkbuf)
