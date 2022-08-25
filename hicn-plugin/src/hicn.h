@@ -45,8 +45,7 @@ typedef u8 weight_t;
 #endif
 
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
-typedef struct
-{
+typedef struct {
   /**
    * Cached packet info
    */
@@ -68,31 +67,31 @@ typedef struct
   u32 dpo_ctx_id;
 
   /**
-   * hICN buffer flags (1)
+   * Cached packet info
    */
-  u8 flags;
+  u16 port;
+  u16 payload_type;
+  hicn_lifetime_t lifetime;
 
   /**
    * Ingress face (4)
    */
   hicn_face_id_t face_id;
 
-  /*
-  hicn_packet_type_t type;
-  hicn_packet_format_t format;
-  hicn_name_t name;
-  */
-  u16 port;
-  u16 payload_type;
-  hicn_lifetime_t lifetime;
+  /**
+   * hICN buffer flags (1)
+   */
+  u8 flags;
 } hicn_buffer_t;
 
-STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_id) == 28, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 32, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 36, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 40, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_id) == 24, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 28, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 32, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, port) == 36, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, payload_type) == 38, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, lifetime) == 40, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, face_id) == 44, "");
-// STATIC_ASSERT (offsetof (hicn_buffer_t, name) == 48, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 48, "");
 // + name = 16+4 = 20
 // opaque : u32[14] = 56
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
