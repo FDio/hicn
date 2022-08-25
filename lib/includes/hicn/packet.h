@@ -38,25 +38,29 @@
 
 typedef struct __attribute__ ((packed))
 {
-  /* Packet format */
-  hicn_packet_format_t format;
-
-  /* Packet type */
-  hicn_packet_type_t type;
+  /*
+   * Pointer to packet header. [8]
+   */
+  uint8_t *header;
 
   /*
-   * We store an offset to the packet header.
-   *
-   * NOTE: This is a signed value.
-   *
-   * In most implementations, the buffer located closeby to the current packet
-   * buffer (eg msgbuf in hicn-light, and vlib buffer in VPP), and an int16_t
-   * would be sufficient. This is not the case in transport though and we have
-   * to use a full integer.
+   * Packet format [4]
    */
-  int64_t header;
+  hicn_packet_format_t format;
 
-  /* Packet len */
+  /*
+   * Packet type [2]
+   */
+  uint16_t type;
+
+  /*
+   * Buffer size [2]
+   */
+  uint16_t buffer_size;
+
+  /*
+   * Packet len [2]
+   */
   uint16_t len;
 
 #ifdef OPAQUE_IP
@@ -67,33 +71,40 @@ typedef struct __attribute__ ((packed))
     uint16_t ipv6;
   };
 #endif /* OPAQUE_IP */
+  /*
+   * L4 offset [1]
+   */
   union
   {
-    uint16_t tcp;
-    uint16_t udp;
-    uint16_t icmp;
+    uint8_t tcp;
+    uint8_t udp;
+    uint8_t icmp;
   };
-  uint16_t newhdr;
+  /*
+   * New header offset [1] 
+   */
+  uint8_t newhdr;
+
+  /*
+   * AH offset [1]
+   */
   uint16_t ah;
+
+  /*
+   * Payload offset [2]	
+   */
   uint16_t payload;
-
-  uint16_t buffer_size;
-  // uint16_t len;
-
-  /* Contiguous copy of the name */
-  // hicn_name_t *name;
-
 } hicn_packet_buffer_t;
 
-static_assert (sizeof (hicn_packet_buffer_t) == 28, "");
+// static_assert (sizeof (hicn_packet_buffer_t) == 24, "");
 
 static inline uint8_t *
 _pkbuf_get_ipv4 (const hicn_packet_buffer_t *pkbuf)
 {
 #ifdef OPAQUE_IP
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->ipv4;
+  uint8_t *header = pkbuf->header + pkbuf->ipv4;
 #else
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header;
+  uint8_t *header = pkbuf->header;
 #endif
   _ASSERT (header);
   return header;
@@ -104,9 +115,9 @@ static inline uint8_t *
 _pkbuf_get_ipv6 (const hicn_packet_buffer_t *pkbuf)
 {
 #ifdef OPAQUE_IP
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->ipv6;
+  uint8_t *header = pkbuf->header + pkbuf->ipv6;
 #else
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header;
+  uint8_t *header = pkbuf->header;
 #endif
   assert (header);
   return header;
@@ -116,7 +127,7 @@ _pkbuf_get_ipv6 (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 _pkbuf_get_tcp (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->tcp;
+  uint8_t *header = pkbuf->header + pkbuf->tcp;
   assert (header);
   return header;
 }
@@ -125,7 +136,7 @@ _pkbuf_get_tcp (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 _pkbuf_get_udp (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->udp;
+  uint8_t *header = pkbuf->header + pkbuf->udp;
   assert (header);
   return header;
 }
@@ -134,7 +145,7 @@ _pkbuf_get_udp (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 _pkbuf_get_icmp (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->icmp;
+  uint8_t *header = pkbuf->header + pkbuf->icmp;
   assert (header);
   return header;
 }
@@ -143,7 +154,7 @@ _pkbuf_get_icmp (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 _pkbuf_get_ah (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->ah;
+  uint8_t *header = pkbuf->header + pkbuf->ah;
   assert (header);
   return header;
 }
@@ -152,7 +163,7 @@ _pkbuf_get_ah (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 _pkbuf_get_new (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header + pkbuf->newhdr;
+  uint8_t *header = pkbuf->header + pkbuf->newhdr;
   assert (header);
   return header;
 }
@@ -161,18 +172,14 @@ _pkbuf_get_new (const hicn_packet_buffer_t *pkbuf)
 static inline uint8_t *
 pkbuf_get_header (const hicn_packet_buffer_t *pkbuf)
 {
-  uint8_t *header = (uint8_t *) pkbuf + pkbuf->header;
-  assert (header);
-  return header;
+  assert (pkbuf->header);
+  return pkbuf->header;
 }
 
 static inline void
 pkbuf_set_header (hicn_packet_buffer_t *pkbuf, uint8_t *header)
 {
-  ssize_t offset = header - (uint8_t *) pkbuf;
-  assert (offset < INT64_MAX);
-  assert (offset > INT64_MIN);
-  pkbuf->header = (int64_t) offset;
+  pkbuf->header = header;
 }
 
 /*

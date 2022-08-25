@@ -250,7 +250,7 @@ hicn_packet_analyze (hicn_packet_buffer_t *pkbuf)
     }
   pkbuf->payload = offset;
 
-  rc = CALL (get_type, pkbuf, &pkbuf->type);
+  rc = CALL (get_type, pkbuf, (hicn_packet_type_t *)(&pkbuf->type));
   if (rc < 0)
     goto ERR;
 
