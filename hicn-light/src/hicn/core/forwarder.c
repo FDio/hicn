@@ -776,10 +776,10 @@ static void _forwarder_update_interest_stats(forwarder_t *forwarder,
 /**
  * Return the interest manifest from the interest payload
  */
-static interest_manifest_header_t *_forwarder_get_interest_manifest(
-    msgbuf_t *msgbuf) {
+static int _forwarder_get_interest_manifest(
+    msgbuf_t *msgbuf, interest_manifest_header_t **int_manifest_header,
+    size_t *payload_size) {
   uint8_t *payload;
-  size_t payload_size;
 
   hicn_packet_buffer_t *pkbuf = msgbuf_get_pkbuf(msgbuf);
 
@@ -787,21 +787,14 @@ static interest_manifest_header_t *_forwarder_get_interest_manifest(
   HICN_UNUSED(int rc) = hicn_packet_get_payload_type(pkbuf, &payload_type);
   assert(rc == HICN_LIB_ERROR_NONE);
 
-  if (payload_type != HPT_MANIFEST) return NULL;
+  if (payload_type != HPT_MANIFEST) return -1;
 
-  rc = hicn_packet_get_payload(pkbuf, &payload, &payload_size, false);
+  rc = hicn_packet_get_payload(pkbuf, &payload, payload_size, false);
   assert(rc == HICN_LIB_ERROR_NONE);
 
-  interest_manifest_header_t *int_manifest_header =
-      (interest_manifest_header_t *)payload;
+  *int_manifest_header = (interest_manifest_header_t *)payload;
 
-  // Deserialize intrest mmanifest
-  interest_manifest_deserialize(int_manifest_header);
-
-  if (!interest_manifest_is_valid(int_manifest_header, payload_size))
-    return NULL;
-
-  return int_manifest_header;
+  return 0;
 }
 
 // Manifest is split using splitting strategy, then every
@@ -850,6 +843,9 @@ int _forwarder_forward_aggregated_interest(
              BITMAP_SIZE * sizeof(hicn_uword));
 
       size_t suffix_index = 0;  // Position of suffix in initial manifest
+      interest_manifest_header_t *manifest;
+      size_t payload_size;
+      int ret;
       while (suffix_index < total_suffixes) {
         // If more than one sub-manifest,
         // clone original interest manifest and update suffix
@@ -872,9 +868,9 @@ int _forwarder_forward_aggregated_interest(
         size_t first_suffix_index_in_next_submanifest = suffix_index;
 
         // Update manifest bitmap in current msgbuf
-        interest_manifest_header_t *manifest =
-            _forwarder_get_interest_manifest(msgbuf);
-        assert(manifest != NULL);
+
+        ret = _forwarder_get_interest_manifest(msgbuf, &manifest, &payload_size);
+        assert(ret == 0);
         memcpy(manifest->request_bitmap, curr_bitmap,
                BITMAP_SIZE * sizeof(hicn_uword));
         WITH_TRACE({
@@ -974,24 +970,25 @@ static ssize_t forwarder_process_aggregated_interest(
   // `_forwarder_forward_aggregated_interest()`
   pkt_cache_entry_t *entries[BITMAP_SIZE * WORD_WIDTH];
 
-  int pos = 0;  // Position of current suffix in manifest
   int n_suffixes_to_fwd = 0;
-  u32 *suffix = (u32 *)(int_manifest_header + 1);
-  u32 seq = hicn_name_get_suffix(msgbuf_get_name(msgbuf));
 
   hicn_name_t name_copy = HICN_NAME_EMPTY;
   hicn_name_copy(&name_copy, msgbuf_get_name(msgbuf));
 
-  // The fist loop iteration handles the suffix in the header,
-  // the following ones handle the suffiexes in the manifest
-  while (true) {
-    if (!bitmap_is_set_no_check(int_manifest_header->request_bitmap, pos))
-      goto NEXT_SUFFIX;
+  // Suffixes in interest manifest also contains suffix in main name. We can
+  // then just iterate the interest manifest and update the suffix in the name
+  // struct
+  hicn_name_suffix_t *suffix;
+  int pos;
+  interest_manifest_foreach_suffix(int_manifest_header, suffix, pos) {
+    // Update name
+    hicn_name_set_suffix(&name_copy, *suffix);
 
     // Update packet cache
     pkt_cache_on_interest(forwarder->pkt_cache, msgbuf_pool, msgbuf_id,
                           &verdict, &data_msgbuf_id, &entry, &name_copy,
                           forwarder->serve_from_cs);
+
     entries[pos] = entry;
     _forwarder_update_interest_stats(forwarder, verdict, msgbuf,
                                      entry->has_expire_ts, entry->expire_ts);
@@ -1013,14 +1010,6 @@ static ssize_t forwarder_process_aggregated_interest(
     } else {
       n_suffixes_to_fwd++;
     }
-
-  NEXT_SUFFIX:
-    if (pos++ >= int_manifest_header->n_suffixes) break;
-
-    // Use next segment in manifest
-    seq = *suffix;
-    suffix++;
-    hicn_name_set_suffix(&name_copy, seq);
 
     WITH_DEBUG({
       char buf[MAXSZ_HICN_PREFIX];
@@ -1063,9 +1052,19 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   assert(msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
   u32 n_suffixes = 0;
-  interest_manifest_header_t *int_manifest_header =
-      _forwarder_get_interest_manifest(msgbuf);
-  if (int_manifest_header) n_suffixes = int_manifest_header->n_suffixes;
+  interest_manifest_header_t *int_manifest_header;
+  size_t payload_size;
+  int ret = _forwarder_get_interest_manifest(msgbuf, &int_manifest_header,
+                                             &payload_size);
+  if (ret == 0) {
+    // Deserialize intrest manifest
+    interest_manifest_deserialize(int_manifest_header);
+
+    if (!interest_manifest_is_valid(int_manifest_header, payload_size))
+      return -1;
+
+    n_suffixes = int_manifest_header->n_suffixes;
+  }
 
   // Update stats
   forwarder->stats.countInterestsReceived++;
