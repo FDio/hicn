@@ -40,7 +40,7 @@ typedef hicn_uword bitmap_t;
 #define BITMAP_INVALID_INDEX ((uint32_t) (~0))
 
 static inline int
-get_lowest_set_bit_index (hicn_uword w)
+hicn_get_lowest_set_bit_index (hicn_uword w)
 {
   return hicn_uword_bits > 32 ? __builtin_ctzll (w) : __builtin_ctz (w);
 }
@@ -132,7 +132,7 @@ _bitmap_set_no_check (bitmap_t *bitmap, off_t i)
 {
   size_t offset = i / BITMAP_WIDTH (bitmap);
   size_t pos = i % BITMAP_WIDTH (bitmap);
-  bitmap[offset] |= (bitmap_t) 1 << pos;
+  bitmap[offset] |= (hicn_uword) (1) << pos;
   return 0;
 }
 
@@ -178,7 +178,7 @@ _bitmap_unset (bitmap_t *bitmap, off_t i, int check)
     return -1;
   size_t offset = i / BITMAP_WIDTH (bitmap);
   size_t pos = i % BITMAP_WIDTH (bitmap);
-  bitmap[offset] &= ~(1ul << pos);
+  bitmap[offset] &= ~((hicn_uword) (1) << pos);
   return 0;
 }
 
@@ -258,13 +258,13 @@ bitmap_next_set_no_check (const bitmap_t *bitmap, hicn_uword i, size_t length)
       // This will zeroes all bits < i
       tmp = bitmap[pos] & mask;
       if (tmp)
-	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 
       for (pos += 1; pos < length; pos++)
 	{
 	  tmp = bitmap[pos];
 	  if (tmp)
-	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	    return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 	}
     }
 
@@ -291,13 +291,13 @@ bitmap_next_unset_no_check (const bitmap_t *bitmap, hicn_uword i,
       // This will zeroes all bits < i
       tmp = ~bitmap[pos] & mask;
       if (tmp)
-	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 
       for (pos += 1; pos < length; pos++)
 	{
 	  tmp = ~bitmap[pos];
 	  if (tmp)
-	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	    return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 	}
     }
   return BITMAP_INVALID_INDEX;
@@ -325,7 +325,7 @@ bitmap_print (const bitmap_t *bitmap, size_t n_words)
     {
       for (int bit = sizeof (hicn_uword) - 1; bit >= 0; bit--)
 	(bitmap_is_set_no_check (&bitmap[word], bit)) ? printf ("1") :
-							      printf ("0");
+							printf ("0");
     }
 }
 
