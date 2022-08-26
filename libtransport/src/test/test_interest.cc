@@ -255,16 +255,13 @@ TEST_F(InterestTest, AppendSuffixesEncodeAndIterate) {
   // Encode them in wire format
   interest.encodeSuffixes();
 
-  // Decode suffixes from wire format
-  interest.decodeSuffixes();
-
   // Iterate over them. They should be in order and without repetitions
 
   auto suffix = interest.firstSuffix();
   auto n_suffixes = interest.numberOfSuffixes();
 
   for (uint32_t i = 0; i < n_suffixes; i++) {
-    EXPECT_EQ(*(suffix + i), (i + 1));
+    EXPECT_EQ(*(suffix + i), i);
   }
 }
 
@@ -282,16 +279,13 @@ TEST_F(InterestTest, AppendSuffixesWithGaps) {
   interest.encodeSuffixes();
   EXPECT_TRUE(interest.hasManifest());
 
-  // Decode suffixes from wire format
-  interest.decodeSuffixes();
-
   // Check first suffix correctness
   auto suffix = interest.firstSuffix();
   EXPECT_NE(suffix, nullptr);
-  EXPECT_EQ(*suffix, 1U);
+  EXPECT_EQ(*suffix, 0U);
 
   // Iterate over them. They should be in order and without repetitions
-  std::vector<uint32_t> expected = {1, 2, 5, 6};
+  std::vector<uint32_t> expected = {interest.getName().getSuffix(), 1, 2, 5, 6};
   EXPECT_EQ(interest.numberOfSuffixes(), expected.size());
 
   for (uint32_t seq : expected) {

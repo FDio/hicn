@@ -218,9 +218,11 @@ class Client : interface::Portal::TransportCallback {
     const Name interest_name(config_->name_, (uint32_t)sequence_number_);
     hicn_packet_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
-      format = HICN_PACKET_FORMAT_IPV4_TCP;
+      format = signer_ ? HICN_PACKET_FORMAT_IPV4_TCP_AH
+                       : HICN_PACKET_FORMAT_IPV4_TCP;
     } else {
-      format = HICN_PACKET_FORMAT_IPV6_TCP;
+      format = signer_ ? HICN_PACKET_FORMAT_IPV6_TCP_AH
+                       : HICN_PACKET_FORMAT_IPV6_TCP;
     }
 
     size_t additional_header_size = 0;
@@ -251,20 +253,21 @@ class Client : interface::Portal::TransportCallback {
       std::cout << ">>> send interest " << interest->getName() << std::endl;
     }
 
-    if (config_->dump_) {
-      std::cout << "----- interest dump -----" << std::endl;
-      interest->dump();
-      std::cout << "-------------------------" << std::endl;
-    }
-
     if (!config_->quiet_) std::cout << std::endl;
 
     send_timestamps_[sequence_number_] = utils::SteadyTime::now();
     for (uint64_t i = 1; i < seq_offset; i++)
       send_timestamps_[sequence_number_ + i] = utils::SteadyTime::now();
 
-    interest->encodeSuffixes();
     if (signer_) signer_->signPacket(interest.get());
+
+    if (config_->dump_) {
+      std::cout << "----- interest dump -----" << std::endl;
+      interest->dump();
+      std::cout << "-------------------------" << std::endl;
+    }
+
+    interest->encodeSuffixes();
 
     portal_.sendInterest(interest, interest->getLifetime());
 

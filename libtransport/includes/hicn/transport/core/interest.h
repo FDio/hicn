@@ -92,9 +92,11 @@ class Interest
 
   void appendSuffix(std::uint32_t suffix);
 
-  void decodeSuffixes();
-
   void encodeSuffixes();
+
+  void serializeSuffixes();
+
+  void deserializeSuffixes();
 
   uint32_t *firstSuffix();
 
