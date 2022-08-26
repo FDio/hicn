@@ -169,13 +169,15 @@ void Interest::encodeSuffixes() {
   // We assume interest does not hold signature for the moment.
   auto int_manifest_header =
       (interest_manifest_header_t *)(writableData() + headerSize());
+
+  interest_manifest_init(int_manifest_header, name_.getSuffix());
   int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
   memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
          BITMAP_SIZE * sizeof(hicn_uword));
 
   uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
   for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
-    *suffix = *it;
+    interest_manifest_add_suffix(int_manifest_header, *it);
   }
 
   std::size_t additional_length =

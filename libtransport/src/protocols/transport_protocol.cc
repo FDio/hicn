@@ -159,7 +159,6 @@ void TransportProtocol::sendInterest(
   for (uint32_t i = 0; i < len; i++) {
     interest->appendSuffix(additional_suffixes->at(i));
   }
-  interest->encodeSuffixes();
 
   uint32_t lifetime = default_values::interest_lifetime;
   socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
