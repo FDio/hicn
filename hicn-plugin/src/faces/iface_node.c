@@ -63,6 +63,7 @@ typedef struct
 typedef enum
 {
   HICN4_IFACE_INPUT_NEXT_INTEREST,
+  HICN4_IFACE_INPUT_NEXT_INTEREST_MANIFEST,
   HICN4_IFACE_INPUT_NEXT_MAPME,
   HICN4_IFACE_INPUT_NEXT_ERROR_DROP,
   HICN4_IFACE_INPUT_N_NEXT,
@@ -81,6 +82,7 @@ typedef struct
 typedef enum
 {
   HICN6_IFACE_INPUT_NEXT_INTEREST,
+  HICN6_IFACE_INPUT_NEXT_INTEREST_MANIFEST,
   HICN6_IFACE_INPUT_NEXT_MAPME,
   HICN6_IFACE_INPUT_NEXT_ERROR_DROP,
   HICN6_IFACE_INPUT_N_NEXT,
@@ -181,7 +183,7 @@ typedef enum
       IP_HEADER_##ipv *ip_hdr = NULL;                                         \
       hicn_buffer_t *hicnb0;                                                  \
       int ret0 = HICN_ERROR_NONE;                                             \
-      u8 is_icmp0;                                                            \
+      u8 is_icmp0, is_manifest0;                                              \
       /* Prefetch for next iteration. */                                      \
       if (n_left_from > 1)                                                    \
 	{                                                                     \
@@ -206,6 +208,7 @@ typedef enum
       ret0 =                                                                  \
 	hicn_interest_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));   \
       is_icmp0 = (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                    \
+      is_manifest0 = hicnb0->payload_type == HPT_MANIFEST;                    \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
 	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
       if (PREDICT_FALSE (!ret0))                                              \
@@ -214,7 +217,7 @@ typedef enum
 	}                                                                     \
       else                                                                    \
 	{                                                                     \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
+	  next0 = is_icmp0 * (NEXT_MAPME_IP##ipv + is_manifest0) +            \
 		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
                                                                               \
 	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
@@ -273,7 +276,7 @@ typedef enum
       vlib_buffer_t *b0, *b1;                                                 \
       u32 bi0, bi1, next0, next1;                                             \
       u32 next_iface0, next_iface1, sw_if0 = ~0, sw_if1 = ~0;                 \
-      u8 is_icmp0, is_icmp1;                                                  \
+      u8 is_icmp0, is_icmp1, is_manifest0, is_manifest1;                      \
       IP_HEADER_##ipv *ip_hdr0 = NULL;                                        \
       IP_HEADER_##ipv *ip_hdr1 = NULL;                                        \
       int ret0 = HICN_ERROR_NONE, ret1 = HICN_ERROR_NONE;                     \
@@ -314,6 +317,8 @@ typedef enum
 	hicn_interest_parse_pkt (b1, vlib_buffer_length_in_chain (vm, b1));   \
       is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       is_icmp1 = ret1 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
+      is_manifest0 = hicnb0->payload_type == HPT_MANIFEST;                    \
+      is_manifest1 = hicnb1->payload_type == HPT_MANIFEST;                    \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
 	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
       ret1 = (ret1 == HICN_ERROR_NONE) ||                                     \
@@ -321,10 +326,10 @@ typedef enum
                                                                               \
       if (PREDICT_TRUE (ret0 && ret1))                                        \
 	{                                                                     \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
+	  next0 = is_icmp0 * (NEXT_MAPME_IP##ipv + is_manifest0) +            \
 		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
                                                                               \
-	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
+	  next1 = is_icmp1 * (NEXT_MAPME_IP##ipv + is_manifest1) +            \
 		  (1 - is_icmp1) * NEXT_INTEREST_IP##ipv;                     \
                                                                               \
 	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
