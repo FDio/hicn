@@ -10,11 +10,5 @@ BreakBeforeBinaryOperators: None
 ContinuationIndentWidth: 2
 
 ForEachMacros:
-  - 'clib_bitmap_foreach'
-  - 'pool_foreach'
-  - 'pool_foreach_index'
-  - 'vec_foreach'
-  - 'vec_foreach_backwards'
-  - 'vec_foreach_index'
-  - 'vec_foreach_index_backwards'
-  - 'vlib_foreach_rx_tx'
+  - 'interest_manifest_foreach_suffix'
+
