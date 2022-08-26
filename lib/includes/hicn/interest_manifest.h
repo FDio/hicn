@@ -44,7 +44,7 @@ typedef struct
   /* This can be 16 bits, but we use 32 bits for alignment */
   uint32_t n_suffixes;
 
-  /* Align to 64 bits */
+  /* First suffix */
   uint32_t padding;
 
   hicn_uword request_bitmap[BITMAP_SIZE];
@@ -132,15 +132,6 @@ interest_manifest_is_valid (interest_manifest_header_t *int_manifest_header,
 }
 
 static inline void
-interest_manifest_init (interest_manifest_header_t *int_manifest_header)
-{
-  int_manifest_header->n_suffixes = 0;
-  int_manifest_header->padding = 0;
-  memset (int_manifest_header->request_bitmap, 0,
-	  sizeof (int_manifest_header->request_bitmap));
-}
-
-static inline void
 interest_manifest_add_suffix (interest_manifest_header_t *int_manifest_header,
 			      hicn_name_suffix_t suffix)
 {
@@ -149,6 +140,18 @@ interest_manifest_add_suffix (interest_manifest_header_t *int_manifest_header,
   hicn_uword *request_bitmap = int_manifest_header->request_bitmap;
   bitmap_set_no_check (request_bitmap, int_manifest_header->n_suffixes);
   int_manifest_header->n_suffixes++;
+}
+
+static inline void
+interest_manifest_init (interest_manifest_header_t *int_manifest_header,
+			u32 fist_suffix)
+{
+  int_manifest_header->n_suffixes = 0;
+  int_manifest_header->padding = 0;
+  memset (int_manifest_header->request_bitmap, 0,
+	  sizeof (int_manifest_header->request_bitmap));
+
+  interest_manifest_add_suffix (int_manifest_header, fist_suffix);
 }
 
 static inline void
@@ -182,13 +185,13 @@ interest_manifest_update_bitmap (const hicn_uword *initial_bitmap,
 
 #define _FIRST(h) (hicn_name_suffix_t *) (h + 1)
 
-#define interest_manifest_foreach_suffix(header, suffix)                      \
+#define interest_manifest_foreach_suffix(header, suffix, pos)                 \
   for (suffix = _FIRST (header) + bitmap_first_set_no_check (                 \
-				    header->request_bitmap, BITMAP_SIZE);     \
+				    header->request_bitmap, BITMAP_SIZE),     \
+      pos = 0;                                                                \
        suffix - _FIRST (header) < header->n_suffixes;                         \
-       suffix = _FIRST (header) +                                             \
-		bitmap_next_set_no_check (header->request_bitmap,             \
-					  suffix - _FIRST (header) + 1,       \
-					  BITMAP_SIZE))
+       pos = suffix - _FIRST (header) + 1,                                    \
+      suffix = _FIRST (header) + bitmap_next_set_no_check (                   \
+				   header->request_bitmap, pos, BITMAP_SIZE))
 
 #endif /* HICNLIGHT_INTEREST_MANIFEST_H */
