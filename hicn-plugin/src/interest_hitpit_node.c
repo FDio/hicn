@@ -151,7 +151,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		  found =
 		    hicn_pcs_entry_pit_search (pcs_entry, hicnb0->face_id);
 
-		  if (found)
+		  if (found && hicnb0->payload_type != HPT_MANIFEST)
 		    {
 		      // Retransmission
 		      strategy_vft0->hicn_select_next_hop (

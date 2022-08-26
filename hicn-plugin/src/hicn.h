@@ -44,6 +44,8 @@ typedef u8 weight_t;
 #define VLIB_BUFFER_MIN_CHAIN_SEG_SIZE (128)
 #endif
 
+#define MAX_OUT_FACES 8
+
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct
 {
