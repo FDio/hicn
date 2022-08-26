@@ -57,38 +57,32 @@ class PendingInterest {
   ~PendingInterest() = default;
 
   template <typename Handler>
-  TRANSPORT_ALWAYS_INLINE void startCountdown(uint32_t lifetime, Handler &&cb) {
+  void startCountdown(uint32_t lifetime, Handler &&cb) {
     timer_.expires_from_now(std::chrono::milliseconds(lifetime));
     timer_.async_wait(std::forward<Handler>(cb));
   }
 
-  TRANSPORT_ALWAYS_INLINE void cancelTimer() { timer_.cancel(); }
+  void cancelTimer() { timer_.cancel(); }
 
-  TRANSPORT_ALWAYS_INLINE Interest::Ptr &&getInterest() {
-    return std::move(interest_);
-  }
+  Interest::Ptr &&getInterest() { return std::move(interest_); }
 
-  TRANSPORT_ALWAYS_INLINE void setInterest(const Interest::Ptr &interest) {
-    interest_ = interest;
-  }
+  const Interest::Ptr &getInterestReference() const { return interest_; }
 
-  TRANSPORT_ALWAYS_INLINE const OnContentObjectCallback &getOnDataCallback()
-      const {
+  void setInterest(const Interest::Ptr &interest) { interest_ = interest; }
+
+  const OnContentObjectCallback &getOnDataCallback() const {
     return on_content_object_callback_;
   }
 
-  TRANSPORT_ALWAYS_INLINE void setOnContentObjectCallback(
-      OnContentObjectCallback &&on_content_object) {
+  void setOnContentObjectCallback(OnContentObjectCallback &&on_content_object) {
     PendingInterest::on_content_object_callback_ = std::move(on_content_object);
   }
 
-  TRANSPORT_ALWAYS_INLINE const OnInterestTimeoutCallback &
-  getOnTimeoutCallback() const {
+  const OnInterestTimeoutCallback &getOnTimeoutCallback() const {
     return on_interest_timeout_callback_;
   }
 
-  TRANSPORT_ALWAYS_INLINE void setOnTimeoutCallback(
-      OnInterestTimeoutCallback &&on_interest_timeout) {
+  void setOnTimeoutCallback(OnInterestTimeoutCallback &&on_interest_timeout) {
     PendingInterest::on_interest_timeout_callback_ =
         std::move(on_interest_timeout);
   }

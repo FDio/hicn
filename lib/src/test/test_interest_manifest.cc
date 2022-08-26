@@ -26,7 +26,7 @@ static constexpr hicn_uword WORD_SIZE = WORD_WIDTH;
 class InterestManifestTest : public ::testing::Test
 {
 protected:
-  static constexpr u32 n_suffixes = 0x00000014;
+  static constexpr u32 n_suffixes = 0x00000014 + 1;
   static constexpr u32 padding = 0x21232425;
   static constexpr hicn_uword bitmap_word = ~0ULL;
   static inline std::vector<uint32_t> values = { 10, 22, 23, 43, 54, 65, 66,
@@ -106,7 +106,7 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
 #endif
 
   auto header = reinterpret_cast<interest_manifest_header_t *> (buffer);
-  interest_manifest_init (header);
+  interest_manifest_init (header, 0);
 
   for (const auto &v : values)
     {
@@ -134,8 +134,15 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
   hicn_name_suffix_t *suffix = (hicn_name_suffix_t *) (header + 1);
   for (unsigned i = 0; i < n_suffixes; i++)
     {
-      EXPECT_THAT (*(suffix + i),
-		   ::testing::Eq (hicn_host_to_net_32 (values[i])));
+      if (i == 0)
+	{
+	  EXPECT_THAT (*(suffix + i), ::testing::Eq (hicn_name_suffix_t (0)));
+	}
+      else
+	{
+	  EXPECT_THAT (*(suffix + i),
+		       ::testing::Eq (hicn_host_to_net_32 (values[i - 1])));
+	}
     }
 
   // Deserialize manifest
@@ -145,59 +152,73 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
   EXPECT_THAT (header->n_suffixes, ::testing::Eq (n_suffixes));
 
   int i = 0;
-  interest_manifest_foreach_suffix (header, suffix)
-  {
-    EXPECT_THAT (*suffix, ::testing::Eq (values[i]));
-    i++;
-  }
+  int pos;
+  interest_manifest_foreach_suffix (header, suffix, pos)
+    {
+      if (pos == 0)
+	{
+	  EXPECT_THAT (*suffix, ::testing::Eq (hicn_name_suffix_t (0)));
+	}
+      else
+	{
+	  EXPECT_THAT (*suffix, ::testing::Eq (values[i]));
+	  i++;
+	}
+    }
 }
 
 TEST_F (InterestManifestTest, ForEach)
 {
+  int pos;
+  hicn_name_suffix_t *suffix = nullptr;
   auto header = reinterpret_cast<interest_manifest_header_t *> (buffer);
-  header->n_suffixes = n_suffixes;
-  header->padding = padding;
-  memset (header->request_bitmap, 0xff, BITMAP_SIZE * sizeof (hicn_uword));
+  interest_manifest_init (header, 0);
 
-  hicn_name_suffix_t *suffix = (hicn_name_suffix_t *) (header + 1);
-  for (uint32_t i = 0; i < n_suffixes; i++)
+  for (const auto &v : values)
     {
-      *(suffix + i) = values[i];
+      interest_manifest_add_suffix (header, v);
     }
 
-  // Iterate over interest manifest. As bitmap is all 1, we should be able to
-  // iterate over all suffixes.
-  unsigned i = 0;
-  interest_manifest_foreach_suffix (header, suffix)
-  {
-    EXPECT_EQ (*suffix, values[i]);
-    i++;
-  }
+  // Iterate over interest manifest. bBbitmap should be all 1, we should be
+  // able to iterate over all suffixes.
+  interest_manifest_foreach_suffix (header, suffix, pos)
+    {
+      if (pos == 0)
+	{
+	  EXPECT_EQ (*suffix, hicn_name_suffix_t (0));
+	}
+      else
+	{
+	  EXPECT_EQ (*suffix, values[pos - 1]);
+	}
+    }
 
   std::set<uint32_t> set_values (values.begin (), values.end ());
 
   // Unset few bitmap positions
-  interest_manifest_del_suffix (header, 5);
+  interest_manifest_del_suffix (header, 5 + 1);
   set_values.erase (values[5]);
 
-  interest_manifest_del_suffix (header, 6);
+  interest_manifest_del_suffix (header, 6 + 1);
   set_values.erase (values[6]);
 
-  interest_manifest_del_suffix (header, 12);
+  interest_manifest_del_suffix (header, 12 + 1);
   set_values.erase (values[12]);
 
-  interest_manifest_del_suffix (header, 17);
+  interest_manifest_del_suffix (header, 17 + 1);
   set_values.erase (values[17]);
 
   // Iterate over interest manifest and remove elements in manifest from set.
   // The set should be empty at the end.
-  interest_manifest_foreach_suffix (header, suffix)
-  {
-    std::cout << suffix - _FIRST (header) << std::endl;
-    EXPECT_TRUE (set_values.find (*suffix) != set_values.end ())
-      << "The value was " << *suffix;
-    set_values.erase (*suffix);
-  }
+  interest_manifest_foreach_suffix (header, suffix, pos)
+    {
+      if (pos > 0)
+	{
+	  EXPECT_TRUE (set_values.find (*suffix) != set_values.end ())
+	    << "The value was " << *suffix;
+	  set_values.erase (*suffix);
+	}
+    }
 
   EXPECT_TRUE (set_values.empty ());
 }

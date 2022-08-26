@@ -16,7 +16,8 @@ RUN apt update && apt-get install -y \
   sudo \
   curl \
   valgrind \
-  git
+  git \
+  zsh
 
 RUN make deps debug-tools
 
