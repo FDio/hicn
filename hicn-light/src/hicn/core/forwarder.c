@@ -795,7 +795,7 @@ static interest_manifest_header_t *_forwarder_get_interest_manifest(
   interest_manifest_header_t *int_manifest_header =
       (interest_manifest_header_t *)payload;
 
-  // Deserialize intrest mmanifest
+  // Deserialize intrest manifest
   interest_manifest_deserialize(int_manifest_header);
 
   if (!interest_manifest_is_valid(int_manifest_header, payload_size))
