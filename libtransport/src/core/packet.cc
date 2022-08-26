@@ -368,7 +368,7 @@ uint8_t Packet::getTTL() const {
   return hops;
 }
 
-bool Packet::hasAH() const { return _is_ah(hicn_packet_get_format(&pkbuf_)); }
+bool Packet::hasAH() const { return _is_ah(getFormat()); }
 
 utils::MemBuf::Ptr Packet::getSignature() const {
   if (!hasAH()) {
