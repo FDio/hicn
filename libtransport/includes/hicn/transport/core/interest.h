@@ -96,6 +96,10 @@ class Interest
 
   void encodeSuffixes();
 
+  void serializeSuffixes();
+
+  void deserializeSuffixes();
+
   uint32_t *firstSuffix();
 
   uint32_t numberOfSuffixes();

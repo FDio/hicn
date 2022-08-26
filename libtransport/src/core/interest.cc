@@ -169,24 +169,46 @@ void Interest::encodeSuffixes() {
   // We assume interest does not hold signature for the moment.
   auto int_manifest_header =
       (interest_manifest_header_t *)(writableData() + headerSize());
-  int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
+
+  interest_manifest_init(int_manifest_header, name_.getSuffix());
   memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
          BITMAP_SIZE * sizeof(hicn_uword));
 
   uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
   for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
-    *suffix = *it;
+    interest_manifest_add_suffix(int_manifest_header, *it);
   }
 
   std::size_t additional_length =
       sizeof(interest_manifest_header_t) +
       int_manifest_header->n_suffixes * sizeof(uint32_t);
 
-  // Serialize interest manifest
-  interest_manifest_serialize(int_manifest_header);
-
   append(additional_length);
   updateLength();
+}
+
+void Interest::serializeSuffixes() {
+  if (!hasManifest()) {
+    return;
+  }
+
+  // We assume interest does not hold signature for the moment.
+  auto int_manifest_header =
+      (interest_manifest_header_t *)(writableData() + headerSize());
+  // Serialize interest manifest
+  interest_manifest_serialize(int_manifest_header);
+}
+
+void Interest::deserializeSuffixes() {
+  if (!hasManifest()) {
+    return;
+  }
+
+  // We assume interest does not hold signature for the moment.
+  auto int_manifest_header =
+      (interest_manifest_header_t *)(writableData() + headerSize());
+  // Serialize interest manifest
+  interest_manifest_deserialize(int_manifest_header);
 }
 
 void Interest::decodeSuffixes() {

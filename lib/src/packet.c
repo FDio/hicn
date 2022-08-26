@@ -324,11 +324,12 @@ int
 hicn_packet_get_payload (const hicn_packet_buffer_t *pkbuf, u8 **payload,
 			 size_t *payload_size, bool hard_copy)
 {
-  size_t payload_len = hicn_packet_get_len (pkbuf) - pkbuf->payload;
+  *payload_size = hicn_packet_get_len (pkbuf) - pkbuf->payload;
 
   if (hard_copy)
     {
-      memcpy (payload, pkbuf_get_header (pkbuf) + pkbuf->payload, payload_len);
+      memcpy (payload, pkbuf_get_header (pkbuf) + pkbuf->payload,
+	      *payload_size);
     }
   else
     {
