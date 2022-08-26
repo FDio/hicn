@@ -85,8 +85,6 @@ const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
   [DPO_PROTO_IP4] = hicn_ip4_nodes,
 };
 
-const static uint32_t MAX_OUT_FACES = 8;
-
 extern vlib_node_registration_t hicn_strategy_node;
 
 #endif /* //__HICN_STRATEGY__ */
