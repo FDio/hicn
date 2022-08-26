@@ -163,7 +163,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicn_name_t name;
 	  hicn_packet_get_name (&hicnb0->pkbuf, &name);
 	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
-	  //&hicnb0->name);
 
 	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
 	    {

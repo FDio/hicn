@@ -26,45 +26,42 @@
  * @file parser.h
  */
 
-#define PARSE(PACKET_TYPE, SIZE)                                              \
-  do                                                                          \
-    {                                                                         \
-      if (pkt == NULL)                                                        \
-	return HICN_ERROR_PARSER_PKT_INVAL;                                   \
-                                                                              \
-      int ret = HICN_ERROR_NONE;                                              \
-                                                                              \
-      u16 *port;                                                              \
-      hicn_lifetime_t *lifetime;                                              \
-      hicn_payload_type_t payload_type;                                       \
-                                                                              \
-      hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (pkt)->pkbuf;            \
-                                                                              \
-      hicn_packet_set_buffer (pkbuf, vlib_buffer_get_current (pkt), (SIZE),   \
-			      (SIZE));                                        \
-      hicn_packet_analyze (&hicn_get_buffer (pkt)->pkbuf);                    \
-                                                                              \
-      /* get source port*/                                                    \
-      port = &hicn_get_buffer (pkt)->port;                                    \
-      hicn_packet_get_src_port (pkbuf, port);                                 \
-      if (PREDICT_FALSE (ret))                                                \
-	{                                                                     \
-	  return HICN_ERROR_PARSER_PKT_INVAL;                                 \
-	}                                                                     \
-                                                                              \
-      /* get lifetime*/                                                       \
-      lifetime = &hicn_get_buffer (pkt)->lifetime;                            \
-      hicn_packet_get_lifetime (pkbuf, lifetime);                             \
-                                                                              \
-      if (*lifetime > hicn_main.pit_lifetime_max_ms)                          \
-	*lifetime = hicn_main.pit_lifetime_max_ms;                            \
-                                                                              \
-      /* get payload type */                                                  \
-      hicn_packet_get_payload_type (pkbuf, &payload_type);                    \
-      hicn_get_buffer (pkt)->payload_type = (u16) (payload_type);             \
-      return ret;                                                             \
-    }                                                                         \
-  while (0)
+always_inline int
+parse (vlib_buffer_t *pkt, uword size)
+{
+  if (pkt == NULL)
+    return HICN_ERROR_PARSER_PKT_INVAL;
+
+  int ret = HICN_ERROR_NONE;
+
+  u16 *port;
+  hicn_lifetime_t *lifetime;
+  hicn_payload_type_t payload_type;
+
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (pkt)->pkbuf;
+
+  hicn_packet_set_buffer (pkbuf, vlib_buffer_get_current (pkt), size, size);
+  hicn_packet_analyze (&hicn_get_buffer (pkt)->pkbuf);
+
+  /* get source port*/
+  port = &hicn_get_buffer (pkt)->port;
+  hicn_packet_get_src_port (pkbuf, port);
+  if (PREDICT_FALSE (ret))
+    {
+      return HICN_ERROR_PARSER_PKT_INVAL;
+    }
+
+  /* get lifetime*/
+  lifetime = &hicn_get_buffer (pkt)->lifetime;
+  hicn_packet_get_lifetime (pkbuf, lifetime);
+
+  if (*lifetime > hicn_main.pit_lifetime_max_ms)
+    *lifetime = hicn_main.pit_lifetime_max_ms;
+
+  /* get payload type */
+  hicn_packet_get_payload_type (pkbuf, &payload_type);
+  hicn_get_buffer (pkt)->payload_type = (u16) (payload_type);
+  return ret;
 
 #if 0
       hicn_name_t *name;                                                      \
@@ -81,6 +78,7 @@
 	  return HICN_ERROR_PARSER_PKT_INVAL;
 	}
 #endif
+}
 
 /**
  * @brief Parse a interest packet
@@ -96,7 +94,7 @@
 always_inline int
 hicn_interest_parse_pkt (vlib_buffer_t *pkt, uword size)
 {
-  PARSE (interest, size);
+  return parse (pkt, size);
 }
 
 /**
@@ -113,7 +111,7 @@ hicn_interest_parse_pkt (vlib_buffer_t *pkt, uword size)
 always_inline int
 hicn_data_parse_pkt (vlib_buffer_t *pkt, uword size)
 {
-  PARSE (data, size);
+  return parse (pkt, size);
 }
 
 #endif /* __HICN_PARSER_H__ */

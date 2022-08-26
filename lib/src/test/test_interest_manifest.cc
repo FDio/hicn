@@ -26,7 +26,7 @@ static constexpr hicn_uword WORD_SIZE = WORD_WIDTH;
 class InterestManifestTest : public ::testing::Test
 {
 protected:
-  static constexpr u32 n_suffixes = 0x00000014;
+  static constexpr u32 n_suffixes = 0x00000014 + 1;
   static constexpr u32 padding = 0x21232425;
   static constexpr hicn_uword bitmap_word = ~0ULL;
   static inline std::vector<uint32_t> values = { 10, 22, 23, 43, 54, 65, 66,
@@ -106,7 +106,7 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
 #endif
 
   auto header = reinterpret_cast<interest_manifest_header_t *> (buffer);
-  interest_manifest_init (header);
+  interest_manifest_init (header, 0);
 
   for (const auto &v : values)
     {
@@ -145,7 +145,8 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
   EXPECT_THAT (header->n_suffixes, ::testing::Eq (n_suffixes));
 
   int i = 0;
-  interest_manifest_foreach_suffix (header, suffix)
+  int pos;
+  interest_manifest_foreach_suffix (header, suffix, pos)
   {
     EXPECT_THAT (*suffix, ::testing::Eq (values[i]));
     i++;
@@ -168,7 +169,8 @@ TEST_F (InterestManifestTest, ForEach)
   // Iterate over interest manifest. As bitmap is all 1, we should be able to
   // iterate over all suffixes.
   unsigned i = 0;
-  interest_manifest_foreach_suffix (header, suffix)
+  int pos;
+  interest_manifest_foreach_suffix (header, suffix, pos)
   {
     EXPECT_EQ (*suffix, values[i]);
     i++;
@@ -191,9 +193,9 @@ TEST_F (InterestManifestTest, ForEach)
 
   // Iterate over interest manifest and remove elements in manifest from set.
   // The set should be empty at the end.
-  interest_manifest_foreach_suffix (header, suffix)
+  interest_manifest_foreach_suffix (header, suffix, pos)
   {
-    std::cout << suffix - _FIRST (header) << std::endl;
+    std::cout << pos << std::endl;
     EXPECT_TRUE (set_values.find (*suffix) != set_values.end ())
       << "The value was " << *suffix;
     set_values.erase (*suffix);

@@ -40,7 +40,7 @@ typedef hicn_uword bitmap_t;
 #define BITMAP_INVALID_INDEX ((uint32_t) (~0))
 
 static inline int
-get_lowest_set_bit_index (hicn_uword w)
+hicn_get_lowest_set_bit_index (hicn_uword w)
 {
   return hicn_uword_bits > 32 ? __builtin_ctzll (w) : __builtin_ctz (w);
 }
@@ -258,13 +258,13 @@ bitmap_next_set_no_check (const bitmap_t *bitmap, hicn_uword i, size_t length)
       // This will zeroes all bits < i
       tmp = bitmap[pos] & mask;
       if (tmp)
-	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 
       for (pos += 1; pos < length; pos++)
 	{
 	  tmp = bitmap[pos];
 	  if (tmp)
-	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	    return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 	}
     }
 
@@ -291,13 +291,13 @@ bitmap_next_unset_no_check (const bitmap_t *bitmap, hicn_uword i,
       // This will zeroes all bits < i
       tmp = ~bitmap[pos] & mask;
       if (tmp)
-	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 
       for (pos += 1; pos < length; pos++)
 	{
 	  tmp = ~bitmap[pos];
 	  if (tmp)
-	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	    return hicn_get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
 	}
     }
   return BITMAP_INVALID_INDEX;

@@ -319,8 +319,8 @@ class Portal : public ::utils::NonCopyable,
     uint32_t initial_hash = interest->getName().getHash32(false);
     auto hash = initial_hash + interest->getName().getSuffix();
     uint32_t seq = interest->getName().getSuffix();
-    const uint32_t *suffix = interest->firstSuffix();
-    auto n_suffixes = interest->numberOfSuffixes();
+    const uint32_t *suffix = interest->firstSuffix() + 1;
+    auto n_suffixes = interest->numberOfSuffixes() - 1;
     uint32_t counter = 0;
     // Set timers
     do {
@@ -412,9 +412,11 @@ class Portal : public ::utils::NonCopyable,
           UNSET_CALLBACK) {
     DCHECK(std::this_thread::get_id() == worker_.getThreadId());
 
-    io_module_->send(*interest);
     addInterestToPIT(interest, lifetime, std::move(on_content_object_callback),
                      std::move(on_interest_timeout_callback));
+    interest->serializeSuffixes();
+    io_module_->send(*interest);
+    dumpPIT();
   }
 
   /**
@@ -539,6 +541,22 @@ class Portal : public ::utils::NonCopyable,
     }
 
     pending_interest_hash_table_.clear();
+  }
+
+  void dumpPIT() {
+    std::vector<Name> sorted_elements;
+    for (const auto &[key, value] : pending_interest_hash_table_) {
+      sorted_elements.push_back(value.getInterestReference()->getName());
+    }
+
+    std::sort(sorted_elements.begin(), sorted_elements.end(),
+              [](const Name &a, const Name &b) {
+                return a.getSuffix() < b.getSuffix();
+              });
+
+    for (auto &elt : sorted_elements) {
+      LOG(INFO) << elt;
+    }
   }
 
   /**
