@@ -46,7 +46,7 @@ endif
 
 DEB_DEPENDS  = cmake ninja-build unzip python3-ply libasio-dev
 DEB_DEPENDS += libconfig-dev libconfig++-dev libevent-dev
-DEB_DEPENDS += build-essential vpp-dev libvppinfra-dev
+DEB_DEPENDS += llvm-11-tools llvm-11 clang-11 vpp-dev libvppinfra-dev
 DEB_DEPENDS += vpp-plugin-core libcurl4-openssl-dev libssl-dev
 DEB_DEPENDS += doxygen
 
