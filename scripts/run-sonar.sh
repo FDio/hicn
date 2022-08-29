@@ -2,9 +2,10 @@
 
 set -euxo pipefail
 
-# SONAR_HOST_URL=https://sonarcloud.io
-# PROJECT_KEY=fdio-hicn
-# PROJECT_ORGANIZATION=fdio
+export SONAR_HOST_URL=https://sonarcloud.io
+export PROJECT_KEY=fdio-hicn
+export PROJECT_ORGANIZATION=fdio
+export API_TOKEN=9ea26e0b0bbe1f436a0df06d61d1e97dc5a3d6e3
 
 export SONAR_TOKEN=$API_TOKEN
 export SONAR_SCANNER_VERSION=4.7.0.2747
@@ -22,6 +23,7 @@ cd /workspace
 git config --global --add safe.directory /workspace
 git config --global --add safe.directory /workspace/cmake
 
+rm -rf ${PWD}/build-debug
 BUILD_PATH=${PWD}/build-debug
 TEST_PATH="${BUILD_PATH}/build-root/bin"
 
