@@ -22,11 +22,5 @@ cd /workspace
 git config --global --add safe.directory /workspace
 git config --global --add safe.directory /workspace/cmake
 
-$HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output make build
-
-$SONAR_SCANNER_HOME/bin/sonar-scanner \
--Dsonar.organization=$PROJECT_ORGANIZATION \
--Dsonar.projectKey=$PROJECT_KEY \
--Dsonar.sources=/workspace \
--Dsonar.cfamily.build-wrapper-output=bw-output \
--Dsonar.host.url=$SONAR_HOST_URL
+export SONAR_BUILD_WRAPPER=$HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64
+make SONAR_OUT_DIR=bw-output build-coverage
