@@ -319,8 +319,11 @@ class Portal : public ::utils::NonCopyable,
     uint32_t initial_hash = interest->getName().getHash32(false);
     auto hash = initial_hash + interest->getName().getSuffix();
     uint32_t seq = interest->getName().getSuffix();
-    const uint32_t *suffix = interest->firstSuffix() + 1;
-    auto n_suffixes = interest->numberOfSuffixes() - 1;
+    const uint32_t *suffix = interest->firstSuffix() != nullptr
+                                 ? interest->firstSuffix() + 1
+                                 : nullptr;
+    auto n_suffixes =
+        interest->numberOfSuffixes() > 0 ? interest->numberOfSuffixes() - 1 : 0;
     uint32_t counter = 0;
     // Set timers
     do {

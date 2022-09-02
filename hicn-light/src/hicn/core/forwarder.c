@@ -1053,7 +1053,7 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   assert(msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
   u32 n_suffixes = 0;
-  interest_manifest_header_t *int_manifest_header;
+  interest_manifest_header_t *int_manifest_header = NULL;
   size_t payload_size;
   int ret = _forwarder_get_interest_manifest(msgbuf, &int_manifest_header,
                                              &payload_size);
