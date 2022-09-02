@@ -73,29 +73,26 @@ class Connector : public std::enable_shared_from_this<Connector> {
             typename OnReconnect>
   Connector(ReceiveCallback &&receive_callback, SentCallback &&packet_sent,
             OnClose &&close_callback, OnReconnect &&on_reconnect)
-      : receive_callback_(std::forward<ReceiveCallback &&>(receive_callback)),
-        sent_callback_(std::forward<SentCallback &&>(packet_sent)),
-        on_close_callback_(std::forward<OnClose &&>(close_callback)),
-        on_reconnect_callback_(std::forward<OnReconnect &&>(on_reconnect)),
-        state_(State::CLOSED),
-        connector_id_(invalid_connector),
-        connection_reattempts_(0) {}
+      : receive_callback_(std::forward<ReceiveCallback>(receive_callback)),
+        sent_callback_(std::forward<SentCallback>(packet_sent)),
+        on_close_callback_(std::forward<OnClose>(close_callback)),
+        on_reconnect_callback_(std::forward<OnReconnect>(on_reconnect)) {}
 
   virtual ~Connector(){};
 
   template <typename ReceiveCallback>
   void setReceiveCallback(ReceiveCallback &&callback) {
-    receive_callback_ = std::forward<ReceiveCallback &&>(callback);
+    receive_callback_ = std::forward<ReceiveCallback>(callback);
   }
 
   template <typename SentCallback>
   void setSentCallback(SentCallback &&callback) {
-    sent_callback_ = std::forward<SentCallback &&>(callback);
+    sent_callback_ = std::forward<SentCallback>(callback);
   }
 
   template <typename OnClose>
   void setOnCloseCallback(OnClose &&callback) {
-    on_close_callback_ = std::forward<OnClose &&>(callback);
+    on_close_callback_ = std::forward<OnClose>(callback);
   }
 
   template <typename OnReconnect>
@@ -137,24 +134,24 @@ class Connector : public std::enable_shared_from_this<Connector> {
 
   Id getConnectorId() { return connector_id_; }
 
-  void setConnectorName(std::string connector_name) {
+  void setConnectorName(const std::string &connector_name) {
     connector_name_ = connector_name;
   }
 
-  std::string getConnectorName() { return connector_name_; }
+  std::string getConnectorName() const { return connector_name_; }
 
   template <typename EP>
   void setLocalEndpoint(EP &&endpoint) {
     local_endpoint_ = std::forward<EP>(endpoint);
   }
 
-  Endpoint getLocalEndpoint() { return local_endpoint_; }
+  Endpoint getLocalEndpoint() const { return local_endpoint_; }
 
-  Endpoint getRemoteEndpoint() { return remote_endpoint_; }
+  Endpoint getRemoteEndpoint() const { return remote_endpoint_; }
 
   void setRole(Role r) { role_ = r; }
 
-  Role getRole() { return role_; }
+  Role getRole() const { return role_; }
 
   static utils::MemBuf::Ptr getPacketFromBuffer(uint8_t *buffer,
                                                 std::size_t size) {
@@ -213,8 +210,8 @@ class Connector : public std::enable_shared_from_this<Connector> {
   OnReconnectCallback on_reconnect_callback_;
 
   // Connector state
-  std::atomic<State> state_;
-  Id connector_id_;
+  std::atomic<State> state_ = State::CLOSED;
+  Id connector_id_ = invalid_connector;
 
   // Endpoints
   Endpoint local_endpoint_;
@@ -230,7 +227,7 @@ class Connector : public std::enable_shared_from_this<Connector> {
   AtomicConnectorStats stats_;
 
   // Connection attempts
-  std::uint32_t connection_reattempts_;
+  std::uint32_t connection_reattempts_ = 0;
 };
 
 }  // namespace core

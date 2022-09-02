@@ -566,7 +566,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t *vm,
   int payload_size = 1440;
   u32 sw_if_index = ~0;
   vnet_main_t *vnm = vnet_get_main ();
-  fib_prefix_t prefix;
+  fib_prefix_t prefix = {};
   u32 hicnpg_server_index;
   ip46_address_t locator;
 

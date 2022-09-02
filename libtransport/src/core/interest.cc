@@ -76,14 +76,13 @@ Interest &Interest::operator=(const Interest &other) {
   return (Interest &)Packet::operator=(other);
 }
 
-Interest::~Interest() {}
+Interest::~Interest() = default;
 
 const Name &Interest::getName() const {
-  if (!name_) {
-    if (hicn_interest_get_name(
-            &pkbuf_, (hicn_name_t *)&name_.getConstStructReference()) < 0) {
-      throw errors::MalformedPacketException();
-    }
+  if (!name_ &&
+      hicn_interest_get_name(
+          &pkbuf_, (hicn_name_t *)&name_.getConstStructReference()) < 0) {
+    throw errors::MalformedPacketException();
   }
 
   return name_;
@@ -149,7 +148,7 @@ void Interest::resetForHash() {
   }
 }
 
-bool Interest::hasManifest() {
+bool Interest::hasManifest() const {
   return (getPayloadType() == PayloadType::MANIFEST);
 }
 
@@ -174,8 +173,7 @@ void Interest::encodeSuffixes() {
   memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
          BITMAP_SIZE * sizeof(hicn_uword));
 
-  uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
-  for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
+  for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++) {
     interest_manifest_add_suffix(int_manifest_header, *it);
   }
 

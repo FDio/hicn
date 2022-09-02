@@ -25,7 +25,7 @@ class PublicationOptions {
  public:
   template <typename T>
   PublicationOptions(T&& name, uint32_t lifetime)
-      : name_(std::forward<T&&>(name)),
+      : name_(std::forward<T>(name)),
         content_lifetime_milliseconds_(lifetime) {}
 
   TRANSPORT_ALWAYS_INLINE const core::Name& getName() const { return name_; }
