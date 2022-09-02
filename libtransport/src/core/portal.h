@@ -56,7 +56,7 @@ class HandlerMemory {
   HandlerMemory(const HandlerMemory &) = delete;
   HandlerMemory &operator=(const HandlerMemory &) = delete;
 
-  void *allocate(std::size_t size) {
+  void *allocate(std::size_t /* size */) {
     return utils::FixedBlockAllocator<128, 8192>::getInstance().allocateBlock();
   }
 

@@ -35,62 +35,44 @@ namespace core {
 
 namespace ping {
 
-typedef std::map<uint64_t, utils::SteadyTime::TimePoint> SendTimeMap;
-typedef auth::AsymmetricVerifier Verifier;
+using SendTimeMap = std::map<uint64_t, utils::SteadyTime::TimePoint>;
+using Verifier = auth::AsymmetricVerifier;
 
 class Configuration {
  public:
-  uint64_t num_int_manifest_suffixes_;
-  uint64_t interestLifetime_;
-  uint64_t pingInterval_;
-  uint64_t maxPing_;
-  uint64_t first_suffix_;
-  std::string name_;
+  uint64_t num_int_manifest_suffixes_ =
+      0;                             // Number of suffixes in interest manifest
+  uint64_t interestLifetime_ = 500;  // ms
+  uint64_t pingInterval_ = 1000000;  // us
+  uint32_t maxPing_ = 10;            // number of interests
+  uint32_t first_suffix_ = 0;
+  std::string name_ = "b001::1";
   std::string certificate_;
   std::string passphrase_;
-  uint16_t srcPort_;
-  uint16_t dstPort_;
-  bool verbose_;
-  bool dump_;
-  bool jump_;
-  bool quiet_;
-  uint32_t jump_freq_;
-  uint32_t jump_size_;
-  uint8_t ttl_;
+  uint16_t srcPort_ = 9695;
+  uint16_t dstPort_ = 8080;
+  bool verbose_ = false;
+  bool dump_ = false;
+  bool jump_ = false;
+  bool quiet_ = false;
+  uint32_t jump_freq_ = 0;
+  uint32_t jump_size_ = 0;
+  uint8_t ttl_ = 64;
 
-  Configuration() {
-    num_int_manifest_suffixes_ = 0;  // Number of suffixes in interest manifest
-    interestLifetime_ = 500;         // ms
-    pingInterval_ = 1000000;         // us
-    maxPing_ = 10;                   // number of interests
-    first_suffix_ = 0;
-    name_ = "b001::1";  // string
-    srcPort_ = 9695;
-    dstPort_ = 8080;
-    verbose_ = false;
-    dump_ = false;
-    jump_ = false;
-    quiet_ = false;
-    jump_freq_ = 0;
-    jump_size_ = 0;
-    ttl_ = 64;
-  }
+  Configuration() = default;
 };
 
-class Client : interface::Portal::TransportCallback {
+class Client : private interface::Portal::TransportCallback {
  public:
-  Client(Configuration *c) : portal_(), signals_(io_service_, SIGINT) {
+  explicit Client(Configuration *c)
+      : signals_(io_service_, SIGINT),
+        config_(c),
+        timer_(std::make_unique<asio::steady_timer>(
+            portal_.getThread().getIoService())),
+        sequence_number_(config_->first_suffix_) {
     // Let the main thread to catch SIGINT
     signals_.async_wait(std::bind(&Client::afterSignal, this));
-    timer_.reset(new asio::steady_timer(portal_.getThread().getIoService()));
-    config_ = c;
-    sequence_number_ = config_->first_suffix_;
-    last_jump_ = 0;
-    processed_ = 0;
-    state_ = SYN_STATE;
-    sent_ = 0;
-    received_ = 0;
-    timedout_ = 0;
+
     if (!c->certificate_.empty()) {
       verifier_.useCertificate(c->certificate_);
     }
@@ -103,7 +85,7 @@ class Client : interface::Portal::TransportCallback {
     }
   }
 
-  virtual ~Client() {}
+  virtual ~Client() = default;
 
   void ping() {
     std::cout << "start ping" << std::endl;
@@ -122,7 +104,7 @@ class Client : interface::Portal::TransportCallback {
   }
 
   void onContentObject(Interest &interest, ContentObject &object) override {
-    double rtt = 0;
+    uint64_t rtt = 0;
 
     if (!config_->certificate_.empty()) {
       auto t0 = utils::SteadyTime::now();
@@ -136,8 +118,8 @@ class Client : interface::Portal::TransportCallback {
       }
     }
 
-    auto it = send_timestamps_.find(interest.getName().getSuffix());
-    if (it != send_timestamps_.end()) {
+    if (auto it = send_timestamps_.find(interest.getName().getSuffix());
+        it != send_timestamps_.end()) {
       rtt =
           utils::SteadyTime::getDurationUs(it->second, utils::SteadyTime::now())
               .count();
@@ -215,7 +197,7 @@ class Client : interface::Portal::TransportCallback {
   }
 
   void doPing() {
-    const Name interest_name(config_->name_, (uint32_t)sequence_number_);
+    const Name interest_name(config_->name_, sequence_number_);
     hicn_packet_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
       format = signer_ ? HICN_PACKET_FORMAT_IPV4_TCP_AH
@@ -235,7 +217,7 @@ class Client : interface::Portal::TransportCallback {
     interest->setSrcPort(config_->srcPort_);
     interest->setDstPort(config_->dstPort_);
     interest->setTTL(config_->ttl_);
-    uint64_t seq_offset = 1;
+    uint32_t seq_offset = 1;
     while (seq_offset <= config_->num_int_manifest_suffixes_ &&
            sequence_number_ + seq_offset < config_->maxPing_) {
       interest->appendSuffix(sequence_number_ + seq_offset);
@@ -308,15 +290,15 @@ class Client : interface::Portal::TransportCallback {
   asio::io_service io_service_;
   interface::Portal portal_;
   asio::signal_set signals_;
-  uint64_t sequence_number_;
-  uint64_t last_jump_;
-  uint64_t processed_;
-  uint32_t state_;
-  uint32_t sent_;
-  uint32_t received_;
-  uint32_t timedout_;
-  std::unique_ptr<asio::steady_timer> timer_;
   Configuration *config_;
+  std::unique_ptr<asio::steady_timer> timer_;
+  uint32_t sequence_number_;
+  uint64_t last_jump_ = 0;
+  uint64_t processed_ = 0;
+  uint32_t state_ = SYN_STATE;
+  uint32_t sent_ = 0;
+  uint32_t received_ = 0;
+  uint32_t timedout_ = 0;
   Verifier verifier_;
   std::unique_ptr<auth::Signer> signer_;
 };
@@ -360,7 +342,7 @@ void help() {
   std::cout << "-H                prints this message" << std::endl;
 }
 
-int main(int argc, char *argv[]) {
+int start(int argc, char *argv[]) {
 #ifdef _WIN32
   WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -368,7 +350,7 @@ int main(int argc, char *argv[]) {
 
   transport::interface::global_config::GlobalConfigInterface global_conf;
 
-  Configuration *c = new Configuration();
+  auto c = std::make_unique<Configuration>();
   int opt;
   std::string producer_certificate = "";
 
@@ -384,7 +366,7 @@ int main(int argc, char *argv[]) {
         c->passphrase_ = argv[optind];
         break;
       case 't':
-        c->ttl_ = (uint8_t)std::stoi(optarg);
+        c->ttl_ = uint8_t(std::stoi(optarg));
         break;
       case 'i':
         c->pingInterval_ = std::stoi(optarg);
@@ -393,13 +375,13 @@ int main(int argc, char *argv[]) {
         c->maxPing_ = std::stoi(optarg);
         break;
       case 'f':
-        c->first_suffix_ = std::stoul(optarg);
+        c->first_suffix_ = uint32_t(std::stoul(optarg));
         break;
       case 's':
-        c->srcPort_ = std::stoi(optarg);
+        c->srcPort_ = uint16_t(std::stoi(optarg));
         break;
       case 'd':
-        c->dstPort_ = std::stoi(optarg);
+        c->dstPort_ = uint16_t(std::stoi(optarg));
         break;
       case 'n':
         c->name_ = optarg;
@@ -409,7 +391,6 @@ int main(int argc, char *argv[]) {
         break;
       case 'V':
         c->verbose_ = true;
-        ;
         break;
       case 'D':
         c->dump_ = true;
@@ -429,6 +410,7 @@ int main(int argc, char *argv[]) {
         conf_file = optarg;
         break;
       case 'H':
+        ;
       default:
         help();
         exit(EXIT_FAILURE);
@@ -445,7 +427,7 @@ int main(int argc, char *argv[]) {
    */
   global_conf.parseConfigurationFile(conf_file);
 
-  auto ping = std::make_unique<Client>(c);
+  auto ping = std::make_unique<Client>(c.get());
 
   auto t0 = std::chrono::steady_clock::now();
   ping->ping();
@@ -468,5 +450,5 @@ int main(int argc, char *argv[]) {
 }  // namespace transport
 
 int main(int argc, char *argv[]) {
-  return transport::core::ping::main(argc, argv);
+  return transport::core::ping::start(argc, argv);
 }

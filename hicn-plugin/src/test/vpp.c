@@ -190,11 +190,17 @@ vpp_init_internal (int argc, char *argv[])
 	      argc_++;
 	      char **tmp = realloc (argv_, argc_ * sizeof (char *));
 	      if (tmp == NULL)
-		return 1;
+		{
+		  fclose (fp);
+		  return 1;
+		}
 	      argv_ = tmp;
 	      arg = strndup (p, 1024);
 	      if (arg == NULL)
-		return 1;
+		{
+		  free (argv_);
+		  return 1;
+		}
 	      argv_[argc_ - 1] = arg;
 	      p = strtok (NULL, " \t\n");
 	    }
@@ -204,7 +210,10 @@ vpp_init_internal (int argc, char *argv[])
 
       char **tmp = realloc (argv_, (argc_ + 1) * sizeof (char *));
       if (tmp == NULL)
-	return 1;
+	{
+	  free (argv_);
+	  return 1;
+	}
       argv_ = tmp;
       argv_[argc_] = NULL;
 
@@ -539,6 +548,11 @@ vpp_init ()
   int ret = readlink ("/proc/self/exe", buffer, BUFFER_LEN);
 
   ASSERT (ret < BUFFER_LEN);
+
+  if (ret >= BUFFER_LEN)
+    {
+      return -1;
+    }
 
   buffer[ret] = '\0';
 

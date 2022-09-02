@@ -62,8 +62,8 @@ class Endpoint {
 #if 0
   template <typename Ip, typename Port>
   Endpoint(Ip &&ip_address, Port &&port)
-      : address_(std::forward<Ip &&>(ip_address)),
-        port_(std::forward<Port &&>(port)) {}
+      : address_(std::forward<Ip>(ip_address)),
+        port_(std::forward<Port>(port)) {}
 #endif
 
   asio::ip::address getAddress() { return address_; }

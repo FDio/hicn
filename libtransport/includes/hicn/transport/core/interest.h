@@ -88,7 +88,7 @@ class Interest
 
   uint32_t getLifetime() const override;
 
-  bool hasManifest();
+  bool hasManifest() const;
 
   void appendSuffix(std::uint32_t suffix);
 

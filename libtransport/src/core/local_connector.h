@@ -20,7 +20,6 @@
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
-#include <hicn/transport/utils/move_wrapper.h>
 #include <hicn/transport/utils/shared_ptr_utils.h>
 #include <io_modules/forwarder/errors.h>
 
