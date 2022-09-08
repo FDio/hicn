@@ -47,6 +47,7 @@ set(LIBHICN_HEADER_FILES_UTIL
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/pool.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/ring.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/set.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/slab.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/sstrncpy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/token.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/types.h
@@ -55,4 +56,3 @@ set(LIBHICN_HEADER_FILES_UTIL
 )
 
 set_property(GLOBAL PROPERTY LIBHICN_HEADER_FILES_UTIL_PROPERTY "${LIBHICN_HEADER_FILES_UTIL}")
-

@@ -41,6 +41,7 @@
 #define HICNLIGHT_PACKET_CACHE_H
 
 #include <hicn/util/khash.h>
+#include <hicn/util/slab.h>
 #include "content_store.h"
 #include "pit.h"
 #include "msgbuf_pool.h"
@@ -112,6 +113,7 @@ typedef struct {
   cs_t *cs;
   pkt_cache_entry_t *entries;
   kh_pkt_cache_prefix_t *prefix_to_suffixes;
+  slab_t *prefix_keys;
 
   // Cached prefix info to avoid double lookups,
   // used for both single interest speculation and interest manifest
@@ -455,19 +457,19 @@ unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes,
                       hicn_name_suffix_t suffix);
 unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
                      const hicn_name_prefix_t *prefix,
-                     hicn_name_suffix_t suffix);
+                     hicn_name_suffix_t suffix, slab_t *prefix_keys);
 void __add_suffix(kh_pkt_cache_suffix_t *suffixes, hicn_name_suffix_t suffix,
                   unsigned val);
 void _add_suffix(kh_pkt_cache_prefix_t *prefixes,
-                 const hicn_name_prefix_t *prefix, hicn_name_suffix_t suffix,
-                 unsigned val);
+                 const hicn_name_prefix_t *prefix,
+                 const hicn_name_suffix_t suffix, unsigned val, slab_t *slab);
 void _remove_suffix(kh_pkt_cache_prefix_t *prefixes,
-                    const hicn_name_prefix_t *prefix,
-                    hicn_name_suffix_t suffix);
+                    const hicn_name_prefix_t *prefix, hicn_name_suffix_t suffix,
+                    slab_t *slab);
 void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes);
 kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
                                      const hicn_name_prefix_t *prefix,
-                                     bool create);
+                                     bool create, slab_t *prefix_keys);
 #endif
 
 /************** Content Store *****************************/

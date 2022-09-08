@@ -46,6 +46,8 @@
 #include <hicn/utils/punting.h>
 #include <hicn/util/log.h>
 #include <hicn/face.h>
+#include <hicn/util/slab.h>
+#include <hicn/util/sstrncpy.h>
 
 #include "configuration.h"
 
@@ -63,6 +65,10 @@
     (msg)->header.seq_num = (seq_number);                             \
   } while (0);
 
+typedef struct {
+  char prefix[MAXSZ_HICN_PREFIX];
+} prefix_key_t;
+
 struct configuration_s {
   const char *fn_config;
   uint16_t port;
@@ -72,7 +78,10 @@ struct configuration_s {
   const char *logfile;
   int logfile_fd;
   bool daemon;
+
   kh_strategy_map_t *strategy_map;
+  slab_t *prefix_keys;
+
   size_t n_suffixes_per_split;
   int_manifest_split_strategy_t split_strategy;
 };
@@ -95,6 +104,7 @@ configuration_t *configuration_create() {
 #endif
   configuration_set_loglevel(config, loglevel_from_str(DEFAULT_LOGLEVEL));
   config->strategy_map = kh_init_strategy_map();
+  config->prefix_keys = slab_create(prefix_key_t, SLAB_INIT_SIZE);
   config->n_suffixes_per_split = DEFAULT_N_SUFFIXES_PER_SPLIT;
   config->split_strategy = DEFAULT_DISAGGREGATION_STRATEGY;
 
@@ -104,13 +114,8 @@ configuration_t *configuration_create() {
 void configuration_free(configuration_t *config) {
   assert(config);
 
-  const char *k_prefix;
-  unsigned _;
-  (void)_;
-
-  // Free the strategy hashmap
-  kh_foreach(config->strategy_map, k_prefix, _, { free((char *)k_prefix); });
   kh_destroy_strategy_map(config->strategy_map);
+  slab_free(config->prefix_keys);
 
   free(config);
 }
@@ -202,7 +207,11 @@ bool configuration_get_daemon(const configuration_t *config) {
 void configuration_set_strategy(configuration_t *config, const char *prefix,
                                 strategy_type_t strategy_type) {
   int res;
-  khiter_t k = kh_put_strategy_map(config->strategy_map, strdup(prefix), &res);
+  prefix_key_t *prefix_copy = slab_get(prefix_key_t, config->prefix_keys);
+  strcpy_s(prefix_copy->prefix, sizeof(prefix_key_t), prefix);
+
+  khiter_t k =
+      kh_put_strategy_map(config->strategy_map, prefix_copy->prefix, &res);
   kh_value(config->strategy_map, k) = strategy_type;
 }
 
