@@ -805,7 +805,7 @@ int _forwarder_forward_aggregated_interest(
   assert(msgbuf_id_is_valid(msgbuf_id) &&
          msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST);
 
-  bool ret = -1;
+  int ret = -1;
 
   fib_entry_t *fib_entry = fib_match_msgbuf(forwarder->fib, msgbuf);
   if (!fib_entry) goto END;
@@ -843,9 +843,8 @@ int _forwarder_forward_aggregated_interest(
              BITMAP_SIZE * sizeof(hicn_uword));
 
       size_t suffix_index = 0;  // Position of suffix in initial manifest
-      interest_manifest_header_t *manifest;
+      interest_manifest_header_t *manifest = NULL;
       size_t payload_size;
-      int ret;
       while (suffix_index < total_suffixes) {
         // If more than one sub-manifest,
         // clone original interest manifest and update suffix
@@ -869,7 +868,7 @@ int _forwarder_forward_aggregated_interest(
 
         // Update manifest bitmap in current msgbuf
 
-        ret =
+        int ret =
             _forwarder_get_interest_manifest(msgbuf, &manifest, &payload_size);
         assert(ret == 0);
         memcpy(manifest->request_bitmap, curr_bitmap,
@@ -1088,7 +1087,7 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   pkt_cache_save_suffixes_for_prefix(
       forwarder->pkt_cache, hicn_name_get_prefix(msgbuf_get_name(msgbuf)));
 
-  if (!int_manifest_header)
+  if (ret == -1)
     return forwarder_process_single_interest(forwarder, msgbuf_pool, msgbuf,
                                              msgbuf_id);
   return forwarder_process_aggregated_interest(forwarder, int_manifest_header,

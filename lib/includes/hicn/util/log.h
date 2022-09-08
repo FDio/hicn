@@ -20,12 +20,15 @@
 #include <stdio.h>  // FILE
 #include <time.h>   // time, localtime
 
-#define LOG_FATAL 0
-#define LOG_ERROR 1
-#define LOG_WARN  2
-#define LOG_INFO  3
-#define LOG_DEBUG 4
-#define LOG_TRACE 5
+typedef enum
+{
+  LOG_FATAL,
+  LOG_ERROR,
+  LOG_WARN,
+  LOG_INFO,
+  LOG_DEBUG,
+  LOG_TRACE
+} log_level_t;
 
 typedef struct
 {

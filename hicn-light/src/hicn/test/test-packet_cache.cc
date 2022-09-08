@@ -96,25 +96,26 @@ class PacketCacheTest : public ::testing::Test {
 TEST_F(PacketCacheTest, LowLevelOperations) {
   kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
   const hicn_name_prefix_t *prefix = hicn_name_get_prefix(&name);
-  _add_suffix(prefix_to_suffixes, prefix, 1, 11);
-  _add_suffix(prefix_to_suffixes, prefix, 2, 22);
+  _add_suffix(prefix_to_suffixes, prefix, 1, 11, pkt_cache->prefix_keys);
+  _add_suffix(prefix_to_suffixes, prefix, 2, 22, pkt_cache->prefix_keys);
 
-  unsigned id = _get_suffix(prefix_to_suffixes, prefix, 1);
+  unsigned id =
+      _get_suffix(prefix_to_suffixes, prefix, 1, pkt_cache->prefix_keys);
   EXPECT_EQ(id, 11UL);
 
-  id = _get_suffix(prefix_to_suffixes, prefix, 2);
+  id = _get_suffix(prefix_to_suffixes, prefix, 2, pkt_cache->prefix_keys);
   EXPECT_EQ(id, 22UL);
 
-  id = _get_suffix(prefix_to_suffixes, prefix, 5);
+  id = _get_suffix(prefix_to_suffixes, prefix, 5, pkt_cache->prefix_keys);
   EXPECT_EQ(id, HICN_INVALID_SUFFIX);
 
-  _add_suffix(prefix_to_suffixes, prefix, 5, 55);
-  id = _get_suffix(prefix_to_suffixes, prefix, 5);
+  _add_suffix(prefix_to_suffixes, prefix, 5, 55, pkt_cache->prefix_keys);
+  id = _get_suffix(prefix_to_suffixes, prefix, 5, pkt_cache->prefix_keys);
   EXPECT_EQ(id, 55UL);
 
-  _remove_suffix(prefix_to_suffixes, prefix, 2);
-  _add_suffix(prefix_to_suffixes, prefix, 2, 222);
-  id = _get_suffix(prefix_to_suffixes, prefix, 2);
+  _remove_suffix(prefix_to_suffixes, prefix, 2, pkt_cache->prefix_keys);
+  _add_suffix(prefix_to_suffixes, prefix, 2, 222, pkt_cache->prefix_keys);
+  id = _get_suffix(prefix_to_suffixes, prefix, 2, pkt_cache->prefix_keys);
   EXPECT_EQ(id, 222UL);
 
   _prefix_map_free(prefix_to_suffixes);
@@ -585,13 +586,15 @@ TEST_F(PacketCacheTest, PerformanceDoubleLookup) {
     for (int seq = 0; seq < N_OPS; seq++) {
       hicn_name_set_suffix(&tmp, seq);
       _add_suffix(prefix_to_suffixes, hicn_name_get_prefix(&tmp),
-                  hicn_name_get_suffix(&tmp), hicn_name_get_suffix(&tmp));
+                  hicn_name_get_suffix(&tmp), hicn_name_get_suffix(&tmp),
+                  pkt_cache->prefix_keys);
     }
 
     // Read from hash table
     for (int seq = 0; seq < N_OPS; seq++) {
       hicn_name_set_suffix(&tmp, seq);
-      _get_suffix(prefix_to_suffixes, hicn_name_get_prefix(&tmp), seq);
+      _get_suffix(prefix_to_suffixes, hicn_name_get_prefix(&tmp), seq,
+                  pkt_cache->prefix_keys);
     }
 
     _prefix_map_free(prefix_to_suffixes);
@@ -605,7 +608,8 @@ TEST_F(PacketCacheTest, PerformanceCachedLookup) {
   auto elapsed_time_single = get_execution_time([&]() {
     kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
     kh_pkt_cache_suffix_t *suffixes =
-        _get_suffixes(prefix_to_suffixes, hicn_name_get_prefix(&tmp), true);
+        _get_suffixes(prefix_to_suffixes, hicn_name_get_prefix(&tmp), true,
+                      pkt_cache->prefix_keys);
 
     // Add to hash table
     for (int seq = 0; seq < N_OPS; seq++) {
@@ -638,7 +642,8 @@ TEST_F(PacketCacheTest, PerformanceCachedLookupRandom) {
   auto elapsed_time_single_rand = get_execution_time([&]() {
     kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
     kh_pkt_cache_suffix_t *suffixes =
-        _get_suffixes(prefix_to_suffixes, hicn_name_get_prefix(&tmp), true);
+        _get_suffixes(prefix_to_suffixes, hicn_name_get_prefix(&tmp), true,
+                      pkt_cache->prefix_keys);
 
     // Add to hash table
     for (int seq = 0; seq < N_OPS; seq++) {
