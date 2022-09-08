@@ -28,14 +28,18 @@ extern "C" {
 #define WITH_TESTS
 #include <hicn/core/connection_table.h>
 #include <hicn/util/log.h>
+#include <hicn/validation.h>
 }
 
-#define CONNECTION_NAME "connection_name_test"
-#define CONNECTION_NAME_2 "connection_name_test_2"
+#define CONNECTION_NAME "conn_name"
+#define CONNECTION_NAME_2 "conn_name_2"
 
 class ConnectionTableTest : public ::testing::Test {
  protected:
   ConnectionTableTest() {
+    assert(is_symbolic_name(CONNECTION_NAME, SYMBOLIC_NAME_LEN));
+    assert(is_symbolic_name(CONNECTION_NAME_2, SYMBOLIC_NAME_LEN));
+
     log_conf.log_level = LOG_WARN;
 
     conn_table_ = connection_table_create();

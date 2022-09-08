@@ -58,7 +58,7 @@ int shell(hc_sock_t *s) {
     hc_command_t command = {0};
 
     char *pos;
-    if ((pos = strchr(line, '\n')) != NULL) {
+    if (line != NULL && (pos = strchr(line, '\n')) != NULL) {
       *pos = '\0';
     } else {
       fprintf(stderr, "Error while reading command.\n");

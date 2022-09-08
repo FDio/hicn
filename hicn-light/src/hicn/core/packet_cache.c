@@ -84,13 +84,9 @@ const char *_pkt_cache_verdict_str[] = {
  * Free the two level packet cache structure (helper)
  */
 void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes) {
-  const hicn_name_prefix_t *key;
-  kh_pkt_cache_suffix_t *value;
-  kh_foreach(prefix_to_suffixes, key, value, {
-    //(void)key;
-    free((hicn_name_prefix_t *)key);
-    kh_destroy_pkt_cache_suffix(value);
-  });
+  kh_pkt_cache_suffix_t *suffix;
+  kh_foreach_value(prefix_to_suffixes, suffix,
+                   { kh_destroy_pkt_cache_suffix(suffix); });
   kh_destroy_pkt_cache_prefix(prefix_to_suffixes);
 }
 
@@ -99,7 +95,7 @@ void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes) {
  */
 kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
                                      const hicn_name_prefix_t *prefix,
-                                     bool create) {
+                                     bool create, slab_t *prefix_keys) {
   khiter_t k = kh_get_pkt_cache_prefix(prefix_to_suffixes, prefix);
 
   /* Return suffixes if found... */
@@ -114,8 +110,8 @@ kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
    */
   kh_pkt_cache_suffix_t *suffixes = kh_init_pkt_cache_suffix();
 
-  hicn_name_prefix_t *prefix_copy = malloc(sizeof(hicn_name_prefix_t));
-  *prefix_copy = *prefix;
+  hicn_name_prefix_t *prefix_copy = slab_get(hicn_name_prefix_t, prefix_keys);
+  memcpy(prefix_copy, prefix, sizeof(hicn_name_prefix_t));
 
   int rc;
   k = kh_put_pkt_cache_prefix(prefix_to_suffixes, prefix_copy, &rc);
@@ -129,8 +125,9 @@ kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
  */
 void _remove_suffix(kh_pkt_cache_prefix_t *prefixes,
                     const hicn_name_prefix_t *prefix,
-                    const hicn_name_suffix_t suffix) {
-  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix, false);
+                    const hicn_name_suffix_t suffix, slab_t *prefix_keys) {
+  kh_pkt_cache_suffix_t *suffixes =
+      _get_suffixes(prefixes, prefix, false, prefix_keys);
   assert(suffixes != NULL);
 
   khiter_t k = kh_get_pkt_cache_suffix(suffixes, suffix);
@@ -159,8 +156,10 @@ void __add_suffix(kh_pkt_cache_suffix_t *suffixes, hicn_name_suffix_t suffix,
  */
 void _add_suffix(kh_pkt_cache_prefix_t *prefixes,
                  const hicn_name_prefix_t *prefix,
-                 const hicn_name_suffix_t suffix, unsigned val) {
-  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix, true);
+                 const hicn_name_suffix_t suffix, unsigned val,
+                 slab_t *prefix_keys) {
+  kh_pkt_cache_suffix_t *suffixes =
+      _get_suffixes(prefixes, prefix, true, prefix_keys);
   assert(suffixes != NULL);
 
   __add_suffix(suffixes, suffix, val);
@@ -184,9 +183,10 @@ unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes,
 
 unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
                      const hicn_name_prefix_t *prefix,
-                     hicn_name_suffix_t suffix) {
+                     hicn_name_suffix_t suffix, slab_t *prefix_keys) {
   /* create is false as this function is always called by lookup */
-  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix, false);
+  kh_pkt_cache_suffix_t *suffixes =
+      _get_suffixes(prefixes, prefix, false, prefix_keys);
   if (!suffixes) {
     return HICN_INVALID_SUFFIX;
   }
@@ -197,11 +197,11 @@ unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
  * Lookup in both the first and second levels of the packet cache (helper)
  */
 unsigned _get_suffix_from_name(kh_pkt_cache_prefix_t *prefixes,
-                               const hicn_name_t *name) {
+                               const hicn_name_t *name, slab_t *prefix_keys) {
   const hicn_name_prefix_t *prefix = hicn_name_get_prefix(name);
   const hicn_name_suffix_t suffix = hicn_name_get_suffix(name);
 
-  return _get_suffix(prefixes, prefix, suffix);
+  return _get_suffix(prefixes, prefix, suffix, prefix_keys);
 }
 
 void pkt_cache_save_suffixes_for_prefix(pkt_cache_t *pkt_cache,
@@ -216,8 +216,9 @@ void pkt_cache_save_suffixes_for_prefix(pkt_cache_t *pkt_cache,
   // Update cached prefix information
   pkt_cache->cached_prefix = *prefix;
   pkt_cache->cached_suffixes =
-      _get_suffixes(pkt_cache->prefix_to_suffixes, prefix, true);  // XXX
-                                                                   //
+      _get_suffixes(pkt_cache->prefix_to_suffixes, prefix, true,
+                    pkt_cache->prefix_keys);  // XXX
+                                              //
 }
 
 void pkt_cache_reset_suffixes_for_prefix(pkt_cache_t *pkt_cache) {
@@ -237,6 +238,7 @@ pkt_cache_t *pkt_cache_create(size_t cs_size) {
   if (!pkt_cache->cs) return NULL;
 
   pkt_cache->prefix_to_suffixes = kh_init_pkt_cache_prefix();
+  pkt_cache->prefix_keys = slab_create(hicn_name_prefix_t, SLAB_INIT_SIZE);
   pool_init(pkt_cache->entries, DEFAULT_PKT_CACHE_SIZE, 0);
 
   pkt_cache->cached_prefix = HICN_NAME_PREFIX_EMPTY;
@@ -250,6 +252,7 @@ void pkt_cache_free(pkt_cache_t *pkt_cache) {
 
   // Free prefix hash table and pool
   _prefix_map_free(pkt_cache->prefix_to_suffixes);
+  slab_free(pkt_cache->prefix_keys);
   pool_free(pkt_cache->entries);
 
   // Free PIT and CS
@@ -261,8 +264,10 @@ void pkt_cache_free(pkt_cache_t *pkt_cache) {
 
 kh_pkt_cache_suffix_t *pkt_cache_get_suffixes(const pkt_cache_t *pkt_cache,
                                               const hicn_name_prefix_t *prefix,
-                                              bool create) {
-  return _get_suffixes(pkt_cache->prefix_to_suffixes, prefix, create);
+                                              bool create,
+                                              slab_t *prefix_keys) {
+  return _get_suffixes(pkt_cache->prefix_to_suffixes, prefix, create,
+                       prefix_keys);
 }
 
 pkt_cache_entry_t *pkt_cache_allocate(pkt_cache_t *pkt_cache) {
@@ -286,7 +291,8 @@ void pkt_cache_add_to_index(const pkt_cache_t *pkt_cache,
                  (unsigned int)id);
   } else {
     _add_suffix(pkt_cache->prefix_to_suffixes, hicn_name_get_prefix(name),
-                hicn_name_get_suffix(name), (unsigned int)id);
+                hicn_name_get_suffix(name), (unsigned int)id,
+                pkt_cache->prefix_keys);
   }
 }
 
@@ -296,7 +302,7 @@ void pkt_cache_add_to_index(const pkt_cache_t *pkt_cache,
 void pkt_cache_remove_from_index(const pkt_cache_t *pkt_cache,
                                  const hicn_name_t *name) {
   _remove_suffix(pkt_cache->prefix_to_suffixes, hicn_name_get_prefix(name),
-                 hicn_name_get_suffix(name));
+                 hicn_name_get_suffix(name), pkt_cache->prefix_keys);
 
 // TODO
 #if 0
@@ -321,7 +327,8 @@ pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache,
     index =
         __get_suffix(pkt_cache->cached_suffixes, hicn_name_get_suffix(name));
   } else {
-    index = _get_suffix_from_name(pkt_cache->prefix_to_suffixes, name);
+    index = _get_suffix_from_name(pkt_cache->prefix_to_suffixes, name,
+                                  pkt_cache->prefix_keys);
   }
 
   if (index == HICN_INVALID_SUFFIX) {
@@ -364,7 +371,7 @@ void pkt_cache_cs_remove_entry(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
   // XXX const hicn_name_t *name = msgbuf_get_name(msgbuf);
   _remove_suffix(pkt_cache->prefix_to_suffixes,
                  hicn_name_get_prefix(&entry->name),
-                 hicn_name_get_suffix(&entry->name));
+                 hicn_name_get_suffix(&entry->name), pkt_cache->prefix_keys);
 
   // Do not update the LRU cache for evicted entries
   if (!is_evicted) cs_vft[pkt_cache->cs->type]->remove_entry(pkt_cache, entry);
@@ -391,7 +398,7 @@ void pkt_cache_pit_remove_entry(pkt_cache_t *pkt_cache,
 
   const hicn_name_t *name = &entry->name;
   _remove_suffix(pkt_cache->prefix_to_suffixes, hicn_name_get_prefix(name),
-                 hicn_name_get_suffix(name));
+                 hicn_name_get_suffix(name), pkt_cache->prefix_keys);
 
   pool_put(pkt_cache->entries, entry);
 
