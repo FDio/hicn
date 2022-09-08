@@ -19,6 +19,7 @@
  */
 
 #include <hicn/util/log.h>
+#include <hicn/util/sstrncpy.h>
 
 #include "listener_table.h"
 #include "listener.h"
@@ -26,6 +27,10 @@
 /* This is only used as a hint for first allocation, as the table is resizeable
  */
 #define DEFAULT_LISTENER_TABLE_SIZE 64
+
+typedef struct {
+  char name[SYMBOLIC_NAME_LEN];
+} name_key_t;
 
 listener_table_t *_listener_table_create(size_t init_size, size_t max_size) {
   if (init_size == 0) init_size = DEFAULT_LISTENER_TABLE_SIZE;
@@ -37,7 +42,9 @@ listener_table_t *_listener_table_create(size_t init_size, size_t max_size) {
 
   /* Initialize indices */
   table->id_by_name = kh_init_lt_name();
+  table->name_keys = slab_create(name_key_t, SLAB_INIT_SIZE);
   table->id_by_key = kh_init_lt_key();
+  table->listener_keys = slab_create(listener_key_t, SLAB_INIT_SIZE);
 
   /*
    * We start by allocating a reasonably-sized pool, as this will eventually
@@ -49,12 +56,11 @@ listener_table_t *_listener_table_create(size_t init_size, size_t max_size) {
 }
 
 void listener_table_free(listener_table_t *table) {
-  const char *k_name;
   const listener_key_t *k_key;
   unsigned v;
-
   listener_t *listener;
   const char *name;
+
   kh_foreach(table->id_by_key, k_key, v, {
     listener = listener_table_get_by_id(table, v);
     name = listener_get_name(listener);
@@ -62,12 +68,11 @@ void listener_table_free(listener_table_t *table) {
     listener_finalize(listener);
   });
 
-  (void)v;
-  kh_foreach(table->id_by_name, k_name, v, { free((char *)k_name); });
-  kh_foreach(table->id_by_key, k_key, v, { free((listener_key_t *)k_key); });
-
   kh_destroy_lt_name(table->id_by_name);
+  slab_free(table->name_keys);
   kh_destroy_lt_key(table->id_by_key);
+  slab_free(table->listener_keys);
+
   pool_free(table->listeners);
   free(table);
 }
@@ -83,12 +88,15 @@ listener_t *listener_table_allocate(const listener_table_t *table,
   int rc;
 
   // Add in name hash table
-  khiter_t k = kh_put_lt_name(table->id_by_name, strdup(name), &rc);
+  name_key_t *name_copy = slab_get(name_key_t, table->name_keys);
+  strcpy_s(name_copy->name, sizeof(name_key_t), name);
+
+  khiter_t k = kh_put_lt_name(table->id_by_name, name_copy->name, &rc);
   assert(rc == KH_ADDED || rc == KH_RESET);
   kh_value(table->id_by_name, k) = (unsigned int)id;
 
   // Add in key hash table
-  listener_key_t *key_copy = (listener_key_t *)malloc(sizeof(listener_key_t));
+  listener_key_t *key_copy = slab_get(listener_key_t, table->listener_keys);
   memcpy(key_copy, key, sizeof(listener_key_t));
 
   k = kh_put_lt_key(table->id_by_key, key_copy, &rc);
@@ -107,14 +115,14 @@ void listener_table_deallocate(const listener_table_t *table,
   // Remove from name hash table
   khiter_t k = kh_get_lt_name(table->id_by_name, name);
   assert(k != kh_end(table->id_by_name));
-  free((char *)kh_key(table->id_by_name, k));
   kh_del_lt_name(table->id_by_name, k);
+  slab_put(table->name_keys, kh_key(table->id_by_name, k));
 
   // Remove from key hash table
   k = kh_get_lt_key(table->id_by_key, key);
   assert(k != kh_end(table->id_by_key));
-  free((listener_key_t *)kh_key(table->id_by_key, k));
   kh_del_lt_key(table->id_by_key, k);
+  slab_put(table->listener_keys, kh_key(table->id_by_key, k));
 
   assert(kh_size(table->id_by_name) == kh_size(table->id_by_key));
   pool_put(table->listeners, listener);

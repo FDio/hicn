@@ -32,6 +32,7 @@
 
 #include <hicn/util/khash.h>
 #include <hicn/util/hash.h>
+#include <hicn/util/slab.h>
 #include "address_pair.h"
 #include "connection.h"
 #include <hicn/util/pool.h>
@@ -48,7 +49,9 @@ typedef struct {
   size_t max_size;
 
   kh_ct_pair_t *id_by_pair;
+  slab_t *pair_keys;
   kh_ct_name_t *id_by_name;
+  slab_t *name_keys;
 
   connection_t *connections;  // pool
 } connection_table_t;

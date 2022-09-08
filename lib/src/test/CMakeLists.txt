@@ -27,6 +27,7 @@ list(APPEND TESTS_SRC
   test_khash.cc
   test_pool.cc
   test_ring.cc
+  test_slab.cc
   test_vector.cc
 )
 

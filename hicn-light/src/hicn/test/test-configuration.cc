@@ -69,6 +69,7 @@ TEST_F(ConfigurationTest, SetLogParameters) {
   EXPECT_EQ(log_file, LOG_FILE);
   int write_fd = configuration_get_logfile_fd(config);
   EXPECT_NE(write_fd, -1);
+  configuration_flush_log();
 }
 
 TEST_F(ConfigurationTest, SetStrategyParameter) {
