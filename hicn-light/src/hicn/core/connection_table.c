@@ -19,6 +19,7 @@
  */
 
 #include <hicn/util/log.h>
+#include <hicn/util/sstrncpy.h>
 
 #include "connection.h"
 #include "connection_table.h"
@@ -26,6 +27,10 @@
 /* This is only used as a hint for first allocation, as the table is resizeable
  */
 #define DEFAULT_CONNECTION_TABLE_SIZE 64
+
+typedef struct {
+  char name[SYMBOLIC_NAME_LEN];
+} name_key_t;
 
 connection_table_t *_connection_table_create(size_t init_size,
                                              size_t max_size) {
@@ -38,7 +43,9 @@ connection_table_t *_connection_table_create(size_t init_size,
 
   /* Initialize indices */
   table->id_by_pair = kh_init_ct_pair();
+  table->pair_keys = slab_create(address_pair_t, SLAB_INIT_SIZE);
   table->id_by_name = kh_init_ct_name();
+  table->name_keys = slab_create(name_key_t, SLAB_INIT_SIZE);
 
   /*
    * We start by allocating a reasonably-sized pool, as this will eventually
@@ -50,26 +57,20 @@ connection_table_t *_connection_table_create(size_t init_size,
 }
 
 void connection_table_free(connection_table_t *table) {
-  const char *k_name;
-  const address_pair_t *k_pair;
-  unsigned v_conn_id;
+  unsigned conn_id;
+  kh_foreach_value(table->id_by_name, conn_id, {
+    connection_t *connection = connection_table_get_by_id(table, conn_id);
+    const char *name = connection_get_name(connection);
 
-  connection_t *connection;
-  const char *name;
-  kh_foreach(table->id_by_name, k_name, v_conn_id, {
-    connection = connection_table_get_by_id(table, v_conn_id);
-    name = connection_get_name(connection);
     INFO("Removing connection %s [%d]", name, connection->fd);
     connection_finalize(connection);
   });
 
-  (void)v_conn_id;
-  kh_foreach(table->id_by_name, k_name, v_conn_id, { free((char *)k_name); });
-  kh_foreach(table->id_by_pair, k_pair, v_conn_id,
-             { free((address_pair_t *)k_pair); });
-
   kh_destroy_ct_pair(table->id_by_pair);
+  slab_free(table->pair_keys);
   kh_destroy_ct_name(table->id_by_name);
+  slab_free(table->name_keys);
+
   pool_free(table->connections);
   free(table);
 }
@@ -93,12 +94,15 @@ connection_t *connection_table_allocate(const connection_table_t *table,
   int rc;
 
   // Add in name hash table
-  khiter_t k = kh_put_ct_name(table->id_by_name, strdup(name), &rc);
+  name_key_t *name_copy = slab_get(name_key_t, table->name_keys);
+  strcpy_s(name_copy->name, sizeof(name_key_t), name);
+
+  khiter_t k = kh_put_ct_name(table->id_by_name, name_copy->name, &rc);
   assert(rc == KH_ADDED || rc == KH_RESET);
   kh_value(table->id_by_name, k) = (unsigned int)id;
 
   // Add in pair hash table
-  address_pair_t *pair_copy = (address_pair_t *)malloc(sizeof(address_pair_t));
+  address_pair_t *pair_copy = slab_get(address_pair_t, table->pair_keys);
   memcpy(pair_copy, pair, sizeof(address_pair_t));
 
   k = kh_put_ct_pair(table->id_by_pair, pair_copy, &rc);
@@ -125,14 +129,14 @@ void connection_table_deallocate(const connection_table_t *table,
   // Remove from name hash table
   khiter_t k = kh_get_ct_name(table->id_by_name, name);
   assert(k != kh_end(table->id_by_name));
-  free((char *)kh_key(table->id_by_name, k));
   kh_del_ct_name(table->id_by_name, k);
+  slab_put(table->name_keys, kh_key(table->id_by_name, k));
 
   // Remove from pair hash table
   k = kh_get_ct_pair(table->id_by_pair, pair);
   assert(k != kh_end(table->id_by_pair));
-  free((address_pair_t *)kh_key(table->id_by_pair, k));
   kh_del_ct_pair(table->id_by_pair, k);
+  slab_put(table->pair_keys, kh_key(table->id_by_pair, k));
 
   assert(kh_size(table->id_by_name) == kh_size(table->id_by_pair));
   pool_put(table->connections, conn);

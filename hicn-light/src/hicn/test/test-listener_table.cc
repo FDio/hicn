@@ -28,14 +28,18 @@ extern "C" {
 #define WITH_TESTS
 #include <hicn/core/listener_table.h>
 #include <hicn/util/log.h>
+#include <hicn/validation.h>
 }
 
-#define LISTENER_NAME "listener_name_test"
-#define LISTENER_NAME_2 "listener_name_test_2"
+#define LISTENER_NAME "listener_name"
+#define LISTENER_NAME_2 "listener_name_2"
 
 class ListenerTableTest : public ::testing::Test {
  protected:
   ListenerTableTest() {
+    assert(is_symbolic_name(LISTENER_NAME, SYMBOLIC_NAME_LEN));
+    assert(is_symbolic_name(LISTENER_NAME_2, SYMBOLIC_NAME_LEN));
+
     log_conf.log_level = LOG_INFO;
 
     listener_table_ = listener_table_create();
