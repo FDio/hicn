@@ -36,6 +36,7 @@ list(APPEND LIBHICN_SOURCE_FILES
   util/log.c
   util/pool.c
   util/ring.c
+  util/slab.c
   util/types.c
   util/vector.c
 )

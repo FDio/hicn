@@ -1155,7 +1155,7 @@ static ssize_t hicnlight_prepare(hc_sock_t *sock, hc_request_t *request,
  */
 static int hicnlight_process(hc_sock_t *sock, size_t count) {
   hc_sock_light_data_t *s = (hc_sock_light_data_t *)sock->data;
-  int rc;
+  int rc = -99;
 
   if (count > 0) s->woff += count;
 

@@ -1088,7 +1088,7 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
   pkt_cache_save_suffixes_for_prefix(
       forwarder->pkt_cache, hicn_name_get_prefix(msgbuf_get_name(msgbuf)));
 
-  if (!int_manifest_header)
+  if (ret == -1)
     return forwarder_process_single_interest(forwarder, msgbuf_pool, msgbuf,
                                              msgbuf_id);
   return forwarder_process_aggregated_interest(forwarder, int_manifest_header,

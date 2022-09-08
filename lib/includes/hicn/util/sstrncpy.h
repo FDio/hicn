@@ -20,6 +20,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 #endif
 
+#include <errno.h>
 #include <string.h>
 
 #ifdef __STDC_LIB_EXT1__

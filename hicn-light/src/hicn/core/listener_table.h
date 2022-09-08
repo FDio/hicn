@@ -32,6 +32,7 @@
 
 #include <hicn/util/khash.h>
 #include <hicn/util/hash.h>
+#include <hicn/util/slab.h>
 #include "address.h"
 #include "listener.h"
 #include <hicn/util/pool.h>
@@ -48,7 +49,9 @@ typedef struct {
   size_t max_size;
 
   kh_lt_key_t *id_by_key;
+  slab_t *listener_keys;
   kh_lt_name_t *id_by_name;
+  slab_t *name_keys;
 
   listener_t *listeners;  // pool
 } listener_table_t;
