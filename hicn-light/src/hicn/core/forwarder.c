@@ -979,7 +979,7 @@ static ssize_t forwarder_process_aggregated_interest(
   // then just iterate the interest manifest and update the suffix in the name
   // struct
   hicn_name_suffix_t *suffix;
-  int pos;
+  unsigned long pos;
   interest_manifest_foreach_suffix(int_manifest_header, suffix, pos) {
     // Update name
     hicn_name_set_suffix(&name_copy, *suffix);

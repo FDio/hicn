@@ -200,7 +200,7 @@ hicn_interest_manifest_pcslookup_node_inline (vlib_main_t *vm,
   u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
   hicn_pcs_entry_t *pcs_entry = NULL;
   interest_manifest_header_t *int_manifest_header = NULL;
-  int pos = 0;
+  unsigned long pos = 0;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
 

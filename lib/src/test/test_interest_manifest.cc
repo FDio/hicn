@@ -152,7 +152,7 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
   EXPECT_THAT (header->n_suffixes, ::testing::Eq (n_suffixes));
 
   int i = 0;
-  int pos;
+  unsigned long pos;
   interest_manifest_foreach_suffix (header, suffix, pos)
     {
       if (pos == 0)
@@ -169,7 +169,7 @@ TEST_F (InterestManifestTest, SerializeDeserialize)
 
 TEST_F (InterestManifestTest, ForEach)
 {
-  int pos;
+  unsigned long pos;
   hicn_name_suffix_t *suffix = nullptr;
   auto header = reinterpret_cast<interest_manifest_header_t *> (buffer);
   interest_manifest_init (header, 0);
