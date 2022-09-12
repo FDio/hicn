@@ -62,6 +62,10 @@ committers:
       email: 'manangel@cisco.com'
       id: 'manang'
       timezone: ''
+    - name: 'Olivier Roques'
+      company: 'Cisco'
+      email: 'oroques+fdio@cisco.com'
+      id: 'oroques'
 tsc:
     # yamllint disable rule:line-length
     approval: ''
