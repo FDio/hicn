@@ -8,7 +8,6 @@ project_lead: &hicn_ptl
     email: 'lumuscar+fdio@cisco.com'
     id: 'muscariello'
     company: 'Cisco'
-    timezone: ''
 primary_contact: *hicn_ptl
 issue_tracking:
     type: 'jira'
@@ -38,12 +37,10 @@ committers:
       company: 'Cisco'
       email: 'acompagn+fdio@cisco.com'
       id: 'acompagn'
-      timezone: ''
     - name: 'Jordan Augé'
       company: 'Cisco'
       email: 'jordan.auge+fdio@cisco.com'
       id: 'jordan.auge'
-      timezone: ''
     - name: 'Michele Papalini'
       company: 'Cisco'
       email: 'micpapal+fdio@cisco.com'
@@ -56,12 +53,14 @@ committers:
       company: 'Cisco'
       email: 'jsamain+fdio@cisco.com'
       id: 'jsamain'
-      timezone: ''
     - name: 'Angelo Mantellini'
       company: 'Cisco'
       email: 'manangel@cisco.com'
       id: 'manang'
-      timezone: ''
+    - name: 'Olivier Roques'
+      company: 'Cisco'
+      email: 'oroques+fdio@cisco.com'
+      id: 'oroques'
 tsc:
     # yamllint disable rule:line-length
     approval: ''
