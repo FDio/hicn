@@ -1,18 +1,11 @@
 version: "3"
 services:
-  vpp_client_memif:
-    build:
-      context: ..
-      dockerfile: ${DOCKERFILE}
-    stdin_open: true
-    tty: true
-    working_dir: /workspace
+  client:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-client
-    hostname: client
+    networks: []
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z
-    entrypoint: [/bin/bash, -c]
     command:
       - |
         if [ -d /workspace/build-dev ]; then
@@ -69,19 +62,12 @@ services:
         sudo vppctl hicn strategy set 2 prefix b002::/64
 
         tail -f /dev/null
-  vpp_server_memif:
-    build:
-      context: ..
-      dockerfile: ${DOCKERFILE}
-    stdin_open: true
-    tty: true
-    working_dir: /workspace
+  server:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-server
-    hostname: server
+    networks: []
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z
-    entrypoint: [/bin/bash, -c]
     command:
       - |
         if [ -d /workspace/build-dev ]; then
