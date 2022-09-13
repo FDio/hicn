@@ -4,6 +4,8 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
+      args:
+        - BASE_IMAGE
     privileged: true
     stdin_open: true
     hostname: client
