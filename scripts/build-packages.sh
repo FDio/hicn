@@ -27,12 +27,25 @@ function build_package() {
     echo "********************* STARTING PACKAGE BUILD **********************"
     echo "*******************************************************************"
 
-    # Make the package
+    # Run unit tests and make the package
+    export GTEST_OUTPUT="xml:report.xml"
     make -C "${SCRIPT_PATH}/.." BUILD_PATH="${SCRIPT_PATH}/../packages" INSTALL_PREFIX=/usr test package-release
 
     pushd ${SCRIPT_PATH}/../packages
-      find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
-      rm *Unspecified* *Development* *development* || true
+      # Find and collect reports
+      mkdir -p reports
+      REPORTS=($(find . -iname 'report.xml'))
+      echo "${REPORTS[@]}"
+      for report in "${REPORTS[@]}"; do
+        mv "${report}" "reports/$(echo ${report} | awk -F/ '{print $(2)"-"$(NF)}')"
+      done
+
+      find . -not -name '*.deb' \
+        -not -name '*.rpm' \
+        -not -name 'reports' \
+        -not -name '*report.xml' \
+        -print0 | xargs -0 rm -rf -- || true
+      rm ./*Unspecified* ./*Development* ./*development* || true
     popd
 
     echo "*******************************************************************"
