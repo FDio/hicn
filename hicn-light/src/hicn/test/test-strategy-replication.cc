@@ -61,7 +61,7 @@ class StrategyReplicationTest : public ::testing::Test {
     ticks_ = ticks_now();
   }
 
-  virtual ~StrategyReplicationTest() {}
+  virtual ~StrategyReplicationTest() { strategy_finalize(&entry); }
 
   strategy_entry_t entry;
   nexthops_t available_nexthops_;

@@ -66,7 +66,7 @@ class StrategyBestpathTest : public ::testing::Test {
     ticks_ = ticks_now();
   }
 
-  virtual ~StrategyBestpathTest() {}
+  virtual ~StrategyBestpathTest() { strategy_finalize(&entry); }
 
   strategy_entry_t entry;
   nexthops_t available_nexthops_;

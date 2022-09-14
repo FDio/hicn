@@ -26,6 +26,10 @@ int strategy_initialize(strategy_entry_t *entry, const void *forwarder) {
   return strategy_vft[entry->type]->initialize(entry, forwarder);
 }
 
+int strategy_finalize(strategy_entry_t *entry) {
+  return strategy_vft[entry->type]->finalize(entry);
+}
+
 nexthops_t *strategy_lookup_nexthops(strategy_entry_t *entry,
                                      nexthops_t *nexthops,
                                      const msgbuf_t *msgbuf) {
