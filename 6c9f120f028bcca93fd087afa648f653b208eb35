@@ -34,6 +34,24 @@
       "parentUuid": "d9be73e8_efa0500c",
       "revId": "6c9f120f028bcca93fd087afa648f653b208eb35",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ca8a3a74_56476554",
+        "filename": "tests/1-node.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-14T13:46:32Z",
+      "side": 0,
+      "message": "Ack",
+      "parentUuid": "37bfb33c_d1cc9693",
+      "revId": "6c9f120f028bcca93fd087afa648f653b208eb35",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
   ]
 }

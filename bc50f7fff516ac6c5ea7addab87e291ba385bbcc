@@ -88,6 +88,24 @@
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "910dc57a_d1ca39cc",
+        "filename": "lib/src/name.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 245,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-14T13:46:32Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "7bd9e402_445212ac",
+      "revId": "bc50f7fff516ac6c5ea7addab87e291ba385bbcc",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "dfc69245_e90ca3c8",
