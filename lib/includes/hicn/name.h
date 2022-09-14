@@ -270,6 +270,9 @@ bool hicn_name_is_v4 (const hicn_name_t *name);
 
 int hicn_name_snprintf (char *s, size_t size, const hicn_name_t *name);
 
+int hicn_prefix_no_len_snprintf (char *s, size_t size,
+				 const hicn_name_t *name);
+
 int hicn_name_cmp (const hicn_name_t *n1, const hicn_name_t *n2);
 bool hicn_name_equals (const hicn_name_t *n1, const hicn_name_t *n2);
 

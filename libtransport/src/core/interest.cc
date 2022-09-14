@@ -170,9 +170,6 @@ void Interest::encodeSuffixes() {
       (interest_manifest_header_t *)(writableData() + headerSize());
 
   interest_manifest_init(int_manifest_header, name_.getSuffix());
-  memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
-         BITMAP_SIZE * sizeof(hicn_uword));
-
   for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++) {
     interest_manifest_add_suffix(int_manifest_header, *it);
   }
@@ -236,6 +233,13 @@ hicn_uword *Interest::getRequestBitmap() {
   auto header = (interest_manifest_header_t *)(writableData() + headerSize());
   return header->request_bitmap;
 }
+
+interest_manifest_header_t *Interest::getIntManifestHeader() {
+  if (!hasManifest()) return nullptr;
+
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
+  return header;
+};
 
 void Interest::setRequestBitmap(const uint32_t *request_bitmap) {
   if (!hasManifest()) return;

@@ -34,6 +34,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/shared_ptr_utils.h
   ${CMAKE_CURRENT_SOURCE_DIR}/noncopyable.h
   ${CMAKE_CURRENT_SOURCE_DIR}/singleton.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/traffic_generator.h
 )
 
 if(NOT WIN32)

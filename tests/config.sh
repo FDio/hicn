@@ -465,6 +465,97 @@ function ctrl() {
   ${ctrl_tests[${type}]}
 }
 
+################################################################
+# Test ping
+################################################################
+function test_ping_manifest() {
+  docker exec forwarder bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
+  sleep 1
+
+  # 2 interests w/ 3 suffixes each (1 in header + 2 in manifest)
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  sleep 1
+
+  # 2 interests w/ 3 suffixes each + 1 single interest
+  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  sleep 1
+
+  # 2 interests w/ 3 suffixes each + 1 interest w/ 2 suffixes
+  docker exec forwarder bash -c 'hicn-ping-client -m 8 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  sleep 1
+
+  # 2 interests w/ 3 suffixes each + 1 single interest,
+  # using random prefix/suffix generation
+  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest -b RANDOM | grep "Sent" >>/tmp/ping_client.log'
+
+  # No 'failed' expected
+  ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
+  if [[ $(echo $ping_server_logs | grep failed | wc -l) -ne 0 ]]; then
+    echo "******** Server logs (ping) ********"
+    echo "$ping_server_logs"
+    exit 1
+  fi
+
+  # No 'Timeouts: 0' expected
+  ping_client_logs=$(docker exec forwarder cat /tmp/ping_client.log)
+  if [[ $(echo $ping_client_logs | grep -v "Timeouts: 0" | wc -l) -ne 0 ]]; then
+    echo "******** Client logs (ping) ********"
+    echo "$ping_client_logs"
+    exit 1
+  fi
+}
+
+function test_ping_wrong_signature() {
+  docker exec forwarder bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
+  sleep 1
+
+  # Signature mismatch ('intmamifest' on server vs 'wrong_sign' on client)
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 wrong_sig | grep "Sent" >>/tmp/ping_client.log'
+
+  # 'failed' expected
+  ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
+  if [[ $(echo $ping_server_logs | grep "failed" | wc -l) -eq 0 ]]; then
+    echo "******** Server logs (signature fail) ********"
+    echo "$ping_server_logs"
+    exit 1
+  fi
+}
+
+function test_ping_no_server() {
+  # Server not started to check for ping client timeout
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 | grep "Sent" >>/tmp/ping_client.log'
+
+  # 'Timeouts: 6' expected
+  ping_client_logs=$(docker exec forwarder cat /tmp/ping_client.log)
+  if [[ $(echo $ping_client_logs | grep "Timeouts: 6" | wc -l) -eq 0 ]]; then
+    echo "******** Client logs (timeout) ********"
+    echo "$ping_client_logs"
+    exit 1
+  fi
+}
+
+declare -A ping_tests=(
+  ["manifest"]="test_ping_manifest"
+  ["signature"]="test_ping_wrong_signature"
+  ["timeout"]="test_ping_no_server"
+)
+
+function ping_test_exists() {
+  [[ "${!ping_tests[*]}" =~ ${1} ]] && return 0 || return 1
+}
+
+function ping() {
+  type=$1
+  if ! ping_test_exists "${type}"; then
+    error "Error: hicn-ping test does not exist."
+    exit 1
+  fi
+
+  ${ping_tests[${type}]}
+}
+
+#--------------------------------------------------------------#
+
 while (("${#}")); do
   case "$1" in
   'build')
@@ -508,6 +599,10 @@ while (("${#}")); do
     ;;
   'ctrl')
     ctrl "${2}"
+    break
+    ;;
+  'ping')
+    ping "${2}"
     break
     ;;
   *)

@@ -168,6 +168,13 @@ hicn_ip_prefix_t Name::toIpAddress() const {
   return ret;
 }
 
+std::string Name::getPrefix() const {
+  char prefix[MAXSZ_HICN_NAME];
+  hicn_prefix_no_len_snprintf(prefix, MAXSZ_HICN_NAME, &name_);
+
+  return std::string(prefix);
+}
+
 int Name::getAddressFamily() const {
   int ret = 0;
 
