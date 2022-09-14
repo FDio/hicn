@@ -31,6 +31,14 @@ fi
 
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
+declare -a TEST_COMPONENTS=(
+  "libtransport"
+  "lib"
+  "hicn_light"
+  "hicnplugin"
+  "libhicnctrl"
+)
+
 function install_collectd_headers() {
   curl -OL ${COLLECTD_SOURCE}
   tar -xf collectd-5.12.0.tar.bz2

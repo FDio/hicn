@@ -17,6 +17,20 @@ set -euxo pipefail
 SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
 source ${SCRIPT_PATH}/functions.sh
 
+BUILD_PATH="${SCRIPT_PATH}/../packages"
+TEST_REPORT_DIR="${BUILD_PATH}/reports"
+BUILD_ROOT_DIR="${BUILD_PATH}/build-root/bin"
+MAKE_FOLDER="${SCRIPT_PATH}/.."
+
+function execute_tests() {
+    mkdir -p "${TEST_REPORT_DIR}"
+    pushd "${BUILD_ROOT_DIR}"
+      for component in "${TEST_COMPONENTS[@]}"; do
+        GTEST_OUTPUT=xml:${TEST_REPORT_DIR}/${component}.xml "./${component}_tests"
+      done
+    popd
+}
+
 # Parameters:
 # $1 = Package name
 #
@@ -28,22 +42,15 @@ function build_package() {
     echo "*******************************************************************"
 
     # Run unit tests and make the package
-    export GTEST_OUTPUT="xml:report.xml"
-    make -C "${SCRIPT_PATH}/.." BUILD_PATH="${SCRIPT_PATH}/../packages" INSTALL_PREFIX=/usr test package-release
+    make -C "${MAKE_FOLDER}" BUILD_PATH="${BUILD_PATH}" INSTALL_PREFIX=/usr package-release
 
-    pushd ${SCRIPT_PATH}/../packages
-      # Find and collect reports
-      mkdir -p reports
-      REPORTS=($(find . -iname 'report.xml'))
-      echo "${REPORTS[@]}"
-      for report in "${REPORTS[@]}"; do
-        mv "${report}" "reports/$(echo ${report} | awk -F/ '{print $(2)"-"$(NF)}')"
-      done
+    execute_tests
 
+    pushd "${BUILD_PATH}"
       find . -not -name '*.deb' \
         -not -name '*.rpm' \
         -not -name 'reports' \
-        -not -name '*report.xml' \
+        -not -name '*.xml' \
         -print0 | xargs -0 rm -rf -- || true
       rm ./*Unspecified* ./*Development* ./*development* || true
     popd

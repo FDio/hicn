@@ -6,6 +6,9 @@ set -euxo pipefail
 # PROJECT_KEY=fdio-hicn
 # PROJECT_ORGANIZATION=fdio
 
+SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
+source "${SCRIPT_PATH}/functions.sh"
+
 export SONAR_TOKEN=$API_TOKEN
 export SONAR_SCANNER_VERSION=4.7.0.2747
 export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-$SONAR_SCANNER_VERSION-linux
@@ -29,14 +32,6 @@ make SONAR_BUILD_WRAPPER=${HOME}/.sonar/build-wrapper-linux-x86/build-wrapper-li
 
 # Run tests to compute test coverage
 pushd ${BUILD_PATH}
-
-declare -a TEST_COMPONENTS=(
-  "libtransport"
-  "lib"
-  "hicn_light"
-  "hicnplugin"
-  "libhicnctrl"
-)
 
 # Save first test executable
 FIRST_COMPONENT="${TEST_COMPONENTS[0]}"
