@@ -242,6 +242,12 @@ hicn_name_snprintf (char *s, size_t size, const hicn_name_t *name)
 }
 
 int
+hicn_name_no_suffix_snprintf (char *s, size_t size, const hicn_name_t *name)
+{
+  return hicn_ip_address_snprintf (s, size, &name->prefix);
+}
+
+int
 hicn_prefix_create_from_ip_prefix (const hicn_ip_prefix_t *hicn_ip_prefix,
 				   hicn_prefix_t *prefix)
 {

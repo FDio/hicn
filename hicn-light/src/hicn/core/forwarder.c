@@ -1013,8 +1013,7 @@ static ssize_t forwarder_process_aggregated_interest(
 
     WITH_DEBUG({
       char buf[MAXSZ_HICN_PREFIX];
-      int rc =
-          hicn_name_snprintf(buf, MAXSZ_HICN_NAME, msgbuf_get_name(msgbuf));
+      int rc = hicn_name_snprintf(buf, MAXSZ_HICN_NAME, &name_copy);
       if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
         snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
       DEBUG("Next in manifest: %s", buf);

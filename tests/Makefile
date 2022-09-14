@@ -1,4 +1,4 @@
-# Use when building for the fist time,
+# Use when building for the first time,
 # then `make test` forces a rebuild if local changes
 build:
 	DOCKERFILE=Dockerfile.dev BUILD_SOFTWARE=1 \
@@ -28,8 +28,15 @@ shell:
 down:
 	docker-compose -f 1-node.yml down
 
-functional:
+functional-ctrl:
 	sleep 1  # Wait for the forwarder to be ready
 	bash config.sh ctrl listeners
 	bash config.sh ctrl connections
 	bash config.sh ctrl routes
+
+functional-ping-manifest:
+	bash config.sh ping manifest
+functional-ping-signature:
+	bash config.sh ping signature
+functional-ping-timeout:
+	bash config.sh ping timeout

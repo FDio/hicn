@@ -33,6 +33,7 @@ list(APPEND TESTS_SRC
   test_thread_pool.cc
   test_quadloop.cc
   test_prefix.cc
+  test_traffic_generator.cc
 )
 
 if (ENABLE_RELY)

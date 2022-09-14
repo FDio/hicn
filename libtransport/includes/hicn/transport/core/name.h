@@ -98,6 +98,8 @@ class Name {
 
   hicn_ip_prefix_t toIpAddress() const;
 
+  std::string getPrefix() const;
+
   void copyPrefixToDestination(uint8_t *destination) const;
 
   int getAddressFamily() const;
