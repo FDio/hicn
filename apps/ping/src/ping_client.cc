@@ -20,6 +20,7 @@
 #include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
+#include <hicn/transport/utils/traffic_generator.h>
 
 #include <asio/signal_set.hpp>
 #include <asio/steady_timer.hpp>
@@ -40,8 +41,11 @@ using Verifier = auth::AsymmetricVerifier;
 
 class Configuration {
  public:
-  uint64_t num_int_manifest_suffixes_ =
-      0;                             // Number of suffixes in interest manifest
+  static constexpr char TRAFFIC_GENERATOR_RAND[] = "RANDOM";
+
+  uint32_t num_int_manifest_suffixes_ =
+      0;  // Number of suffixes in interest manifest (suffix in the header
+          // is not included in the count)
   uint64_t interestLifetime_ = 500;  // ms
   uint64_t pingInterval_ = 1000000;  // us
   uint32_t maxPing_ = 10;            // number of interests
@@ -49,6 +53,7 @@ class Configuration {
   std::string name_ = "b001::1";
   std::string certificate_;
   std::string passphrase_;
+  std::string traffic_generator_type_;
   uint16_t srcPort_ = 9695;
   uint16_t dstPort_ = 8080;
   bool verbose_ = false;
@@ -68,8 +73,7 @@ class Client : private interface::Portal::TransportCallback {
       : signals_(io_service_, SIGINT),
         config_(c),
         timer_(std::make_unique<asio::steady_timer>(
-            portal_.getThread().getIoService())),
-        sequence_number_(config_->first_suffix_) {
+            portal_.getThread().getIoService())) {
     // Let the main thread to catch SIGINT
     signals_.async_wait(std::bind(&Client::afterSignal, this));
 
@@ -82,6 +86,15 @@ class Client : private interface::Portal::TransportCallback {
       assert(!c->passphrase_.empty());
       signer_ = std::make_unique<auth::SymmetricSigner>(
           auth::CryptoSuite::HMAC_SHA256, c->passphrase_);
+    }
+
+    if (c->traffic_generator_type_ ==
+        std::string(Configuration::TRAFFIC_GENERATOR_RAND)) {
+      traffic_generator_ =
+          std::make_unique<RandomTrafficGenerator>(config_->maxPing_);
+    } else {
+      traffic_generator_ = std::make_unique<IncrSuffixTrafficGenerator>(
+          config_->name_, config_->first_suffix_, config_->maxPing_);
     }
   }
 
@@ -128,8 +141,8 @@ class Client : private interface::Portal::TransportCallback {
 
     if (config_->verbose_) {
       std::cout << "<<< recevied object. " << std::endl;
-      std::cout << "<<< interest name: " << interest.getName()
-                << " (n_suffixes=" << interest.numberOfSuffixes() << ")"
+      std::cout << "<<< interest name: " << interest.getName().getPrefix()
+                << " (n_suffixes=" << config_->num_int_manifest_suffixes_ << ")"
                 << " src port: " << interest.getSrcPort()
                 << " dst port: " << interest.getDstPort() << std::endl;
       std::cout << "<<< object name: " << object.getName()
@@ -141,7 +154,8 @@ class Client : private interface::Portal::TransportCallback {
     } else if (!config_->quiet_) {
       std::cout << "<<< received object. " << std::endl;
       std::cout << "<<< round trip: " << rtt << " [us]" << std::endl;
-      std::cout << "<<< interest name: " << interest.getName() << std::endl;
+      std::cout << "<<< interest name: " << interest.getName().getPrefix()
+                << std::endl;
       std::cout << "<<< object name: " << object.getName() << std::endl;
       std::cout << "<<< content object size: "
                 << object.payloadSize() + object.headerSize() << " [bytes]"
@@ -197,7 +211,10 @@ class Client : private interface::Portal::TransportCallback {
   }
 
   void doPing() {
-    const Name interest_name(config_->name_, sequence_number_);
+    std::string name = traffic_generator_->getPrefix();
+    uint32_t sequence_number = traffic_generator_->getSuffix();
+    const Name interest_name(name, sequence_number);
+
     hicn_packet_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
       format = signer_ ? HICN_PACKET_FORMAT_IPV4_TCP_AH
@@ -217,12 +234,6 @@ class Client : private interface::Portal::TransportCallback {
     interest->setSrcPort(config_->srcPort_);
     interest->setDstPort(config_->dstPort_);
     interest->setTTL(config_->ttl_);
-    uint32_t seq_offset = 1;
-    while (seq_offset <= config_->num_int_manifest_suffixes_ &&
-           sequence_number_ + seq_offset < config_->maxPing_) {
-      interest->appendSuffix(sequence_number_ + seq_offset);
-      seq_offset++;
-    }
 
     if (config_->verbose_) {
       std::cout << ">>> send interest " << interest->getName()
@@ -237,11 +248,15 @@ class Client : private interface::Portal::TransportCallback {
 
     if (!config_->quiet_) std::cout << std::endl;
 
-    send_timestamps_[sequence_number_] = utils::SteadyTime::now();
-    for (uint64_t i = 1; i < seq_offset; i++)
-      send_timestamps_[sequence_number_ + i] = utils::SteadyTime::now();
+    send_timestamps_[sequence_number] = utils::SteadyTime::now();
+    for (int i = 0; i < config_->num_int_manifest_suffixes_ &&
+                    !traffic_generator_->hasFinished();
+         i++) {
+      uint32_t sequence_number = traffic_generator_->getSuffix();
 
-    if (signer_) signer_->signPacket(interest.get());
+      interest->appendSuffix(sequence_number);
+      send_timestamps_[sequence_number] = utils::SteadyTime::now();
+    }
 
     if (config_->dump_) {
       std::cout << "----- interest dump -----" << std::endl;
@@ -250,13 +265,10 @@ class Client : private interface::Portal::TransportCallback {
     }
 
     interest->encodeSuffixes();
-
+    if (signer_) signer_->signPacket(interest.get());
     portal_.sendInterest(interest, interest->getLifetime());
 
-    sequence_number_ += seq_offset;
-    sent_ += seq_offset;
-
-    if (sent_ < config_->maxPing_) {
+    if (!traffic_generator_->hasFinished()) {
       this->timer_->expires_from_now(
           std::chrono::microseconds(config_->pingInterval_));
       this->timer_->async_wait([this](const std::error_code e) {
@@ -269,18 +281,18 @@ class Client : private interface::Portal::TransportCallback {
 
   void afterSignal() {
     std::cout << "Stop ping" << std::endl;
-    std::cout << "Sent: " << sent_ << " Received: " << received_
-              << " Timeouts: " << timedout_ << std::endl;
+    std::cout << "Sent: " << traffic_generator_->getSentCount()
+              << " Received: " << received_ << " Timeouts: " << timedout_
+              << std::endl;
     io_service_.stop();
   }
 
   void reset() {
     timer_.reset(new asio::steady_timer(portal_.getThread().getIoService()));
-    sequence_number_ = config_->first_suffix_;
+    traffic_generator_->reset();
     last_jump_ = 0;
     processed_ = 0;
     state_ = SYN_STATE;
-    sent_ = 0;
     received_ = 0;
     timedout_ = 0;
   }
@@ -292,15 +304,14 @@ class Client : private interface::Portal::TransportCallback {
   asio::signal_set signals_;
   Configuration *config_;
   std::unique_ptr<asio::steady_timer> timer_;
-  uint32_t sequence_number_;
   uint64_t last_jump_ = 0;
   uint64_t processed_ = 0;
   uint32_t state_ = SYN_STATE;
-  uint32_t sent_ = 0;
   uint32_t received_ = 0;
   uint32_t timedout_ = 0;
   Verifier verifier_;
   std::unique_ptr<auth::Signer> signer_;
+  std::unique_ptr<TrafficGenerator> traffic_generator_;
 };
 
 void help() {
@@ -339,6 +350,9 @@ void help() {
   std::cerr << "-F <conf_file>    Path to optional configuration file for "
                "libtransport"
             << std::endl;
+  std::cout << "-b <type>         Traffic generator type. Use 'RANDOM' for "
+               "random prefixes and suffixes. Default: sequential suffixes."
+            << std::endl;
   std::cout << "-H                prints this message" << std::endl;
 }
 
@@ -358,12 +372,15 @@ int start(int argc, char *argv[]) {
   transport::interface::global_config::IoModuleConfiguration io_config;
   io_config.name = "hicnlight_module";
 
-  while ((opt = getopt(argc, argv, "a:j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) !=
+  while ((opt = getopt(argc, argv, "a:b:j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) !=
          -1) {
     switch (opt) {
       case 'a':
         c->num_int_manifest_suffixes_ = std::stoi(optarg);
         c->passphrase_ = argv[optind];
+        break;
+      case 'b':
+        c->traffic_generator_type_ = optarg;
         break;
       case 't':
         c->ttl_ = uint8_t(std::stoi(optarg));

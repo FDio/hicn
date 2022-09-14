@@ -40,6 +40,38 @@ using CryptoSuite = auth::CryptoSuite;
 class CallbackContainer {
   const std::size_t log2_content_object_buffer_size = 12;
 
+ private:
+  std::shared_ptr<ContentObject> createContentObject(const Name &name,
+                                                     uint32_t lifetime,
+                                                     const Interest &interest) {
+    auto &content_object = content_objects_[content_objects_index_++ & mask_];
+
+    content_object->setName(name);
+    content_object->setLifetime(lifetime);
+    content_object->setLocator(interest.getLocator());
+    content_object->setSrcPort(interest.getDstPort());
+    content_object->setDstPort(interest.getSrcPort());
+    content_object->setTTL(ttl_);
+
+    if (verbose_) {
+      std::cout << ">>> send object " << content_object->getName()
+                << " src port: " << content_object->getSrcPort()
+                << " dst port: " << content_object->getDstPort()
+                << " TTL: " << (int)content_object->getTTL() << std::endl;
+    } else if (!quiet_) {
+      std::cout << ">>> send object " << content_object->getName() << std::endl;
+    }
+
+    if (dump_) {
+      std::cout << "----- object dump -----" << std::endl;
+      content_object->dump();
+      std::cout << "-----------------------" << std::endl;
+    }
+
+    if (sign_ && signer_) signer_->signPacket(content_object.get());
+    return content_object;
+  }
+
  public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quiet, uint8_t ttl, auth::Signer *signer,
@@ -109,58 +141,22 @@ class CallbackContainer {
       std::cout << "-------------------------" << std::endl;
     }
 
-    uint32_t *suffix = interest.firstSuffix();
-    uint32_t n_suffixes_in_manifest = interest.numberOfSuffixes();
-    hicn_uword *request_bitmap = interest.getRequestBitmap();
     if (!interest.isValid()) throw std::runtime_error("Bad interest format");
-
     Name name = interest.getName();
-    uint32_t pos = 0;  // Position of current suffix in manifest
-    do {
-      // If suffix can be processed, i.e. no manifest with bitmap excluding it
-      if (!interest.hasManifest() ||
-          bitmap_is_set_no_check(request_bitmap, pos)) {
-        auto &content_object =
-            content_objects_[content_objects_index_++ & mask_];
 
-        content_object->setName(interest.getName());
-        content_object->setLifetime(lifetime);
-        content_object->setLocator(interest.getLocator());
-        content_object->setSrcPort(interest.getDstPort());
-        content_object->setDstPort(interest.getSrcPort());
-        content_object->setTTL(ttl_);
+    if (!interest.hasManifest()) {  // Single interest
+      auto content_object = createContentObject(name, lifetime, interest);
+      p.produce(*content_object);
+    } else {  // Interest manifest
+      uint32_t _, *suffix = NULL;
+      interest_manifest_foreach_suffix(interest.getIntManifestHeader(), suffix,
+                                       _) {
+        name.setSuffix(*suffix);
 
-        if (verbose_) {
-          std::cout << ">>> send object " << content_object->getName()
-                    << " src port: " << content_object->getSrcPort()
-                    << " dst port: " << content_object->getDstPort()
-                    << " TTL: " << (int)content_object->getTTL() << std::endl;
-        } else if (!quiet_) {
-          std::cout << ">>> send object " << content_object->getName()
-                    << std::endl;
-        }
-
-        if (dump_) {
-          std::cout << "----- object dump -----" << std::endl;
-          content_object->dump();
-          std::cout << "-----------------------" << std::endl;
-        }
-
-        if (sign_ && signer_) {
-          signer_->signPacket(content_object.get());
-        }
-
+        auto content_object = createContentObject(name, lifetime, interest);
         p.produce(*content_object);
       }
-
-      if (interest.hasManifest()) {
-        uint32_t seq = *suffix;
-        suffix++;
-
-        Name name = interest.getName();
-        interest.setName(name.setSuffix(seq));
-      }
-    } while (pos++ < n_suffixes_in_manifest);
+    }
 
     if (!quiet_) std::cout << std::endl;
   }

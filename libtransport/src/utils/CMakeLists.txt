@@ -17,6 +17,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/log.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/membuf.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/content_store.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/traffic_generator.cc
 )
 
 

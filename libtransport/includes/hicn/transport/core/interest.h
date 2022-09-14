@@ -104,6 +104,8 @@ class Interest
 
   hicn_uword *getRequestBitmap();
 
+  interest_manifest_header_t *getIntManifestHeader();
+
   void setRequestBitmap(const uint32_t *request_bitmap);
 
   bool isValid();
