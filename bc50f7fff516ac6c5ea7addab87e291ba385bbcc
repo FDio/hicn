@@ -18,6 +18,24 @@
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "1029996e_e22f5908",
+        "filename": "apps/ping/src/ping_server.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 151,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-14T12:20:43Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "5ff46cf7_fcdc928a",
+      "revId": "bc50f7fff516ac6c5ea7addab87e291ba385bbcc",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "7a426c9e_4d59a6c4",
