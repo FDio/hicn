@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "5ff46cf7_fcdc928a",
+        "filename": "apps/ping/src/ping_server.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 151,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-14T10:16:06Z",
+      "side": 1,
+      "message": "IIRC interest_manifest_foreach_suffix should start from the first suffix, so no need to initialize  suffix with interest.firstSuffix().",
+      "revId": "bc50f7fff516ac6c5ea7addab87e291ba385bbcc",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "7a426c9e_4d59a6c4",
+        "filename": "lib/src/name.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 245,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-14T10:16:06Z",
+      "side": 1,
+      "message": "Isn\u0027t `hicn_prefix_no_suffix_snprintf` a better name?",
+      "revId": "bc50f7fff516ac6c5ea7addab87e291ba385bbcc",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "dfc69245_e90ca3c8",
+        "filename": "libtransport/src/utils/traffic_generator.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-14T10:16:06Z",
+      "side": 1,
+      "message": "Better not to allocate these (eng and idis) for each function call, I already experimented constructing them takes time. Make them members of the class.",
+      "revId": "bc50f7fff516ac6c5ea7addab87e291ba385bbcc",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    }
+  ]
+}

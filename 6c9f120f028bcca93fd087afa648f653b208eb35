@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "d9be73e8_efa0500c",
+        "filename": "tests/1-node.yml",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-14T10:16:06Z",
+      "side": 0,
+      "message": "This one might be required (maybe remote the --global)",
+      "revId": "6c9f120f028bcca93fd087afa648f653b208eb35",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    }
+  ]
+}
