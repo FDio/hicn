@@ -59,6 +59,8 @@ typedef struct strategy_entry_s {
 
 int strategy_initialize(strategy_entry_t *entry, const void *forwarder);
 
+int strategy_finalize(strategy_entry_t *entry);
+
 nexthops_t *strategy_lookup_nexthops(strategy_entry_t *entry,
                                      nexthops_t *nexthops,
                                      const msgbuf_t *msgbuf);

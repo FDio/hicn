@@ -31,9 +31,11 @@ protected:
 
   NameTest () : name_{}, name4_{}, name6_{}
   {
+    ipv6_prefix_bytes = {};
     int rc = inet_pton (AF_INET6, ipv6_prefix, &ipv6_prefix_bytes.v6);
     EXPECT_EQ (rc, 1);
 
+    ipv4_prefix_bytes = {};
     rc = inet_pton (AF_INET, ipv4_prefix, &ipv4_prefix_bytes.v4);
     EXPECT_EQ (rc, 1);
 
