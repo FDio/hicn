@@ -181,9 +181,9 @@ fib_node_t *_fib_insert(fib_t *fib, fib_entry_t *entry, fib_node_t *parent,
   }
 
   if (child) {
-    const hicn_prefix_t *curr_prefix = fib_entry_get_prefix(entry);
-    uint32_t match_len = hicn_prefix_lpm(prefix, curr_prefix);
-    uint8_t next_bit = hicn_prefix_get_bit(curr_prefix, match_len);
+    const hicn_prefix_t *child_prefix = fib_entry_get_prefix(child->entry);
+    uint32_t match_len = hicn_prefix_lpm(prefix, child_prefix);
+    uint8_t next_bit = hicn_prefix_get_bit(child_prefix, match_len);
     new_node->child[next_bit] = child;
   }
 
@@ -345,7 +345,7 @@ fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
   fib_node_t *curr = fib_search(fib, prefix, &search);
 
   if (!curr) return NULL;
-  if (search.prefix_len != prefix_len) return NULL;
+  if (search.match_len != prefix_len) return NULL;
   return curr->is_used ? curr->entry : NULL;
 }
 
@@ -539,8 +539,6 @@ fib_entry_t *fib_match_prefix(const fib_t *fib, const hicn_prefix_t *prefix) {
   assert(fib);
   assert(prefix);
 
-  uint32_t prefix_len = hicn_prefix_get_len(prefix);
-
   fib_search_t search;
   fib_node_t *curr = fib_search(fib, prefix, &search);
 
@@ -549,7 +547,8 @@ fib_entry_t *fib_match_prefix(const fib_t *fib, const hicn_prefix_t *prefix) {
     if (!search.parent) return NULL;
     return search.parent->entry;
   }
-  if ((search.prefix_len <= prefix_len) && curr->is_used) return curr->entry;
+  if ((search.prefix_len == search.match_len) && curr->is_used)
+    return curr->entry;
   if (search.parent) return search.parent->entry;
   return NULL;
 }

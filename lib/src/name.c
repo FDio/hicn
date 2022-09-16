@@ -251,7 +251,7 @@ int
 hicn_prefix_create_from_ip_prefix (const hicn_ip_prefix_t *hicn_ip_prefix,
 				   hicn_prefix_t *prefix)
 {
-  if (hicn_ip_prefix->family != AF_INET || hicn_ip_prefix->family != AF_INET6)
+  if (hicn_ip_prefix->family != AF_INET && hicn_ip_prefix->family != AF_INET6)
     return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
   prefix->name = hicn_ip_prefix->address;
   prefix->len = (u8) (hicn_ip_prefix->len);
@@ -363,7 +363,7 @@ _log2_nbo (uint64_t val)
       result = result | 1;
     }
 
-  return result;
+  return 63 - result;
 }
 
 uint32_t
