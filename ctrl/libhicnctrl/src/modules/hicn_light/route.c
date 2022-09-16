@@ -33,22 +33,22 @@ static int hicnlight_route_parse(const uint8_t *buffer, size_t size,
   cmd_route_list_item_t *item = (cmd_route_list_item_t *)buffer;
 
   if (!IS_VALID_NAME(item->face_name)) {
-    ERROR("[hc_connection_parse] Invalid face_name received");
+    ERROR("[hc_route_parse] Invalid face_name received");
     return -1;
   }
 
   if (!IS_VALID_ID(item->face_id)) {
-    ERROR("[hc_connection_parse] Invalid face_id received");
+    ERROR("[hc_route_parse] Invalid face_id received");
     return -1;
   }
 
   if (!IS_VALID_FAMILY(item->family)) {
-    ERROR("[hc_listener_parse] Invalid family received");
+    ERROR("[hc_route_parse] Invalid family received");
     return -1;
   }
 
   if (!IS_VALID_ADDRESS(item->remote_addr)) {
-    ERROR("[hc_connection_parse] Invalid address received");
+    ERROR("[hc_route_parse] Invalid address received");
     return -1;
   }
 
