@@ -24,6 +24,7 @@ list(APPEND TESTS_SRC
   test_validation.cc
   test_bitmap.cc
   test_interest_manifest.cc
+  test_ip_address.cc
   test_khash.cc
   test_pool.cc
   test_ring.cc
