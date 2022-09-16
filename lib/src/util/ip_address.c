@@ -164,7 +164,7 @@ hicn_ip_address_pton (const char *hicn_ip_address_str,
   if (pton_fd <= 0)
     return -1;
 
-  return 1;
+  return 0;
 }
 
 int
@@ -292,7 +292,7 @@ hicn_ip_prefix_pton (const char *hicn_ip_address_str,
     goto ERR;
 
   free (addr);
-  return 1;
+  return 0;
 ERR:
   free (addr);
   return -1;
@@ -409,11 +409,11 @@ hicn_ip_prefix_cmp (const hicn_ip_prefix_t *prefix1,
   return hicn_ip_address_cmp (&prefix1->address, &prefix2->address);
 }
 
+/* Network byte order + host bit order */
 uint8_t
 hicn_ip_address_get_bit (const hicn_ip_address_t *address, uint8_t pos)
 {
-  u64 quad = address->v6.as_u64[pos / 64];
-  return quad & (0x1 << pos % 64);
+  return (address->v6.as_u8[pos / 8] >> (7 - (pos % 8)) & 1);
 }
 
 bool
