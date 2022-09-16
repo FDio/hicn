@@ -335,3 +335,31 @@ TEST_F (NameTest, NameNToP)
   rc = strcmp (dst, expected4.str ().c_str ());
   EXPECT_EQ (rc, 0);
 }
+
+class PrefixTest : public ::testing::Test
+{
+protected:
+  PrefixTest () {}
+
+  virtual ~PrefixTest () {}
+};
+
+TEST_F (PrefixTest, PrefixLPM)
+{
+  hicn_ip_prefix_t ipp_b007, ipp_b009;
+  hicn_prefix_t hp_b007, hp_b009;
+
+  int rc;
+
+  rc = hicn_ip_prefix_pton ("b007::/64", &ipp_b007);
+  EXPECT_EQ (rc, 0);
+  rc = hicn_ip_prefix_pton ("b009::/64", &ipp_b009);
+  EXPECT_EQ (rc, 0);
+
+  rc = hicn_prefix_create_from_ip_prefix (&ipp_b007, &hp_b007);
+  EXPECT_EQ (rc, 0);
+  rc = hicn_prefix_create_from_ip_prefix (&ipp_b009, &hp_b009);
+  EXPECT_EQ (rc, 0);
+
+  EXPECT_EQ (hicn_prefix_lpm (&hp_b007, &hp_b009), 12);
+}
