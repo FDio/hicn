@@ -335,3 +335,64 @@ TEST_F (NameTest, NameNToP)
   rc = strcmp (dst, expected4.str ().c_str ());
   EXPECT_EQ (rc, 0);
 }
+
+class PrefixTest : public ::testing::Test
+{
+protected:
+  PrefixTest () {}
+
+  virtual ~PrefixTest () {}
+};
+
+#define HICN_PREFIX(P, STR)                                                   \
+  hicn_prefix_t P;                                                            \
+  hicn_ip_prefix_t _##P;                                                      \
+  EXPECT_EQ (hicn_ip_prefix_pton (STR, &_##P), 0);                            \
+  EXPECT_EQ (hicn_prefix_create_from_ip_prefix (&_##P, &P), 0);
+
+TEST_F (PrefixTest, PrefixClear)
+{
+  HICN_PREFIX (hp_all, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128");
+
+  for (unsigned i = 0; i < 127; i++)
+    EXPECT_EQ (hicn_prefix_get_bit (&hp_all, i), 1);
+
+  hicn_prefix_truncate (&hp_all, 127);
+  EXPECT_EQ (hicn_prefix_get_len (&hp_all), 127);
+
+  for (unsigned i = 0; i < 126; i++)
+    EXPECT_EQ (hicn_prefix_get_bit (&hp_all, i), 1) << "bit[" << i << "] != 1";
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 127), 0);
+
+  hicn_prefix_truncate (&hp_all, 126);
+  EXPECT_EQ (hicn_prefix_get_len (&hp_all), 126);
+
+  for (unsigned i = 0; i < 125; i++)
+    EXPECT_EQ (hicn_prefix_get_bit (&hp_all, i), 1);
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 126), 0);
+  EXPECT_EQ (_hicn_prefix_get_bit (&hp_all, 127), 0);
+}
+
+TEST_F (PrefixTest, PrefixClear2)
+{
+  HICN_PREFIX (hp_all, "b002::3");
+
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 125), 0);
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 126), 1);
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 127), 1);
+
+  hicn_prefix_truncate (&hp_all, 127);
+  EXPECT_EQ (hicn_prefix_get_len (&hp_all), 127);
+
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 125), 0);
+  EXPECT_EQ (hicn_prefix_get_bit (&hp_all, 126), 1);
+  EXPECT_EQ (_hicn_prefix_get_bit (&hp_all, 127), 0);
+}
+
+TEST_F (PrefixTest, PrefixLPM)
+{
+  HICN_PREFIX (b007, "b007::/64");
+  HICN_PREFIX (b009, "b009::/64");
+
+  EXPECT_EQ (hicn_prefix_lpm (&b007, &b009), (uint32_t) 12);
+}

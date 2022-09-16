@@ -309,6 +309,7 @@ bool hicn_prefix_equals (const hicn_prefix_t *p1, const hicn_prefix_t *p2);
 
 int hicn_prefix_snprintf (char *s, size_t size, const hicn_prefix_t *prefix);
 
+uint8_t _hicn_prefix_get_bit (const hicn_prefix_t *prefix, uint8_t pos);
 uint8_t hicn_prefix_get_bit (const hicn_prefix_t *prefix, uint8_t pos);
 
 #define MAXSZ_HICN_PREFIX MAXSZ_IP_PREFIX

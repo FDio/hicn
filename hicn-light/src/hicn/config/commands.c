@@ -780,13 +780,14 @@ NACK:
   return (uint8_t *)msg;
 }
 
-static inline void fill_route_command(const fib_entry_t *entry,
-                                      cmd_route_list_item_t *cmd) {
+static inline off_t fill_route_command(const fib_entry_t *entry,
+                                       cmd_route_list_item_t *cmd) {
   const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
   assert(nexthops_get_len(nexthops) == nexthops_get_curlen(nexthops));
   size_t num_nexthops = nexthops_get_len(nexthops);
+  off_t pos = 0;
 
-  if (num_nexthops == 0) return;
+  if (num_nexthops == 0) return 0;
 
   const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
   const hicn_ip_address_t *address = hicn_prefix_get_ip_address(prefix);
@@ -799,8 +800,10 @@ static inline void fill_route_command(const fib_entry_t *entry,
     cmd->len = hicn_prefix_get_len(prefix);
     cmd->cost = DEFAULT_COST;
 
+    pos++;
     cmd++;
   });
+  return pos;
 }
 
 uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
@@ -831,7 +834,9 @@ uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
   if (!msg) goto NACK;
 
   cmd_route_list_item_t *payload = &msg->payload;
-  fib_foreach_entry(fib, entry, { fill_route_command(entry, payload); });
+  off_t pos = 0;
+  fib_foreach_entry(fib, entry,
+                    { pos += fill_route_command(entry, payload + pos); });
 
   *reply_size = sizeof(msg->header) + n * sizeof(msg->payload);
   return (uint8_t *)msg;

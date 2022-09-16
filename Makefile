@@ -92,7 +92,7 @@ vpp-dep:
 	VERSION_PATH=$(VERSIONFILE) sudo -E $(SHELL) scripts/install-vpp.sh
 
 .PHONY = dep
-dep: vpp-dep commit-template
+dep: vpp-dep #commit-template
 ifeq ($(shell uname),Darwin)
 	brew install $(MACOS_DEPENDS)
 else ifeq ($(filter ubuntu debian,$(OS_ID)),$(OS_ID))

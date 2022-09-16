@@ -263,7 +263,7 @@ Name Prefix::mapName(const core::Name &content_name) const {
 }
 
 Prefix &Prefix::setNetwork(const std::string &network) {
-  if (!hicn_ip_address_pton(network.c_str(), &hicn_ip_prefix_.address)) {
+  if (hicn_ip_address_pton(network.c_str(), &hicn_ip_prefix_.address) < 0) {
     throw errors::RuntimeException("The network name is not valid.");
   }
 

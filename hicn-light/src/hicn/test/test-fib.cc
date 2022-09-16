@@ -83,3 +83,11 @@ TEST_F(FibTest, FibAddOne) {
 
   /* Check that free indices and bitmaps are correctly updated */
 }
+
+#if 0
+22-09-2022 13:07:57 fib_entry_on_event: b002::/64
+22-09-2022 13:08:01 fib_entry_on_event: b002::abcd:0:0:0/128
+22-09-2022 13:08:01 fib_entry_on_event: b002::2/128
+22-09-2022 13:08:01 fib_entry_on_event: b002::abcd:0:0:1/128
+22-09-2022 13:08:01 fib_entry_on_event: b002::3/128
+#endif
