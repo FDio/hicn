@@ -251,7 +251,7 @@ int
 hicn_prefix_create_from_ip_prefix (const hicn_ip_prefix_t *hicn_ip_prefix,
 				   hicn_prefix_t *prefix)
 {
-  if (hicn_ip_prefix->family != AF_INET || hicn_ip_prefix->family != AF_INET6)
+  if (hicn_ip_prefix->family != AF_INET && hicn_ip_prefix->family != AF_INET6)
     return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
   prefix->name = hicn_ip_prefix->address;
   prefix->len = (u8) (hicn_ip_prefix->len);
@@ -320,6 +320,14 @@ hicn_prefix_is_v4 (const hicn_prefix_t *prefix)
  * But the bits are in host order... so we cannot use builtin functions to get
  * the position of the first 1 unless we swap bytes as was done previously,
  * which is costly and non-essential.
+ *
+ *
+ * Example:
+ *
+ * bits | 127 .. 120 | ... |  8  9 10 11 12 13 14 15 | 0 .. 7 |
+ * diff |            | ... |  1  0  1  0  0  0  0  0 |        |
+ *                                  ^
+ * bit of interest  ----------------+
  */
 
 uint64_t
@@ -329,39 +337,42 @@ _log2_nbo (uint64_t val)
 
   uint64_t result = 0;
 
-  if (val & 0xFFFFFFFF00000000)
-    val = val >> 32;
-  else
-    /* The first 32 bits of val are 0 */
-    result = result | 32;
+  /* Search for the first 1, starting from left */
 
-  if (val & 0xFFFF0000)
-    val = val >> 16;
-  else
-    result = result | 16;
+  /* The first 32 bits of val are 0 */
+  if (!(val & 0x00000000FFFFFFFF))
+    {
+      val = val >> 32;
+      result = result | 32;
+    }
 
-  if (val & 0xFF00)
-    val = val >> 8;
-  else
-    result = result | 8;
+  if (!(val & 0x0000FFFF))
+    {
+      val = val >> 16;
+      result = result | 16;
+    }
+
+  if (!(val & 0x00FF))
+    {
+      val = val >> 8;
+      result = result | 8;
+    }
 
   /* Val now contains the byte with at last 1 bit set (host bit order) */
   if (val & 0xF0)
-    {
-      val = val >> 4;
-      result = result | 4;
-    }
+    val = val >> 4;
+  else
+    result = result | 4;
 
   if (val & 0xC)
-    {
-      val = val >> 2;
-      result = result | 2;
-    }
+    val = val >> 2;
+  else
+    result = result | 2;
+
   if (val & 0x2)
-    {
-      val = val >> 1;
-      result = result | 1;
-    }
+    val = val >> 1;
+  else
+    result = result | 1;
 
   return result;
 }
@@ -381,13 +392,6 @@ hicn_prefix_lpm (const hicn_prefix_t *p1, const hicn_prefix_t *p2)
 	  /*
 	   * As the ip_address_t mimics in*_addr and has network byte order
 	   * (and host bit order, we cannot directly use 64-bit operations:
-	   *
-	   * Example:
-	   *
-	   * bits |  7 ..   0 | 15 14 13 12 11 10  9  8 | .. | 127 .. 120 |
-	   * diff |           |  1  0  1  0  0  0  0  0 | .. |            |
-	   *                           ^
-	   * bit of interest  ---------+
 	   */
 	  prefix_len += _log2_nbo (diff);
 	  break;
@@ -416,7 +420,9 @@ hicn_prefix_clear (hicn_prefix_t *prefix, uint8_t start_from)
    * pos   7 6 5 4 3 2 1 0  (eg. start_from = 19, pos = 3)
    * mask  0 0 0 0 0 1 1 1  (= 1<<pos - 1)
    * */
-  buffer[offset] &= 1 << (pos - 1);
+  uint8_t mask = 0xFF ^ ((1 << (8 - pos)) - 1);
+  buffer[offset] &= mask;
+
   /* ... then fully clear remaining bytes */
   for (uint8_t i = offset + 1; i < HICN_PREFIX_MAX_LEN; i++)
     buffer[i] = 0;
@@ -454,11 +460,17 @@ hicn_prefix_snprintf (char *s, size_t size, const hicn_prefix_t *prefix)
 }
 
 uint8_t
+_hicn_prefix_get_bit (const hicn_prefix_t *prefix, uint8_t pos)
+{
+  const hicn_ip_address_t *address = hicn_prefix_get_ip_address (prefix);
+  return hicn_ip_address_get_bit (address, pos);
+}
+
+uint8_t
 hicn_prefix_get_bit (const hicn_prefix_t *prefix, uint8_t pos)
 {
   assert (pos <= hicn_prefix_get_len (prefix));
-  const hicn_ip_address_t *address = hicn_prefix_get_ip_address (prefix);
-  return hicn_ip_address_get_bit (address, pos);
+  return _hicn_prefix_get_bit (prefix, pos);
 }
 
 int

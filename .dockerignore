@@ -10,3 +10,5 @@ ci/Dockerfile*
 **/.gitignore
 **/info.txt
 ./install*
+.git
+**/debug*

@@ -124,13 +124,27 @@ fib_node_t *fib_search(const fib_t *fib, const hicn_prefix_t *prefix,
   uint32_t curr_len;
   uint32_t match_len;
 
+  char buf[MAXSZ_HICN_PREFIX];
+  int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+  if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+    snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+  INFO("FIB SEARCH: %s prefix len %d", buf, prefix_len);
+
   fib_node_t *parent = NULL;
   fib_node_t *gparent = NULL;
   fib_node_t *curr = fib->root;
   while (curr) {
     const hicn_prefix_t *curr_prefix = fib_entry_get_prefix(curr->entry);
+
+    rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, curr_prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+    INFO("  >> current %s", buf);
+
     curr_len = hicn_prefix_get_len(curr_prefix);
     match_len = hicn_prefix_lpm(prefix, curr_prefix);
+
+    INFO("curr len %d match len %d", curr_len, match_len);
 
     // XXX >= vs == for the second stop condition
     // curr_len >= prefix_len l >= L
@@ -177,14 +191,30 @@ fib_node_t *_fib_insert(fib_t *fib, fib_entry_t *entry, fib_node_t *parent,
     const hicn_prefix_t *parent_prefix = fib_entry_get_prefix(parent->entry);
     uint32_t parent_prefix_len = hicn_prefix_get_len(parent_prefix);
     uint8_t next_bit = hicn_prefix_get_bit(prefix, parent_prefix_len);
+    INFO("parent prefix len %d next bit %d", parent_prefix_len, next_bit);
     parent->child[next_bit] = new_node;
   }
 
   if (child) {
-    const hicn_prefix_t *curr_prefix = fib_entry_get_prefix(entry);
-    uint32_t match_len = hicn_prefix_lpm(prefix, curr_prefix);
-    uint8_t next_bit = hicn_prefix_get_bit(curr_prefix, match_len);
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc;
+
+    const hicn_prefix_t *child_prefix = fib_entry_get_prefix(child->entry);
+    INFO("prefix lengths %d==127 %d==128", hicn_prefix_get_len(prefix),
+         hicn_prefix_get_len(child_prefix));
+    INFO("LPM BETWEEN");
+    rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+    INFO("prefix %s", buf);
+    rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, child_prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+    INFO("child prefix %s", buf);
+    uint32_t match_len = hicn_prefix_lpm(prefix, child_prefix);
+    uint8_t next_bit = hicn_prefix_get_bit(child_prefix, match_len);
     new_node->child[next_bit] = child;
+    INFO("child match len %d next bit %d", match_len, next_bit);
   }
 
   if (is_used) fib->size++;
@@ -291,12 +321,14 @@ void fib_add(fib_t *fib, fib_entry_t *entry) {
 
   /* Case 1 */
   if (!curr) {
+    INFO("Case 1");
     _fib_insert(fib, entry, search.parent, NULL, true);
-    return;
+    goto END;
   }
 
   /* Case 2 */
   if (search.prefix_len == search.match_len && prefix_len == search.match_len) {
+    INFO("Case 2");
     if (!curr->is_used) {
       curr->is_used = true;
       if (curr->entry) fib_entry_free(curr->entry);
@@ -308,24 +340,56 @@ void fib_add(fib_t *fib, fib_entry_t *entry) {
                        { fib_entry_nexthops_add(curr->entry, nexthop); });
       fib_entry_free(entry);
     }
-    return;
+    goto END;
   }
 
   /* Case 3 */
   if (prefix_len == search.match_len) {
+    INFO("Case 3");
     _fib_insert(fib, entry, search.parent, curr, true);
-    return;
+    goto END;
   }
 
   /* Case 4 */
+  char buf[MAXSZ_HICN_PREFIX];
+  int rc;
+
+  INFO("Case 4 : match len = %d", search.match_len);
   hicn_prefix_t inner_prefix; /* dup'ed in fib_entry_create */
   hicn_prefix_copy(&inner_prefix, prefix);
+
+  rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, &inner_prefix);
+  if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+    snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+  INFO("inner prefix before truncate %s", buf);
+  INFO("last bit should be 1: %d", hicn_prefix_get_bit(&inner_prefix, 127));
+
+  INFO("truncate to length = %d", search.match_len);
   hicn_prefix_truncate(&inner_prefix, search.match_len);
+  INFO("last bit should be 0: %d", hicn_prefix_get_bit(&inner_prefix, 127));
+
+  rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, &inner_prefix);
+  if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+    snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+  INFO("inner prefix after truncate %s", buf);
+
   fib_entry_t *inner_entry = fib_entry_create(
       &inner_prefix, STRATEGY_TYPE_UNDEFINED, NULL, fib->forwarder);
+
+  INFO("inner prefix len=%d", hicn_prefix_get_len(&inner_prefix));
+  // debug
+  const hicn_prefix_t *parent_prefix = fib_entry_get_prefix(inner_entry);
+  INFO("inner prefix len=%d", hicn_prefix_get_len(parent_prefix));
+
+  INFO("insert inner");
   fib_node_t *new_node =
       _fib_insert(fib, inner_entry, search.parent, curr, false);
+  INFO("insert new node");
+  fib_dump(fib);
   _fib_insert(fib, entry, new_node, NULL, true);
+
+END:
+  fib_dump(fib);
 }
 
 /*
@@ -345,7 +409,7 @@ fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
   fib_node_t *curr = fib_search(fib, prefix, &search);
 
   if (!curr) return NULL;
-  if (search.prefix_len != prefix_len) return NULL;
+  if (search.match_len != prefix_len) return NULL;
   return curr->is_used ? curr->entry : NULL;
 }
 
@@ -539,8 +603,6 @@ fib_entry_t *fib_match_prefix(const fib_t *fib, const hicn_prefix_t *prefix) {
   assert(fib);
   assert(prefix);
 
-  uint32_t prefix_len = hicn_prefix_get_len(prefix);
-
   fib_search_t search;
   fib_node_t *curr = fib_search(fib, prefix, &search);
 
@@ -549,7 +611,8 @@ fib_entry_t *fib_match_prefix(const fib_t *fib, const hicn_prefix_t *prefix) {
     if (!search.parent) return NULL;
     return search.parent->entry;
   }
-  if ((search.prefix_len <= prefix_len) && curr->is_used) return curr->entry;
+  if ((search.prefix_len == search.match_len) && curr->is_used)
+    return curr->entry;
   if (search.parent) return search.parent->entry;
   return NULL;
 }
