@@ -249,8 +249,8 @@ class Client : private interface::Portal::TransportCallback {
     if (!config_->quiet_) std::cout << std::endl;
 
     send_timestamps_[sequence_number] = utils::SteadyTime::now();
-    for (int i = 0; i < config_->num_int_manifest_suffixes_ &&
-                    !traffic_generator_->hasFinished();
+    for (uint32_t i = 0; i < config_->num_int_manifest_suffixes_ &&
+                         !traffic_generator_->hasFinished();
          i++) {
       uint32_t sequence_number = traffic_generator_->getSuffix();
 

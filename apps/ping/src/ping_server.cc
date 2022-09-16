@@ -149,6 +149,8 @@ class CallbackContainer {
       p.produce(*content_object);
     } else {  // Interest manifest
       uint32_t _, *suffix = NULL;
+      UNUSED(_);
+
       interest_manifest_foreach_suffix(interest.getIntManifestHeader(), suffix,
                                        _) {
         name.setSuffix(*suffix);

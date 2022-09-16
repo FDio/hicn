@@ -88,7 +88,7 @@ TEST_F(TrafficGeneratorTest, IncrSuffixCheckSentCount) {
       PREFIX, FIRST_SUFFIX, NUM_PINGS);
 
   for (int i = 0; i < NUM_PINGS; i++) {
-    EXPECT_EQ(traffic_generator_->getSentCount(), i);
+    EXPECT_EQ(traffic_generator_->getSentCount(), (uint32_t)i);
     EXPECT_FALSE(traffic_generator_->hasFinished());
     traffic_generator_->getSuffix();
   }
