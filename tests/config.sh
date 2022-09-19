@@ -38,7 +38,7 @@ HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
 HIPERF_CMD_MEMIF_CBR="${HIPERF_CMD_CBR} -z memif_module"
 
-PING_CMD="hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER}"
+PING_CMD="LOG_LEVEL=1 hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER}"
 PING_CMD_MEMIF="${PING_CMD} -z memif_module"
 POSTPROCESS_COMMAND_PING='grep trip |       \
   cut -f 4 -d " " |                         \

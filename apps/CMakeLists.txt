@@ -49,7 +49,7 @@ set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
 ##############################################################
 find_package(Threads REQUIRED)
 find_package(Libconfig++ ${LIBCONFIG_DEFAULT_VERSION} REQUIRED)
-
+find_package(glog REQUIRED)
 
 ##############################################################
 # Check if building as subproject or as root project
@@ -84,6 +84,18 @@ else()
 
   list(APPEND DEPENDENCIES
     ${LIBTRANSPORT_LIBRARIES}
+  )
+
+  # glog
+  list(APPEND THIRD_PARTY_INCLUDE_DIRS
+    ${glog_BINARY_DIR}
+    ${glog_SOURCE_DIR}/src
+  )
+  list(APPEND THIRD_PARTY_OBJECT_LIBRARIES
+    $<TARGET_OBJECTS:glog>
+  )
+  list(APPEND THIRD_PARTY_DEPENDENCIES
+    glog
   )
 endif()
 
