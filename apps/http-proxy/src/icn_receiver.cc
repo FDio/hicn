@@ -158,7 +158,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
   uint32_t start_suffix = 0;
 
   if (response_name_queue_.empty()) {
-    std::cerr << "Aborting due tue empty request queue" << std::endl;
+    TRANSPORT_LOG_ERROR << "Aborting due tue empty request queue";
     abort();
   }
 
@@ -177,8 +177,8 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
 
   auto it = chunk_number_map_.find(name);
   if (it == chunk_number_map_.end()) {
-    std::cerr << "Aborting due to response not found in ResposeInfo map."
-              << std::endl;
+    TRANSPORT_LOG_ERROR
+        << "Aborting due to response not found in ResposeInfo map.";
     abort();
   }
 
