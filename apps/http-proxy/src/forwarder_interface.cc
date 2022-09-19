@@ -14,8 +14,8 @@
  */
 
 #include <arpa/inet.h>
+#include <hicn/apps/utils/logger.h>
 #include <hicn/http-proxy/forwarder_interface.h>
-#include <hicn/transport/utils/log.h>
 
 #include <chrono>
 #include <iostream>
@@ -120,7 +120,7 @@ void ForwarderInterface::internalRemoveConnectedUser(uint32_t route_id) {
   for (unsigned i = 0; i < routes_to_remove.size(); i++) {
     connids_to_remove.insert(routes_to_remove[i]->face_id);
     if (hc_route_delete(sock_, routes_to_remove[i]) < 0) {
-      TRANSPORT_LOG_ERROR << "Error removing route from forwarder.";
+      LoggerErr() << "Error removing route from forwarder.";
     }
   }
 
@@ -147,7 +147,7 @@ void ForwarderInterface::internalRemoveConnectedUser(uint32_t route_id) {
 
   for (unsigned i = 0; i < conns_to_remove.size(); i++) {
     if (hc_connection_delete(sock_, conns_to_remove[i]) < 0) {
-      TRANSPORT_LOG_ERROR << "Error removing connection from forwarder.";
+      LoggerErr() << "Error removing connection from forwarder.";
     }
   }
 

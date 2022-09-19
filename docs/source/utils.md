@@ -42,9 +42,6 @@ Options:
 -l <lifetime>               = data lifetime
 -r                          = always reply with a reset flag (default false)
 -t <ttl>                    = set ttl (default 64)
--V                          = verbose, prints statistics about the messagges sent and received (default false)
--D                          = dump, dumps sent and received packets (default false)
--q                          = quiet, no printing (default false)
 -d                          = daemon mode
 -H                          = help
 ```
@@ -74,9 +71,6 @@ Options:
 -A                          = send always ack messages (default false)
 -n <hicn_name>              = hicn name (default b001::1)
 -l <lifetime>               = interest lifetime in milliseconds (default 500ms)
--V                          = verbose, prints statistics about the messagges sent and received (default false)
--D                          = dump, dumps sent and received packets (default false)
--q                          = quiet, no printing (default false)
 -H                          = help
 ```
 

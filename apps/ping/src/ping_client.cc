@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/global_object_pool.h>
@@ -56,10 +57,7 @@ class Configuration {
   std::string traffic_generator_type_;
   uint16_t srcPort_ = 9695;
   uint16_t dstPort_ = 8080;
-  bool verbose_ = false;
-  bool dump_ = false;
   bool jump_ = false;
-  bool quiet_ = false;
   uint32_t jump_freq_ = 0;
   uint32_t jump_size_ = 0;
   uint8_t ttl_ = 64;
@@ -101,7 +99,7 @@ class Client : private interface::Portal::TransportCallback {
   virtual ~Client() = default;
 
   void ping() {
-    std::cout << "start ping" << std::endl;
+    LoggerInfo() << "Starting ping...";
 
     portal_.getThread().add([this]() {
       portal_.connect();
@@ -124,10 +122,10 @@ class Client : private interface::Portal::TransportCallback {
       if (verifier_.verifyPacket(&object)) {
         auto t1 = utils::SteadyTime::now();
         auto dt = utils::SteadyTime::getDurationUs(t0, t1);
-        std::cout << "Verification time: " << dt.count() << std::endl;
-        std::cout << "<<< Signature Ok." << std::endl;
+        LoggerInfo() << "Verification time: " << dt.count();
+        LoggerInfo() << "<<< Signature Ok.";
       } else {
-        std::cout << "<<< Signature verification failed!" << std::endl;
+        LoggerErr() << "<<< Signature verification failed!";
       }
     }
 
@@ -139,39 +137,38 @@ class Client : private interface::Portal::TransportCallback {
       send_timestamps_.erase(it);
     }
 
-    if (config_->verbose_) {
-      std::cout << "<<< recevied object. " << std::endl;
-      std::cout << "<<< interest name: " << interest.getName().getPrefix()
-                << " (n_suffixes=" << config_->num_int_manifest_suffixes_ << ")"
-                << " src port: " << interest.getSrcPort()
-                << " dst port: " << interest.getDstPort() << std::endl;
-      std::cout << "<<< object name: " << object.getName()
-                << " src port: " << object.getSrcPort()
-                << " dst port: " << object.getDstPort() << " path label "
-                << object.getPathLabel() << " ("
-                << (object.getPathLabel() >> 24) << ")"
-                << " TTL: " << (int)object.getTTL() << std::endl;
-    } else if (!config_->quiet_) {
-      std::cout << "<<< received object. " << std::endl;
-      std::cout << "<<< round trip: " << rtt << " [us]" << std::endl;
-      std::cout << "<<< interest name: " << interest.getName().getPrefix()
-                << std::endl;
-      std::cout << "<<< object name: " << object.getName() << std::endl;
-      std::cout << "<<< content object size: "
-                << object.payloadSize() + object.headerSize() << " [bytes]"
-                << std::endl;
+    if (LoggerIsOn(2)) {
+      LoggerInfo() << "<<< recevied object. ";
+      LoggerInfo() << "<<< interest name: " << interest.getName().getPrefix()
+                   << " (n_suffixes=" << config_->num_int_manifest_suffixes_
+                   << ")"
+                   << " src port: " << interest.getSrcPort()
+                   << " dst port: " << interest.getDstPort();
+      LoggerInfo() << "<<< object name: " << object.getName()
+                   << " src port: " << object.getSrcPort()
+                   << " dst port: " << object.getDstPort() << " path label "
+                   << object.getPathLabel() << " ("
+                   << (object.getPathLabel() >> 24) << ")"
+                   << " TTL: " << (int)object.getTTL();
+    } else if (LoggerIsOn(1)) {
+      LoggerInfo() << "<<< received object. ";
+      LoggerInfo() << "<<< round trip: " << rtt << " [us]";
+      LoggerInfo() << "<<< interest name: " << interest.getName().getPrefix();
+
+      LoggerInfo() << "<<< object name: " << object.getName();
+      LoggerInfo() << "<<< content object size: "
+                   << object.payloadSize() + object.headerSize() << " [bytes]";
     }
 
-    if (config_->dump_) {
-      std::cout << "----- interest dump -----" << std::endl;
+    if (LoggerIsOn(3)) {
+      LoggerInfo() << "----- interest dump -----";
       interest.dump();
-      std::cout << "-------------------------" << std::endl;
-      std::cout << "----- object dump -------" << std::endl;
+      LoggerInfo() << "-------------------------";
+      LoggerInfo() << "----- object dump -------";
       object.dump();
-      std::cout << "-------------------------" << std::endl;
+      LoggerInfo() << "-------------------------";
     }
-
-    if (!config_->quiet_) std::cout << std::endl;
+    LoggerVerbose(1) << "\n";
 
     received_++;
     processed_++;
@@ -181,32 +178,28 @@ class Client : private interface::Portal::TransportCallback {
   }
 
   void onTimeout(Interest::Ptr &interest, const Name &name) override {
-    if (config_->verbose_) {
-      std::cout << "### timeout for " << name
-                << " src port: " << interest->getSrcPort()
-                << " dst port: " << interest->getDstPort() << std::endl;
-    } else if (!config_->quiet_) {
-      std::cout << "### timeout for " << name << std::endl;
+    if (LoggerIsOn(2)) {
+      LoggerInfo() << "### timeout for " << name
+                   << " src port: " << interest->getSrcPort()
+                   << " dst port: " << interest->getDstPort();
+    } else if (LoggerIsOn(1)) {
+      LoggerInfo() << "### timeout for " << name;
     }
 
-    if (config_->dump_) {
-      std::cout << "----- interest dump -----" << std::endl;
+    if (LoggerIsOn(3)) {
+      LoggerInfo() << "----- interest dump -----";
       interest->dump();
-      std::cout << "-------------------------" << std::endl;
+      LoggerInfo() << "-------------------------";
     }
-
-    if (!config_->quiet_) std::cout << std::endl;
+    LoggerVerbose(1) << "\n";
 
     timedout_++;
     processed_++;
-    if (processed_ >= config_->maxPing_) {
-      afterSignal();
-    }
+    if (processed_ >= config_->maxPing_) afterSignal();
   }
 
   void onError(const std::error_code &ec) override {
-    std::cout << "Aborting ping due to internal error: " << ec.message()
-              << std::endl;
+    LoggerErr() << "Aborting ping due to internal error: " << ec.message();
     afterSignal();
   }
 
@@ -235,18 +228,17 @@ class Client : private interface::Portal::TransportCallback {
     interest->setDstPort(config_->dstPort_);
     interest->setTTL(config_->ttl_);
 
-    if (config_->verbose_) {
-      std::cout << ">>> send interest " << interest->getName()
-                << " src port: " << interest->getSrcPort()
-                << " dst port: " << interest->getDstPort()
-                << " TTL: " << (int)interest->getTTL()
-                << " suffixes in manifest: "
-                << config_->num_int_manifest_suffixes_ << std::endl;
-    } else if (!config_->quiet_) {
-      std::cout << ">>> send interest " << interest->getName() << std::endl;
+    if (LoggerIsOn(2)) {
+      LoggerInfo() << ">>> send interest " << interest->getName()
+                   << " src port: " << interest->getSrcPort()
+                   << " dst port: " << interest->getDstPort()
+                   << " TTL: " << (int)interest->getTTL()
+                   << " suffixes in manifest: "
+                   << config_->num_int_manifest_suffixes_;
+    } else if (LoggerIsOn(1)) {
+      LoggerInfo() << ">>> send interest " << interest->getName();
     }
-
-    if (!config_->quiet_) std::cout << std::endl;
+    LoggerVerbose(1) << "\n";
 
     send_timestamps_[sequence_number] = utils::SteadyTime::now();
     for (uint32_t i = 0; i < config_->num_int_manifest_suffixes_ &&
@@ -258,10 +250,10 @@ class Client : private interface::Portal::TransportCallback {
       send_timestamps_[sequence_number] = utils::SteadyTime::now();
     }
 
-    if (config_->dump_) {
-      std::cout << "----- interest dump -----" << std::endl;
+    if (LoggerIsOn(3)) {
+      LoggerInfo() << "----- interest dump -----";
       interest->dump();
-      std::cout << "-------------------------" << std::endl;
+      LoggerInfo() << "-------------------------";
     }
 
     interest->encodeSuffixes();
@@ -280,10 +272,9 @@ class Client : private interface::Portal::TransportCallback {
   }
 
   void afterSignal() {
-    std::cout << "Stop ping" << std::endl;
-    std::cout << "Sent: " << traffic_generator_->getSentCount()
-              << " Received: " << received_ << " Timeouts: " << timedout_
-              << std::endl;
+    LoggerInfo() << "Stopping ping...";
+    LoggerInfo() << "Sent: " << traffic_generator_->getSentCount()
+                 << " Received: " << received_ << " Timeouts: " << timedout_;
     io_service_.stop();
   }
 
@@ -315,45 +306,38 @@ class Client : private interface::Portal::TransportCallback {
 };
 
 void help() {
-  std::cout << "usage: hicn-consumer-ping [options]" << std::endl;
-  std::cout << "PING options" << std::endl;
-  std::cout
-      << "-i <val>          ping interval in microseconds (default 1000000ms)"
-      << std::endl;
-  std::cout << "-m <val>          maximum number of pings to send (default 10)"
-            << std::endl;
-  std::cout << "-s <val>          sorce port (default 9695)" << std::endl;
-  std::cout << "-d <val>          destination port (default 8080)" << std::endl;
-  std::cout << "-t <val>          set packet ttl (default 64)" << std::endl;
-  std::cout << "-a <val> <pass>   set the passphrase and the number of "
-               "suffixes in interest manifest (default 0);"
-            << std::endl;
-  std::cout << "                  e.g. '-m 6 -a -2' sends two interest (0 and "
-               "3) with 2 suffixes each (1,2 and 4,5 respectively)"
-            << std::endl;
-  std::cout << "HICN options" << std::endl;
-  std::cout << "-n <val>          hicn name (default b001::1)" << std::endl;
-  std::cout
-      << "-l <val>          interest lifetime in milliseconds (default 500ms)"
-      << std::endl;
-  std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V                verbose, prints statistics about the "
-               "messagges sent and received (default false)"
-            << std::endl;
-  std::cout << "-D                dump, dumps sent and received packets "
-               "(default false)"
-            << std::endl;
-  std::cout << "-q                quiet, not prints (default false)"
-            << std::endl;
-  std::cerr << "-z <io_module>    IO module to use. Default: hicnlight_module"
-            << std::endl;
-  std::cerr << "-F <conf_file>    Path to optional configuration file for "
-               "libtransport"
-            << std::endl;
-  std::cout << "-b <type>         Traffic generator type. Use 'RANDOM' for "
-               "random prefixes and suffixes. Default: sequential suffixes."
-            << std::endl;
-  std::cout << "-H                prints this message" << std::endl;
+  LoggerInfo() << "usage: hicn-consumer-ping [options]";
+  LoggerInfo() << "PING options";
+  LoggerInfo() << "-i <val>          ping interval in microseconds (default "
+                  "1000000ms)";
+  LoggerInfo()
+      << "-m <val>          maximum number of pings to send (default 10)";
+  LoggerInfo() << "-s <val>          sorce port (default 9695)";
+  LoggerInfo() << "-d <val>          destination port (default 8080)";
+  LoggerInfo() << "-t <val>          set packet ttl (default 64)";
+  LoggerInfo() << "-a <val> <pass>   set the passphrase and the number of "
+                  "suffixes in interest manifest (default 0);";
+  LoggerInfo()
+      << "                  e.g. '-m 6 -a -2' sends two interest (0 and "
+         "3) with 2 suffixes each (1,2 and 4,5 respectively)";
+  LoggerInfo() << "HICN options";
+  LoggerInfo() << "-n <val>          hicn name (default b001::1)";
+  LoggerInfo()
+      << "-l <val>          interest lifetime in milliseconds (default "
+         "500ms)";
+  LoggerInfo() << "OUTPUT options";
+  LoggerInfo() << "-V                verbose, prints statistics about the "
+                  "messagges sent and received (default false)";
+  LoggerInfo() << "-D                dump, dumps sent and received packets "
+                  "(default false)";
+  LoggerInfo() << "-q                quiet, not prints (default false)";
+  LoggerInfo()
+      << "-z <io_module>    IO module to use. Default: hicnlight_module";
+  LoggerInfo() << "-F <conf_file>    Path to optional configuration file for "
+                  "libtransport";
+  LoggerInfo() << "-b <type>         Traffic generator type. Use 'RANDOM' for "
+                  "random prefixes and suffixes. Default: sequential suffixes.";
+  LoggerInfo() << "-H                prints this message";
 }
 
 int start(int argc, char *argv[]) {
@@ -372,7 +356,7 @@ int start(int argc, char *argv[]) {
   transport::interface::global_config::IoModuleConfiguration io_config;
   io_config.name = "hicnlight_module";
 
-  while ((opt = getopt(argc, argv, "a:b:j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) !=
+  while ((opt = getopt(argc, argv, "a:b:j::t:i:m:s:d:n:l:f:c:SAOHz:F:")) !=
          -1) {
     switch (opt) {
       case 'a':
@@ -406,17 +390,6 @@ int start(int argc, char *argv[]) {
       case 'l':
         c->interestLifetime_ = std::stoi(optarg);
         break;
-      case 'V':
-        c->verbose_ = true;
-        break;
-      case 'D':
-        c->dump_ = true;
-        break;
-      case 'q':
-        c->quiet_ = true;
-        c->verbose_ = false;
-        c->dump_ = false;
-        break;
       case 'c':
         c->certificate_ = std::string(optarg);
         break;
@@ -449,9 +422,8 @@ int start(int argc, char *argv[]) {
   ping->ping();
   auto t1 = std::chrono::steady_clock::now();
 
-  std::cout << "Elapsed time: "
-            << utils::SteadyTime::getDurationMs(t0, t1).count() << "ms"
-            << std::endl;
+  LoggerInfo() << "Elapsed time: "
+               << utils::SteadyTime::getDurationMs(t0, t1).count() << "ms";
 
 #ifdef _WIN32
   WSACleanup();

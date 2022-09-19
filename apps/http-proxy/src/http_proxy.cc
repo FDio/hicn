@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/http-proxy/http_proxy.h>
 #include <hicn/http-proxy/http_session.h>
 #include <hicn/http-proxy/utils.h>
 #include <hicn/transport/core/interest.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/string_utils.h>
 
 namespace transport {
@@ -67,10 +67,10 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             std::string remote_address =
                 socket.remote_endpoint().address().to_string();
             std::uint16_t remote_port = socket.remote_endpoint().port();
-            TRANSPORT_LOG_INFO << "Client " << remote_address << ":"
-                               << remote_port << "disconnected.";
+            LoggerInfo() << "Client " << remote_address << ":" << remote_port
+                         << "disconnected.";
           } catch (asio::system_error& e) {
-            TRANSPORT_LOG_INFO << "Client disconnected.";
+            LoggerInfo() << "Client disconnected.";
           }
 
           consumer_.stop();
@@ -143,17 +143,16 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
       if (current_size_ < 1400) {
         request_buffer_queue_.emplace_back(std::move(tmp_buffer_));
       } else {
-        TRANSPORT_LOG_ERROR << "Ignoring client request due to size ("
-                            << current_size_ << ") > 1400.";
+        LoggerErr() << "Ignoring client request due to size (" << current_size_
+                    << ") > 1400.";
         session_->close();
         current_size_ = 0;
         return;
       }
 
       if (!consumer_.isRunning()) {
-        TRANSPORT_LOG_INFO
-            << "Consumer stopped, triggering consume from TCP session "
-               "handler..";
+        LoggerInfo() << "Consumer stopped, triggering consume from TCP session "
+                        "handler..";
         consumeNextRequest();
       }
 
@@ -192,8 +191,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
   }
 
   void readError(const std::error_code& ec) noexcept {
-    TRANSPORT_LOG_ERROR
-        << "Error reading from hicn consumer socket. Closing session.";
+    LoggerErr() << "Error reading from hicn consumer socket. Closing session.";
     session_->close();
   }
 
@@ -213,10 +211,9 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
         session_->send((const uint8_t*)HTTPMessageFastParser::http_cors,
                        std::strlen(HTTPMessageFastParser::http_cors), [this]() {
                          auto& socket = session_->socket_;
-                         TRANSPORT_LOG_INFO
-                             << "Sent OPTIONS to client "
-                             << socket.remote_endpoint().address() << ":"
-                             << socket.remote_endpoint().port();
+                         LoggerInfo() << "Sent OPTIONS to client "
+                                      << socket.remote_endpoint().address()
+                                      << ":" << socket.remote_endpoint().port();
                        });
       }
     } else {
@@ -230,14 +227,13 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             }
 
             /* Route created. Send back a 200 OK to client */
-            session_->send((const uint8_t*)reply, std::strlen(reply),
-                           [this, result]() {
-                             auto& socket = session_->socket_;
-                             TRANSPORT_LOG_INFO
-                                 << "Sent " << result << " response to client "
-                                 << socket.remote_endpoint().address() << ":"
-                                 << socket.remote_endpoint().port();
-                           });
+            session_->send(
+                (const uint8_t*)reply, std::strlen(reply), [this, result]() {
+                  auto& socket = session_->socket_;
+                  LoggerInfo() << "Sent " << result << " response to client "
+                               << socket.remote_endpoint().address() << ":"
+                               << socket.remote_endpoint().port();
+                });
           });
     }
   }
@@ -331,8 +327,8 @@ void TcpReceiver::onNewConnection(asio::ip::tcp::socket&& socket) {
 void HTTPProxy::setupSignalHandler() {
   signals_.async_wait([this](const std::error_code& ec, int signal_number) {
     if (!ec) {
-      TRANSPORT_LOG_INFO << "Received signal " << signal_number
-                         << ". Stopping gracefully.";
+      LoggerInfo() << "Received signal " << signal_number
+                   << ". Stopping gracefully.";
       stop();
     }
   });

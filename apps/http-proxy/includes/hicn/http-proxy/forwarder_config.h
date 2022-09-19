@@ -15,9 +15,9 @@
 
 #pragma once
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/transport/portability/c_portability.h>
 #include <hicn/transport/utils/branch_prediction.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/string_utils.h>
 
 #include <asio.hpp>
@@ -67,8 +67,7 @@ class ForwarderConfig {
       if (ret < 0) {
         // We were not able to connect to the local forwarder. Do not give up
         // and retry.
-        TRANSPORT_LOG_ERROR
-            << "Could not connect to local forwarder. Retrying.";
+        LoggerErr() << "Could not connect to local forwarder. Retrying.";
 
         timer_.expires_from_now(std::chrono::milliseconds(RETRY_INTERVAL));
         timer_.async_wait(std::bind(&ForwarderConfig::doTryToConnectToForwarder,
@@ -79,8 +78,7 @@ class ForwarderConfig {
         doGetMainListener(std::make_error_code(std::errc(0)));
       }
     } else {
-      TRANSPORT_LOG_ERROR
-          << "Timer for re-trying forwarder connection canceled.";
+      LoggerErr() << "Timer for re-trying forwarder connection canceled.";
     }
   }
 
@@ -91,7 +89,7 @@ class ForwarderConfig {
       if (ret <= 0) {
         // Since without the main listener of the forwarder the proxy cannot
         // work, we can stop the program here until we get the listener port.
-        TRANSPORT_LOG_ERROR
+        LoggerErr()
             << "Could not retrieve main listener port from the forwarder. "
                "Retrying.";
 
@@ -105,8 +103,7 @@ class ForwarderConfig {
         listener_retrieved_callback_(std::make_error_code(std::errc(0)));
       }
     } else {
-      TRANSPORT_LOG_ERROR
-          << "Timer for retrieving main hicn listener canceled.";
+      LoggerErr() << "Timer for retrieving main hicn listener canceled.";
     }
   }
 
