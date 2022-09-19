@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/http/client_connection.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 
@@ -172,7 +173,7 @@ class ReadBytesCallbackImplementation
         }
 
         print_bar(100, 100, true);
-        std::cout << "\nDownloaded " << bytes << " bytes" << std::endl;
+        LOG(INFO) << "\nDownloaded " << bytes << " bytes";
       }
       work_.reset();
     });
@@ -216,8 +217,7 @@ class ReadBytesCallbackImplementation
       }
     }
     if (last) {
-      std::cout << "] " << int(progress * 100.0) << " %" << std::endl
-                << std::endl;
+      std::cout << "] " << int(progress * 100.0) << " %";
     } else {
       std::cout << "] " << int(progress * 100.0) << " %\r";
       std::cout.flush();
@@ -250,20 +250,16 @@ long checkFileStatus(std::string file_name) {
 }
 
 void usage(char *program_name) {
-  std::cerr << "usage:" << std::endl;
-  std::cerr << program_name << " [option]... [url]..." << std::endl;
-  std::cerr << program_name << " options:" << std::endl;
-  std::cerr
-      << "-O <out_put_path>            = write documents to <out_put_file>"
-      << std::endl;
-  std::cerr << "-S                          = print server response"
-            << std::endl;
-  std::cerr << "-P                          = first word of the ipv6 name of "
-               "the response"
-            << std::endl;
-  std::cerr << "example:" << std::endl;
-  std::cerr << "\t" << program_name << " -O - http://origin/index.html"
-            << std::endl;
+  LOG(INFO) << "usage:";
+  LOG(INFO) << program_name << " [option]... [url]...";
+  LOG(INFO) << program_name << " options:";
+  LOG(INFO)
+      << "-O <out_put_path>            = write documents to <out_put_file>";
+  LOG(INFO) << "-S                          = print server response";
+  LOG(INFO) << "-P                          = first word of the ipv6 name of "
+               "the response";
+  LOG(INFO) << "example:";
+  LOG(INFO) << "\t" << program_name << " -O - http://origin/index.html";
   exit(EXIT_FAILURE);
 }
 
@@ -308,8 +304,8 @@ int main(int argc, char **argv) {
   }
 
   name = argv[optind];
-  std::cerr << "Using name " << name << " and name first word "
-            << conf.ipv6_first_word << std::endl;
+  LOG(INFO) << "Using name " << name << " and name first word "
+            << conf.ipv6_first_word;
 
   if (conf.file_name.empty()) {
     conf.file_name = name.substr(1 + name.find_last_of("/"));

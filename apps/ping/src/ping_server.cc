@@ -21,6 +21,7 @@
 #include <openssl/applink.c>
 #endif
 
+#include <glog/logging.h>
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/content_object.h>
@@ -53,19 +54,19 @@ class CallbackContainer {
     content_object->setDstPort(interest.getSrcPort());
     content_object->setTTL(ttl_);
 
-    if (verbose_) {
-      std::cout << ">>> send object " << content_object->getName()
+    if (VLOG_IS_ON(2)) {
+      LOG(INFO) << ">>> send object " << content_object->getName()
                 << " src port: " << content_object->getSrcPort()
                 << " dst port: " << content_object->getDstPort()
-                << " TTL: " << (int)content_object->getTTL() << std::endl;
-    } else if (!quiet_) {
-      std::cout << ">>> send object " << content_object->getName() << std::endl;
+                << " TTL: " << (int)content_object->getTTL();
+    } else if (VLOG_IS_ON(1)) {
+      LOG(INFO) << ">>> send object " << content_object->getName();
     }
 
-    if (dump_) {
-      std::cout << "----- object dump -----" << std::endl;
+    if (VLOG_IS_ON(3)) {
+      LOG(INFO) << "----- object dump -----";
       content_object->dump();
-      std::cout << "-----------------------" << std::endl;
+      LOG(INFO) << "-----------------------";
     }
 
     if (sign_ && signer_) signer_->signPacket(content_object.get());
@@ -73,16 +74,13 @@ class CallbackContainer {
   }
 
  public:
-  CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
-                    bool dump, bool quiet, uint8_t ttl, auth::Signer *signer,
-                    bool sign, std::string passphrase, uint32_t lifetime)
+  CallbackContainer(const Name &prefix, uint32_t object_size, uint8_t ttl,
+                    auth::Signer *signer, bool sign, std::string passphrase,
+                    uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
         content_objects_index_(0),
-        verbose_(verbose),
-        dump_(dump),
-        quiet_(quiet),
         ttl_(ttl),
         signer_(signer),
         sign_(sign) {
@@ -117,28 +115,27 @@ class CallbackContainer {
       if (verifier_->verifyPacket(&interest)) {
         auto t1 = utils::SteadyTime::now();
         auto dt = utils::SteadyTime::getDurationUs(t0, t1);
-        std::cout << "Verification time: " << dt.count() << std::endl;
-        std::cout << "<<< Signature Ok." << std::endl;
+        LOG(INFO) << "Verification time: " << dt.count();
+        LOG(INFO) << "<<< Signature Ok.";
       } else {
-        std::cout << "<<< Signature verification failed!" << std::endl;
+        LOG(ERROR) << "<<< Signature verification failed!";
       }
     }
 
-    if (verbose_) {
-      std::cout << "<<< received interest " << interest.getName()
+    if (VLOG_IS_ON(2)) {
+      LOG(INFO) << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
                 << " dst port: " << interest.getDstPort()
                 << "TTL: " << (int)interest.getTTL()
-                << " suffixes in manifest: " << interest.numberOfSuffixes()
-                << std::endl;
-    } else if (!quiet_) {
-      std::cout << "<<< received interest " << interest.getName() << std::endl;
+                << " suffixes in manifest: " << interest.numberOfSuffixes();
+    } else if (VLOG_IS_ON(1)) {
+      LOG(INFO) << "<<< received interest " << interest.getName();
     }
 
-    if (dump_) {
-      std::cout << "----- interest dump -----" << std::endl;
+    if (VLOG_IS_ON(3)) {
+      LOG(INFO) << "----- interest dump -----";
       interest.dump();
-      std::cout << "-------------------------" << std::endl;
+      LOG(INFO) << "-------------------------";
     }
 
     if (!interest.isValid()) throw std::runtime_error("Bad interest format");
@@ -160,7 +157,7 @@ class CallbackContainer {
       }
     }
 
-    if (!quiet_) std::cout << std::endl;
+    VLOG(1) << "\n";
   }
 
  private:
@@ -168,9 +165,6 @@ class CallbackContainer {
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t mask_;
   std::uint16_t content_objects_index_;
-  bool verbose_;
-  bool dump_;
-  bool quiet_;
   uint8_t ttl_;
   auth::Signer *signer_;
   bool sign_;
@@ -178,32 +172,26 @@ class CallbackContainer {
 };
 
 void help() {
-  std::cout << "usage: hicn-preoducer-ping [options]" << std::endl;
-  std::cout << "PING options" << std::endl;
-  std::cout << "-s <val>          object content size (default 1350B)"
-            << std::endl;
-  std::cout << "-n <val>          hicn name (default b001::/64)" << std::endl;
-  std::cout << "-l                data lifetime" << std::endl;
-  std::cout << "-t                set ttl (default 64)" << std::endl;
-  std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V                verbose, prints statistics about the "
+  LOG(INFO) << "usage: hicn-preoducer-ping [options]";
+  LOG(INFO) << "PING options";
+  LOG(INFO) << "-s <val>          object content size (default 1350B)";
+  LOG(INFO) << "-n <val>          hicn name (default b001::/64)";
+  LOG(INFO) << "-l                data lifetime";
+  LOG(INFO) << "-t                set ttl (default 64)";
+  LOG(INFO) << "OUTPUT options";
+  LOG(INFO) << "-V                verbose, prints statistics about the "
                "messagges sent "
-               "                  and received (default false)"
-            << std::endl;
-  std::cout << "-D                dump, dumps sent and received packets "
-               "(default false)"
-            << std::endl;
-  std::cout << "-q                quiet, not prints (default false)"
-            << std::endl;
-  std::cerr << "-z <io_module>    IO module to use. Default: hicnlight_module"
-            << std::endl;
-  std::cerr << "-F <conf_file>    Path to optional configuration file for "
-               "libtransport"
-            << std::endl;
+               "                  and received (default false)";
+  LOG(INFO) << "-D                dump, dumps sent and received packets "
+               "(default false)";
+  LOG(INFO) << "-q                quiet, not prints (default false)";
+  LOG(INFO) << "-z <io_module>    IO module to use. Default: hicnlight_module";
+  LOG(INFO) << "-F <conf_file>    Path to optional configuration file for "
+               "libtransport";
 #ifndef _WIN32
-  std::cout << "-d                daemon mode" << std::endl;
+  LOG(INFO) << "-d                daemon mode";
 #endif
-  std::cout << "-H                prints this message" << std::endl;
+  LOG(INFO) << "-H                prints this message";
 }
 
 int main(int argc, char **argv) {
@@ -216,9 +204,6 @@ int main(int argc, char **argv) {
 #endif
   std::string name_prefix = "b001::0/64";
   std::string delimiter = "/";
-  bool verbose = false;
-  bool dump = false;
-  bool quiet = false;
   uint32_t object_size = 1250;
   uint8_t ttl = 64;
   std::string keystore_path = "./rsa_crypto_material.p12";
@@ -233,9 +218,9 @@ int main(int argc, char **argv) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "a:s:n:t:l:qfrVDdHk:p:z:F:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:s:n:t:l:frdHk:p:z:F:")) != -1) {
 #else
-  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:z:F:")) != -1) {
+  while ((opt = getopt(argc, argv, "s:n:t:l:frHk:p:z:F:")) != -1) {
 #endif
     switch (opt) {
       case 'a':
@@ -252,17 +237,6 @@ int main(int argc, char **argv) {
         break;
       case 'l':
         data_lifetime = std::stoi(optarg);
-        break;
-      case 'V':
-        verbose = true;
-        break;
-      case 'D':
-        dump = true;
-        break;
-      case 'q':
-        verbose = false;
-        dump = false;
-        quiet = true;
         break;
 #ifndef _WIN32
       case 'd':
@@ -319,13 +293,12 @@ int main(int argc, char **argv) {
   if (sign) {
     signer = std::make_unique<auth::AsymmetricSigner>(keystore_path,
                                                       keystore_password);
-    stubs =
-        new CallbackContainer(n, object_size, verbose, dump, quiet, ttl,
-                              signer.get(), sign, passphrase, data_lifetime);
+    stubs = new CallbackContainer(n, object_size, ttl, signer.get(), sign,
+                                  passphrase, data_lifetime);
   } else {
     auth::Signer *signer = nullptr;
-    stubs = new CallbackContainer(n, object_size, verbose, dump, quiet, ttl,
-                                  signer, sign, passphrase, data_lifetime);
+    stubs = new CallbackContainer(n, object_size, ttl, signer, sign, passphrase,
+                                  data_lifetime);
   }
 
   ProducerSocket p;
@@ -346,7 +319,7 @@ int main(int argc, char **argv) {
   asio::signal_set signal_set(io_service, SIGINT);
   signal_set.async_wait(
       [&p, &io_service](const std::error_code &, const int &) {
-        std::cout << "STOPPING!!" << std::endl;
+        LOG(INFO) << "STOPPING!!";
         p.stop();
         io_service.stop();
       });
