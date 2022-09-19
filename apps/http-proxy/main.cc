@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,32 +13,31 @@
  * limitations under the License.
  */
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/http-proxy/http_proxy.h>
 
 using namespace transport;
 
 int usage(char* program) {
-  std::cerr << "USAGE: " << program << "[-C|-S] [options] <http_prefix>\n"
-            << "Server or Client: \n"
-            << "  -P [FIRST_IPv6_WORD_HEX]\n"
-            << "  -t [number of threads]\n"
-            << "Client Options: \n"
-            << "  -L [PROXY_LISTEN_PORT]\n"
-            << "Server Options: \n"
-            << "  -a [ORIGIN_IP_ADDRESS]\n"
-            << "  -p [ORIGIN_PORT]\n"
-            << "  -c [CACHE_SIZE]\n"
-            << "  -m [MTU]"
-            << "  -l [DEFAULT_CONTENT_LIFETIME] (seconds)\n"
-            << "  -M (enable manifest)\n"
-            << std::endl
-            << "Example Server:\n"
-            << "  " << program
-            << " -S -a example.com -p 80 -c 10000 -m 1300 -l 7200 -M -t 1 "
-               "http://httpserver\n"
-            << "Example Client:\n"
-            << "  " << program << " -C -L 9091 http://httpserver\n"
-            << std::endl;
+  LoggerInfo() << "USAGE: " << program << "[-C|-S] [options] <http_prefix>\n"
+               << "Server or Client: \n"
+               << "  -P [FIRST_IPv6_WORD_HEX]\n"
+               << "  -t [number of threads]\n"
+               << "Client Options: \n"
+               << "  -L [PROXY_LISTEN_PORT]\n"
+               << "Server Options: \n"
+               << "  -a [ORIGIN_IP_ADDRESS]\n"
+               << "  -p [ORIGIN_PORT]\n"
+               << "  -c [CACHE_SIZE]\n"
+               << "  -m [MTU]"
+               << "  -l [DEFAULT_CONTENT_LIFETIME] (seconds)\n"
+               << "  -M (enable manifest)\n";
+  LoggerInfo() << "Example Server:\n"
+               << "  " << program
+               << " -S -a example.com -p 80 -c 10000 -m 1300 -l 7200 -M -t 1 "
+                  "http://httpserver\n"
+               << "Example Client:\n"
+               << "  " << program << " -C -L 9091 http://httpserver\n";
   return -1;
 }
 
@@ -53,8 +52,7 @@ struct Params : HTTPProxy::ClientParams, HTTPProxy::ServerParams {
           "Proxy configured as client and server at the same time.");
     }
 
-    std::cout << "\t"
-              << "N Threads: " << n_thread << std::endl;
+    LoggerInfo() << "\tN Threads: " << n_thread;
   }
 
   HTTPProxy* instantiateProxyAsValue() {
@@ -93,18 +91,16 @@ int main(int argc, char** argv) {
     switch (opt) {
       case 'C':
         if (params.server) {
-          std::cerr << "Cannot be both client and server (both -C anc -S "
-                       "options specified.)."
-                    << std::endl;
+          LoggerErr() << "Cannot be both client and server (both -C anc -S "
+                         "options specified.).";
           return usage(argv[0]);
         }
         params.client = true;
         break;
       case 'S':
         if (params.client) {
-          std::cerr << "Cannot be both client and server (both -C anc -S "
-                       "options specified.)."
-                    << std::endl;
+          LoggerErr() << "Cannot be both client and server (both -C anc -S "
+                         "options specified.).";
           return usage(argv[0]);
         }
         params.server = true;
@@ -143,7 +139,7 @@ int main(int argc, char** argv) {
   }
 
   if (argv[optind] == 0) {
-    std::cerr << "Using default prefix " << params.prefix << std::endl;
+    LoggerInfo() << "Using default prefix " << params.prefix;
   } else {
     params.prefix = argv[optind];
   }
