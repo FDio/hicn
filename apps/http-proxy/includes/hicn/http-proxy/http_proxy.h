@@ -17,6 +17,7 @@
 
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/utils/event_thread.h>
+#include <hicn/transport/utils/logger.h>
 
 #include "forwarder_config.h"
 #include "http_session.h"
@@ -147,20 +148,17 @@ class HTTPProxy {
     std::string prefix;
     std::string first_ipv6_word;
 
-    virtual void printParams() { std::cout << "Parameters: " << std::endl; };
+    virtual void printParams() { LoggerInfo() << "Parameters: "; };
   };
 
   struct ClientParams : virtual CommonParams {
     short tcp_listen_port;
     void printParams() override {
-      std::cout << "Running HTTP/TCP -> HTTP/hICN proxy." << std::endl;
+      LoggerInfo() << "Running HTTP/TCP -> HTTP/hICN proxy.";
       CommonParams::printParams();
-      std::cout << "\t"
-                << "HTTP listen port: " << tcp_listen_port << std::endl;
-      std::cout << "\t"
-                << "Consumer Prefix: " << prefix << std::endl;
-      std::cout << "\t"
-                << "Prefix first word: " << first_ipv6_word << std::endl;
+      LoggerInfo() << "\tHTTP listen port: " << tcp_listen_port;
+      LoggerInfo() << "\tConsumer Prefix: " << prefix;
+      LoggerInfo() << "\tPrefix first word: " << first_ipv6_word;
     }
   };
 
@@ -173,25 +171,24 @@ class HTTPProxy {
     bool manifest;
 
     void printParams() override {
-      std::cout << "Running HTTP/hICN -> HTTP/TCP proxy." << std::endl;
+      LoggerInfo() << "Running HTTP/hICN -> HTTP/TCP proxy.";
       CommonParams::printParams();
-      std::cout << "\t"
-                << "Origin address: " << origin_address << std::endl;
-      std::cout << "\t"
-                << "Origin port: " << origin_port << std::endl;
-      std::cout << "\t"
-                << "Producer cache size: " << cache_size << std::endl;
-      std::cout << "\t"
-                << "hICN MTU: " << mtu << std::endl;
-      std::cout << "\t"
-                << "Default content lifetime: " << content_lifetime
-                << std::endl;
-      std::cout << "\t"
-                << "Producer Prefix: " << prefix << std::endl;
-      std::cout << "\t"
-                << "Prefix first word: " << first_ipv6_word << std::endl;
-      std::cout << "\t"
-                << "Use manifest: " << manifest << std::endl;
+      LoggerInfo() << "\t"
+                   << "Origin address: " << origin_address;
+      LoggerInfo() << "\t"
+                   << "Origin port: " << origin_port;
+      LoggerInfo() << "\t"
+                   << "Producer cache size: " << cache_size;
+      LoggerInfo() << "\t"
+                   << "hICN MTU: " << mtu;
+      LoggerInfo() << "\t"
+                   << "Default content lifetime: " << content_lifetime;
+      LoggerInfo() << "\t"
+                   << "Producer Prefix: " << prefix;
+      LoggerInfo() << "\t"
+                   << "Prefix first word: " << first_ipv6_word;
+      LoggerInfo() << "\t"
+                   << "Use manifest: " << manifest;
     }
   };
 

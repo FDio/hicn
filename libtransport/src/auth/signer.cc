@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include <glog/logging.h>
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
+#include <hicn/transport/utils/logger.h>
 
 #include "hicn/transport/core/global_object_pool.h"
 
@@ -200,8 +200,7 @@ CryptoHashType Signer::getHashType() const {
 }
 
 void Signer::display() {
-  std::cout << getStringSuite(suite_) << ": " << getStringSignature()
-            << std::endl;
+  LoggerInfo() << getStringSuite(suite_) << ": " << getStringSignature();
 }
 
 // ---------------------------------------------------------
