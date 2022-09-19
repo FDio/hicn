@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "5188b248_3e2da2af",
+        "filename": "apps/CMakeLists.txt",
+        "patchSetId": 4
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-19T16:02:41Z",
+      "side": 1,
+      "message": "The THIRD_PARTY_OBJECT_LIBRARIES is not needed.",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "6ebb62cb_7c1e9178",
+        "filename": "apps/http-proxy/CMakeLists.txt",
+        "patchSetId": 4
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-19T16:02:41Z",
+      "side": 1,
+      "message": "As glog is included in libtransport, this is not needed.",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "4af6abd9_46ee371f",
+        "filename": "libtransport/includes/hicn/transport/utils/logger.h",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-19T16:02:41Z",
+      "side": 1,
+      "message": "Move this file under apps and make it a common include. glog is a private dependency of libtransport, as such no public libhicntransport header should refer to it.",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    }
+  ]
+}
