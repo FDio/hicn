@@ -21,7 +21,7 @@ set(${HICN_LIGHT}_DESCRIPTION
 )
 
 set(${HICN_LIGHT}_DEB_DEPENDENCIES
-  "lib${LIBHICN} (= stable_version)"
+  "lib${LIBHICN} (= stable_version), libevent-2.1-7 (= 2.1.11-stable-1)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
