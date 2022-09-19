@@ -15,7 +15,7 @@ DOCKERFILE=${DOCKERFILE:-Dockerfile.dev}
 BUILD_SOFTWARE=${BUILD_SOFTWARE:-1}
 set +a
 
-HIPERF_CMD_RTC="/usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2"
+HIPERF_CMD_RTC="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2"
 HIPERF_CMD_MEMIF_RTC="${HIPERF_CMD_RTC} -z memif_module"
 POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   tr -s " " |                               \
@@ -33,12 +33,12 @@ POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
     print int(a[0]), int(a[n-1]), int(s/n)  \
   }"'
 
-HIPERF_CMD_RAAQM="/usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
+HIPERF_CMD_RAAQM="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
 HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
 HIPERF_CMD_MEMIF_CBR="${HIPERF_CMD_CBR} -z memif_module"
 
-PING_CMD="hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER}"
+PING_CMD="ENABLE_LOG_PREFIX=OFF LOG_LEVEL=1 hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER}"
 PING_CMD_MEMIF="${PING_CMD} -z memif_module"
 POSTPROCESS_COMMAND_PING='grep trip |       \
   cut -f 4 -d " " |                         \
@@ -69,25 +69,25 @@ for test in $(compgen -A variable | grep TEST_); do
 done
 
 declare -A tests=(
-  ["hicn-light-rtc"]="${HIPERF_CMD_RTC} | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-bridge-rtc"]="${HIPERF_CMD_MEMIF_RTC} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-rtc"]="${HIPERF_CMD_MEMIF_RTC} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-replication-rtc"]="${HIPERF_CMD_MEMIF_RTC} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-rtc"]="${HIPERF_CMD_RTC} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-bridge-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-replication-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
-  ["hicn-light-requin"]="${HIPERF_CMD_RAAQM} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-bridge-requin"]="${HIPERF_CMD_MEMIF_RAAQM} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-requin"]="${HIPERF_CMD_MEMIF_RAAQM} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-replication-requin"]="${HIPERF_CMD_MEMIF_RAAQM} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-requin"]="${HIPERF_CMD_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-bridge-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-replication-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
-  ["hicn-light-cbr"]="${HIPERF_CMD_CBR} | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-bridge-cbr"]="${HIPERF_CMD_MEMIF_CBR} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-cbr"]="${HIPERF_CMD_MEMIF_CBR} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["vpp-memif-replication-cbr"]="${HIPERF_CMD_MEMIF_CBR} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-cbr"]="${HIPERF_CMD_CBR} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-bridge-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["vpp-memif-replication-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
-  ["hicn-light-latency"]="${PING_CMD} | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_PING}"
-  ["vpp-bridge-latency"]="${PING_CMD_MEMIF} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
-  ["vpp-memif-latency"]="${PING_CMD_MEMIF} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
-  ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["hicn-light-latency"]="${PING_CMD} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_PING}"
+  ["vpp-bridge-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["vpp-memif-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
 )
 
 declare -A link_model=(
@@ -473,20 +473,20 @@ function test_ping_manifest() {
   sleep 1
 
   # 2 interests w/ 3 suffixes each (1 in header + 2 in manifest)
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 single interest
-  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 interest w/ 2 suffixes
-  docker exec forwarder bash -c 'hicn-ping-client -m 8 -a 2 intmanifest | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 8 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 single interest,
   # using random prefix/suffix generation
-  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest -b RANDOM | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest -b RANDOM 2>&1 | grep "Sent" >>/tmp/ping_client.log'
 
   # No 'failed' expected
   ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
@@ -510,7 +510,7 @@ function test_ping_wrong_signature() {
   sleep 1
 
   # Signature mismatch ('intmamifest' on server vs 'wrong_sign' on client)
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 wrong_sig | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 wrong_sig'
 
   # 'failed' expected
   ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
@@ -523,7 +523,7 @@ function test_ping_wrong_signature() {
 
 function test_ping_no_server() {
   # Server not started to check for ping client timeout
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 | grep "Sent" >>/tmp/ping_client.log'
+  docker exec forwarder bash -c 'hicn-ping-client -m 6 2>&1 | grep "Sent" >/tmp/ping_client.log'
 
   # 'Timeouts: 6' expected
   ping_client_logs=$(docker exec forwarder cat /tmp/ping_client.log)

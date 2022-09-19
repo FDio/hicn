@@ -13,10 +13,9 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/auth/crypto_hash.h>
 #include <hicn/transport/core/global_object_pool.h>
-
-#include "glog/logging.h"
 
 namespace transport {
 namespace auth {
@@ -137,23 +136,21 @@ void CryptoHash::setType(CryptoHashType hash_type) {
 void CryptoHash::display() {
   switch (digest_type_) {
     case CryptoHashType::SHA256:
-      std::cout << "SHA256";
+      LOG(INFO) << "SHA256: " << getStringDigest();
       break;
     case CryptoHashType::SHA512:
-      std::cout << "SHA512";
+      LOG(INFO) << "SHA512: " << getStringDigest();
       break;
     case CryptoHashType::BLAKE2S256:
-      std::cout << "BLAKE2s256";
+      LOG(INFO) << "BLAKE2s256: " << getStringDigest();
       break;
     case CryptoHashType::BLAKE2B512:
-      std::cout << "BLAKE2b512";
+      LOG(INFO) << "BLAKE2b512: " << getStringDigest();
       break;
     default:
-      std::cout << "UNKNOWN";
+      LOG(INFO) << "UNKNOWN: " << getStringDigest();
       break;
   }
-
-  std::cout << ": " << getStringDigest() << std::endl;
 }
 
 void CryptoHash::reset() {

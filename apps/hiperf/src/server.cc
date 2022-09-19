@@ -297,10 +297,10 @@ class HIperfServer::Impl {
                               !configuration_.multiphase_produce_, suffix);
       utils::SteadyTime::TimePoint t1 = utils::SteadyTime::Clock::now();
 
-      Logger() << "Written " << total
-               << " data packets in output buffer (Segmentation time: "
-               << utils::SteadyTime::getDurationUs(t0, t1).count() << " us)"
-               << std::endl;
+      LoggerInfo() << "Written " << total
+                   << " data packets in output buffer (Segmentation time: "
+                   << utils::SteadyTime::getDurationUs(t0, t1).count() << " us)"
+                   << std::endl;
     }
 
     /**
@@ -313,8 +313,8 @@ class HIperfServer::Impl {
                         configuration_.content_lifetime_);
 
       produceContent(p, interest.getName(), interest.getName().getSuffix());
-      Logger() << "Received interest " << interest.getName().getSuffix()
-               << std::endl;
+      LoggerInfo() << "Received interest " << interest.getName().getSuffix()
+                   << std::endl;
     }
 
     /**
@@ -552,11 +552,11 @@ class HIperfServer::Impl {
     }
 
     if (rtc_running_) {
-      Logger() << "stop real time content production" << std::endl;
+      LoggerInfo() << "stop real time content production" << std::endl;
       rtc_running_ = false;
       rtc_timer_.cancel();
     } else {
-      Logger() << "start real time content production" << std::endl;
+      LoggerInfo() << "start real time content production" << std::endl;
       rtc_running_ = true;
       rtc_timer_.expires_from_now(
           config_.production_rate_.getMicrosecondsForPacket(
@@ -593,13 +593,13 @@ class HIperfServer::Impl {
             std::bind(&Impl::handleInput, this, std::placeholders::_1,
                       std::placeholders::_2));
       } else if (config_.trace_based_) {
-        Logger() << "trace-based mode enabled" << std::endl;
+        LoggerInfo() << "trace-based mode enabled" << std::endl;
         if (config_.trace_file_ == nullptr) {
-          Logger() << "cannot find the trace file" << std::endl;
+          LoggerErr() << "cannot find the trace file" << std::endl;
           return ERROR_SETUP;
         }
         if (parseTraceFile() < 0) {
-          Logger() << "cannot parse the trace file" << std::endl;
+          LoggerErr() << "cannot parse the trace file" << std::endl;
           return ERROR_SETUP;
         }
         rtc_running_ = true;
