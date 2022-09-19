@@ -98,6 +98,6 @@ services:
         sleep 1
         sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
         sleep 1
-        sudo hicn-ping-server -q -s 0 -n ${PING_PRODUCER}/128 -z memif_module &
+        sudo hicn-ping-server -s 0 -n ${PING_PRODUCER}/128 -z memif_module &
 
         tail -f /dev/null

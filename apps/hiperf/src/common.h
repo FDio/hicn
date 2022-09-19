@@ -30,6 +30,8 @@
 #include <hicn/transport/utils/daemonizator.h>
 #endif
 
+#include <hicn/apps/utils/logger.h>
+
 #include <asio.hpp>
 #include <cmath>
 #include <fstream>
@@ -57,8 +59,6 @@ namespace hiperf {
 /**
  * Logger
  */
-static std::ostream &Logger() { return std::cout; }
-
 template <typename D, typename ConfType, typename ParentType>
 class Base : protected std::stringbuf, protected std::ostream {
  protected:
@@ -103,7 +103,7 @@ class Base : protected std::stringbuf, protected std::ostream {
   int sync() override {
     auto string = str();
     asio::post(io_service_,
-               [this, string]() { Logger() << begin_ << string << end_; });
+               [this, string]() { LoggerInfo() << begin_ << string << end_; });
     str("");
 
     return 0;
@@ -140,7 +140,7 @@ static inline int ensureFlows(const Prefix &prefix, std::size_t flows) {
   } else if (prefix.getAddressFamily() == AF_INET6) {
     max_ip_addr_len_bits = IPV6_ADDR_LEN_BITS;
   } else {
-    Logger() << "Error: unknown address family." << std::endl;
+    LoggerErr() << "Error: unknown address family.";
     ret = ERROR_SETUP;
     goto end;
   }
@@ -149,9 +149,9 @@ static inline int ensureFlows(const Prefix &prefix, std::size_t flows) {
   max_n_flow = log2_n_flow < 64 ? (1 << log2_n_flow) : ~0ULL;
 
   if (flows > max_n_flow) {
-    Logger() << "Error: the provided prefix length does not allow to "
-                "accomodate the provided number of flows ("
-             << flows << " > " << max_n_flow << ")." << std::endl;
+    LoggerErr() << "Error: the provided prefix length does not allow to "
+                   "accomodate the provided number of flows ("
+                << flows << " > " << max_n_flow << ").";
     ret = ERROR_SETUP;
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/http-proxy/http_1x_message_fast_parser.h>
 #include <hicn/http-proxy/icn_receiver.h>
 #include <hicn/http-proxy/utils.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/http/default_values.h>
 #include <hicn/transport/utils/hash.h>
-#include <hicn/transport/utils/log.h>
 
 #include <functional>
 #include <memory>
@@ -55,28 +55,28 @@ AsyncConsumerProducer::AsyncConsumerProducer(
       interface::GeneralTransportOptions::OUTPUT_BUFFER_SIZE, cache_size_);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOG_WARNING << "Warning: output buffer size has not been set.";
+    LoggerWarn() << "Warning: output buffer size has not been set.";
   }
 
   ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::MANIFEST_MAX_CAPACITY, manifest);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOG_WARNING << "Warning: impossible to enable signatures.";
+    LoggerWarn() << "Warning: impossible to enable signatures.";
   }
 
   ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::DATA_PACKET_SIZE, mtu_);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOG_WARNING << "Warning: mtu has not been set.";
+    LoggerWarn() << "Warning: mtu has not been set.";
   }
 
   producer_socket_.registerPrefix(prefix_);
 }
 
 void AsyncConsumerProducer::start() {
-  TRANSPORT_LOG_INFO << "Starting listening";
+  LoggerInfo() << "Starting listening";
   doReceive();
 }
 
@@ -90,8 +90,8 @@ void AsyncConsumerProducer::run() {
 
 void AsyncConsumerProducer::stop() {
   io_service_.post([this]() {
-    TRANSPORT_LOG_INFO << "Number of requests processed by plugin: "
-                       << request_counter_;
+    LoggerInfo() << "Number of requests processed by plugin: "
+                 << request_counter_;
     producer_socket_.stop();
     connector_.close();
   });
@@ -158,7 +158,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
   uint32_t start_suffix = 0;
 
   if (response_name_queue_.empty()) {
-    std::cerr << "Aborting due tue empty request queue" << std::endl;
+    LoggerErr() << "Aborting due tue empty request queue";
     abort();
   }
 
@@ -169,16 +169,14 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
       options.getLifetime());
 
   if (TRANSPORT_EXPECT_FALSE(ret != SOCKET_OPTION_SET)) {
-    TRANSPORT_LOG_WARNING
-        << "Warning: content object lifetime has not been set.";
+    LoggerWarn() << "Warning: content object lifetime has not been set.";
   }
 
   const interface::Name& name = options.getName();
 
   auto it = chunk_number_map_.find(name);
   if (it == chunk_number_map_.end()) {
-    std::cerr << "Aborting due to response not found in ResposeInfo map."
-              << std::endl;
+    LoggerErr() << "Aborting due to response not found in ResposeInfo map.";
     abort();
   }
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -49,7 +49,9 @@ if (NOT DISABLE_EXECUTABLES)
       ${CMAKE_THREAD_LIBS_INIT}
       ${WSOCK32_LIBRARY}
       ${WS2_32_LIBRARY}
-    DEPENDS ${LIBTRANSPORT_LIBRARIES}
+    INCLUDE_DIRS
+      PRIVATE ${THIRD_PARTY_INCLUDE_DIRS} ${COMMON_INCLUDE_DIRS}
+    DEPENDS ${LIBTRANSPORT_LIBRARIES} ${THIRD_PARTY_DEPENDENCIES}
     COMPONENT ${HICN_APPS}
     DEFINITIONS ${COMPILER_DEFINITIONS}
     LINK_FLAGS ${LINK_FLAGS}
