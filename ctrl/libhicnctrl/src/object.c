@@ -44,6 +44,12 @@ int hc_object_cmp(hc_object_type_t object_type, hc_object_t *object1,
 
 int hc_object_snprintf(char *s, size_t size, hc_object_type_t object_type,
                        hc_object_t *object) {
+  if (!object) {
+    if (size == 0) return -1;
+    *s = '\0';
+    return 1;
+  }
+
   const hc_object_ops_t *vft = object_vft[object_type];
   if (!vft) return -1;
   return vft->obj_snprintf(s, size, object);
