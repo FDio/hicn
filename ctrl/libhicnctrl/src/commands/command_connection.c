@@ -115,8 +115,8 @@ static const command_parser_t command_connection_create6 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_CONNECTION,
     .nparams = 6,
-    .parameters = {type_tcp_udp, symbolic, remote_address, remote_port,
-                   local_address, local_port},
+    .parameters = {type_tcp_udp, symbolic, local_address, local_port,
+                   remote_address, remote_port},
     .post_hook = (parser_hook_t)on_connection_create,
 };
 COMMAND_REGISTER(command_connection_create6);
@@ -125,8 +125,8 @@ static const command_parser_t command_connection_create7 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_CONNECTION,
     .nparams = 7,
-    .parameters = {type_tcp_udp, symbolic, remote_address, remote_port,
-                   local_address, local_port, interface},
+    .parameters = {type_tcp_udp, symbolic, local_address, local_port,
+                   remote_address, remote_port, interface},
     .post_hook = (parser_hook_t)on_connection_create,
 };
 COMMAND_REGISTER(command_connection_create7);
