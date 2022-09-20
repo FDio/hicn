@@ -161,6 +161,10 @@ ERR_MALLOC:
   return NULL;
 }
 
+hc_sock_t *hc_sock_create_forwarder(forwarder_type_t forwarder) {
+  return hc_sock_create(forwarder, NULL);
+}
+
 void hc_sock_free(hc_sock_t *s) {
   if (s->ops.disconnect) s->ops.disconnect(s);
 #ifdef ANDROID

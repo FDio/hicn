@@ -1,7 +1,7 @@
 EXEC     = $(shell basename $$(pwd))
 CC       = gcc
 
-CFLAGS   = -std=gnu11 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing
+CFLAGS   = -std=gnu11 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing -DWITH_POLICY
 LDFLAGS  = -lhicn -lhicnctrl
 
 SRC      = $(wildcard *.c)

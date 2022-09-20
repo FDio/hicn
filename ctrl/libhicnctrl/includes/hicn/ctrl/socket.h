@@ -57,13 +57,6 @@ forwarder_type_t forwarder_type_from_str(const char *str);
 typedef struct hc_sock_s hc_sock_t;
 
 /**
- * \brief Create an hICN control socket using the specified URL.
- * \param [in] url - The URL to connect to.
- * \return an hICN control socket
- */
-hc_sock_t *hc_sock_create_url(const char *url);
-
-/**
  * \brief Create an hICN control socket using the provided forwarder.
  * \return an hICN control socket
  */
