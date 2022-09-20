@@ -18,6 +18,24 @@
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "b01a2452_3ab43daa",
+        "filename": "apps/CMakeLists.txt",
+        "patchSetId": 4
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-20T13:35:13Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "5188b248_3e2da2af",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "6ebb62cb_7c1e9178",
@@ -35,6 +53,24 @@
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "72214c53_4834c40c",
+        "filename": "apps/http-proxy/CMakeLists.txt",
+        "patchSetId": 4
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-20T13:35:13Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "6ebb62cb_7c1e9178",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "4af6abd9_46ee371f",
@@ -48,6 +84,24 @@
       "writtenOn": "2022-09-19T16:02:41Z",
       "side": 1,
       "message": "Move this file under apps and make it a common include. glog is a private dependency of libtransport, as such no public libhicntransport header should refer to it.",
+      "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "1c668811_842afe97",
+        "filename": "libtransport/includes/hicn/transport/utils/logger.h",
+        "patchSetId": 4
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-20T13:35:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4af6abd9_46ee371f",
       "revId": "72c05b3b280393a4fbff34c9ed9aa1ddf9687a11",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
