@@ -16,7 +16,7 @@ services:
         sudo ip route add 192.168.1.2 via 192.168.1.1 dev br0
         tee -a /tmp/hicn-light.conf <<EOF
         add listener udp local0 192.168.1.1 9199 br0
-        add connection udp conn0 192.168.1.2 9199 192.168.1.1 9199
+        add connection udp conn0 192.168.1.1 9199 192.168.1.2 9199
         add route conn0 b002::/64 1
         EOF
 
@@ -45,7 +45,7 @@ services:
 
         tee -a /tmp/hicn-light.conf <<EOF
         add listener udp local0 192.168.1.2 9199 br0
-        add connection udp conn0 192.168.1.1 9199 192.168.1.2 9199
+        add connection udp conn0 192.168.1.2 9199 192.168.1.1 9199
         add route conn0 b002::/64 1
         EOF
 

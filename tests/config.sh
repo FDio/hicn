@@ -358,7 +358,7 @@ function test_connections() {
   _=$(exec_command "${command}")
   command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
   _=$(exec_command "${command}")
-  command="add connection udp $CONN_NAME_2 $ADDRESS 12345 $ADDRESS 9695 $INTERFACE"
+  command="add connection udp $CONN_NAME_2 $ADDRESS 9695 $ADDRESS 12345 $INTERFACE"
   assert_cmd_success "${command}"
 
   echo -n "List connections: "
@@ -395,7 +395,7 @@ function test_connections() {
   echo -n "Add duplicated connection (same symbolic): "
   command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
   _=$(exec_command "${command}")
-  command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 12345 $INTERFACE"
+  command="add connection udp $CONN_NAME $ADDRESS 12345 $ADDRESS 9695 $INTERFACE"
   assert_cmd_failure "${command}"
 
   # This case is allowed, success code is returned and symbolic is not updated

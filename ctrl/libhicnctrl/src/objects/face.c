@@ -169,6 +169,16 @@ int hc_face_list_async(hc_sock_t *s) {
   return hc_execute_async(s, ACTION_LIST, OBJECT_TYPE_FACE, NULL, NULL, NULL);
 }
 
+int hc_face_set_priority(hc_sock_t *s, const char *conn_id_or_name,
+                         uint32_t priority) {
+  return -1;  // Not implemented
+#if 0
+  hc_object_t object;
+  memset(&object, 0, sizeof(hc_object_t));
+  return hc_execute(s, ACTION_UPDATE, OBJECT_TYPE_FACE, &object, NULL);
+#endif
+}
+
 GENERATE_FIND(face);
 
 DECLARE_OBJECT_OPS(OBJECT_TYPE_FACE, face);

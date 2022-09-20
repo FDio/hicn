@@ -32,7 +32,7 @@
 #include <hicn/ctrl.h>
 #include <hicn/util/log.h>
 
-int get_local_info(char *if_name, ip_address_t *local_ip) {
+int get_local_info(char *if_name, hicn_ip_address_t *local_ip) {
   struct ifaddrs *addrs;
   struct ifreq ifr = {
       .ifr_addr.sa_family = AF_INET,
@@ -56,7 +56,7 @@ int get_local_info(char *if_name, ip_address_t *local_ip) {
 
     *local_ip = IP_ADDRESS_EMPTY;
     local_ip->v4.as_inaddr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-    if (ip_address_empty(local_ip)) continue;
+    if (hicn_ip_address_empty(local_ip)) continue;
 
     ret = 0;
     break;
@@ -70,8 +70,8 @@ int get_local_info(char *if_name, ip_address_t *local_ip) {
 int main() {
   char remote_ip_str[INET_ADDRSTRLEN] = "1.1.1.1";
 
-  ip_address_t local_ip;
-  ip_address_t remote_ip;
+  hicn_ip_address_t local_ip;
+  hicn_ip_address_t remote_ip;
   char if_name[IFNAMSIZ];
 
   /* Retrieving local info */
@@ -82,40 +82,37 @@ int main() {
   }
 
   char local_ip_str[MAXSZ_IP_ADDRESS];
-  ip_address_snprintf(local_ip_str, MAXSZ_IP_ADDRESS, &local_ip, AF_INET);
+  hicn_ip_address_snprintf(local_ip_str, MAXSZ_IP_ADDRESS, &local_ip);
   DEBUG("Local information :");
   DEBUG("  - Interface name : %s", if_name);
   DEBUG("  - IP address     : %s", local_ip_str);
 
-  if (ip_address_pton(remote_ip_str, &remote_ip) < 0) {
+  if (hicn_ip_address_pton(remote_ip_str, &remote_ip) < 0) {
     DEBUG("Error parsing remote IP address");
     goto ERR_INIT;
   }
 
   /* Filling face information */
   hc_face_t face = {
-      .face =
-          {
-              .type = FACE_TYPE_UDP,
-              .family = AF_INET,
-              .local_addr = local_ip,
-              .remote_addr = remote_ip,
-              .local_port = 6000,
-              .remote_port = 6000,
-              .admin_state = FACE_STATE_UNDEFINED,
-              .state = FACE_STATE_UNDEFINED,
-              .priority = 0,
-              .tags = POLICY_TAGS_EMPTY,
-          },
+      .type = FACE_TYPE_UDP,
+      .family = AF_INET,
+      .local_addr = local_ip,
+      .remote_addr = remote_ip,
+      .local_port = 6000,
+      .remote_port = 6000,
+      .admin_state = FACE_STATE_UNDEFINED,
+      .state = FACE_STATE_UNDEFINED,
+      .priority = 0,
+      .tags = POLICY_TAGS_EMPTY,
   };
-  if (netdevice_set_name(&face.face.netdevice, if_name) < 0) {
+  if (netdevice_set_name(&face.netdevice, if_name) < 0) {
     DEBUG("Error setting face netdevice name");
     goto ERR_INIT;
   }
 
   /* Connecting to socket and creating face */
 
-  hc_sock_t *socket = hc_sock_create();
+  hc_sock_t *socket = hc_sock_create_forwarder(FORWARDER_TYPE_HICNLIGHT);
   if (!socket) {
     DEBUG("Error creating libhicnctrl socket");
     goto ERR_SOCK;
@@ -131,7 +128,7 @@ int main() {
     goto ERR;
   }
 
-  DEBUG("Face created successfully");
+  INFO("Face created successfully");
 
 ERR:
   hc_sock_free(socket);
