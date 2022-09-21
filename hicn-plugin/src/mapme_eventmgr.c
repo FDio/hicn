@@ -232,8 +232,9 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 
   // pointer to IP layer ? do we need to prepare for ethernet ???
   buffer = vlib_buffer_get_current (b);
-  b->current_length = (format.l1 == IPPROTO_IPV6) ? EXPECTED_MAPME_V6_HDRLEN :
-							  EXPECTED_MAPME_V4_HDRLEN;
+  b->current_length = HICN_PACKET_FORMAT_IS_IPV6 (format) ?
+			EXPECTED_MAPME_V6_HDRLEN :
+			EXPECTED_MAPME_V4_HDRLEN;
 
   return buffer;
 }
@@ -261,7 +262,7 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   u8 *buffer = get_packet_buffer (
     vm, node_index, face, (ip46_address_t *) prefix,
     (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
-					       HICN_PACKET_FORMAT_IPV4_ICMP);
+					 HICN_PACKET_FORMAT_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -341,7 +342,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	   * Also, we only run a timer when there are pending retransmissions.
 	   */
 	  timeout = (due_time > current_time) ? due_time - current_time :
-						      DEFAULT_TIMEOUT;
+						DEFAULT_TIMEOUT;
 	  due_time = current_time + timeout;
 	}
       else

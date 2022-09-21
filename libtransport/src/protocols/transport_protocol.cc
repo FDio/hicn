@@ -179,7 +179,7 @@ void TransportProtocol::sendInterest(
   if (content_sharing_mode) lifetime = ceil((double)lifetime * 0.9);
 
   // Compute signature
-  bool is_ah = _is_ah(interest->getFormat());
+  bool is_ah = HICN_PACKET_FORMAT_IS_AH(interest->getFormat());
   if (is_ah) signer_->signPacket(interest.get());
 
   portal_->sendInterest(interest, lifetime);

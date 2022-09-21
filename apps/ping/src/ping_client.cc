@@ -55,12 +55,10 @@ class Configuration {
   std::string certificate_;
   std::string passphrase_;
   std::string traffic_generator_type_;
-  uint16_t srcPort_ = 9695;
-  uint16_t dstPort_ = 8080;
   bool jump_ = false;
   uint32_t jump_freq_ = 0;
   uint32_t jump_size_ = 0;
-  uint8_t ttl_ = 64;
+  hicn_packet_format_t packet_format_ = HICN_PACKET_FORMAT_IPV6_TCP;
 
   Configuration() = default;
 };
@@ -111,7 +109,7 @@ class Client : private interface::Portal::TransportCallback {
   }
 
   void onInterest(Interest &interest) override {
-    throw errors::RuntimeException("Unexpected interest received.");
+    LoggerInfo() << "Unexpected interest received." << std::endl;
   }
 
   void onContentObject(Interest &interest, ContentObject &object) override {
@@ -141,15 +139,10 @@ class Client : private interface::Portal::TransportCallback {
       LoggerInfo() << "<<< recevied object. ";
       LoggerInfo() << "<<< interest name: " << interest.getName().getPrefix()
                    << " (n_suffixes=" << config_->num_int_manifest_suffixes_
-                   << ")"
-                   << " src port: " << interest.getSrcPort()
-                   << " dst port: " << interest.getDstPort();
-      LoggerInfo() << "<<< object name: " << object.getName()
-                   << " src port: " << object.getSrcPort()
-                   << " dst port: " << object.getDstPort() << " path label "
+                   << ")";
+      LoggerInfo() << "<<< object name: " << object.getName() << " path label "
                    << object.getPathLabel() << " ("
-                   << (object.getPathLabel() >> 24) << ")"
-                   << " TTL: " << (int)object.getTTL();
+                   << (object.getPathLabel() >> 24) << ")";
     } else if (LoggerIsOn(1)) {
       LoggerInfo() << "<<< received object. ";
       LoggerInfo() << "<<< round trip: " << rtt << " [us]";
@@ -179,9 +172,7 @@ class Client : private interface::Portal::TransportCallback {
 
   void onTimeout(Interest::Ptr &interest, const Name &name) override {
     if (LoggerIsOn(2)) {
-      LoggerInfo() << "### timeout for " << name
-                   << " src port: " << interest->getSrcPort()
-                   << " dst port: " << interest->getDstPort();
+      LoggerInfo() << "### timeout for " << name;
     } else if (LoggerIsOn(1)) {
       LoggerInfo() << "### timeout for " << name;
     }
@@ -203,36 +194,54 @@ class Client : private interface::Portal::TransportCallback {
     afterSignal();
   }
 
+  void checkFamily(hicn_packet_format_t format, int family) {
+    switch (HICN_PACKET_FORMAT_GET(format, 0)) {
+      case IPPROTO_IP:
+        if (family != AF_INET) throw std::runtime_error("Bad packet format");
+        break;
+      case IPPROTO_IPV6:
+        if (family != AF_INET6) throw std::runtime_error("Bad packet format");
+        break;
+      default:
+        throw std::runtime_error("Bad packet format");
+    }
+  }
+
   void doPing() {
     std::string name = traffic_generator_->getPrefix();
     uint32_t sequence_number = traffic_generator_->getSuffix();
     const Name interest_name(name, sequence_number);
 
-    hicn_packet_format_t format;
-    if (interest_name.getAddressFamily() == AF_INET) {
-      format = signer_ ? HICN_PACKET_FORMAT_IPV4_TCP_AH
-                       : HICN_PACKET_FORMAT_IPV4_TCP;
-    } else {
-      format = signer_ ? HICN_PACKET_FORMAT_IPV6_TCP_AH
-                       : HICN_PACKET_FORMAT_IPV6_TCP;
+    hicn_packet_format_t format = config_->packet_format_;
+
+    switch (format) {
+      case HICN_PACKET_FORMAT_NEW:
+        /* Nothing to do */
+        break;
+      case HICN_PACKET_FORMAT_IPV4_TCP:
+      case HICN_PACKET_FORMAT_IPV6_TCP:
+        checkFamily(format, interest_name.getAddressFamily());
+        break;
     }
 
-    size_t additional_header_size = 0;
-    if (signer_) additional_header_size = signer_->getSignatureFieldSize();
-    auto interest = std::make_shared<Interest>(interest_name, format,
-                                               additional_header_size);
+    /*
+     * Eventually add the AH header if a signer is defined. Raise an error
+     * if format include the AH header but no signer is defined.
+     */
+    if (HICN_PACKET_FORMAT_IS_AH(format)) {
+      if (!signer_) throw std::runtime_error("Bad packet format");
+    } else {
+      if (signer_) format = Packet::toAHFormat(format);
+    }
+
+    auto interest = core::PacketManager<>::getInstance().getPacket<Interest>(
+        format, signer_ ? signer_->getSignatureFieldSize() : 0);
+    interest->setName(interest_name);
 
     interest->setLifetime(uint32_t(config_->interestLifetime_));
 
-    interest->setSrcPort(config_->srcPort_);
-    interest->setDstPort(config_->dstPort_);
-    interest->setTTL(config_->ttl_);
-
     if (LoggerIsOn(2)) {
       LoggerInfo() << ">>> send interest " << interest->getName()
-                   << " src port: " << interest->getSrcPort()
-                   << " dst port: " << interest->getDstPort()
-                   << " TTL: " << (int)interest->getTTL()
                    << " suffixes in manifest: "
                    << config_->num_int_manifest_suffixes_;
     } else if (LoggerIsOn(1)) {
@@ -305,6 +314,15 @@ class Client : private interface::Portal::TransportCallback {
   std::unique_ptr<TrafficGenerator> traffic_generator_;
 };
 
+static std::unordered_map<std::string, hicn_packet_format_t> const
+    packet_format_map = {{"ipv4_tcp", HICN_PACKET_FORMAT_IPV4_TCP},
+                         {"ipv6_tcp", HICN_PACKET_FORMAT_IPV6_TCP},
+                         {"new", HICN_PACKET_FORMAT_NEW}};
+
+#define TO_LOWER(s)                             \
+  std::transform(s.begin(), s.end(), s.begin(), \
+                 [](unsigned char c) { return std::tolower(c); });
+
 void help() {
   LoggerInfo() << "usage: hicn-consumer-ping [options]";
   LoggerInfo() << "PING options";
@@ -312,9 +330,6 @@ void help() {
                   "1000000ms)";
   LoggerInfo()
       << "-m <val>          maximum number of pings to send (default 10)";
-  LoggerInfo() << "-s <val>          sorce port (default 9695)";
-  LoggerInfo() << "-d <val>          destination port (default 8080)";
-  LoggerInfo() << "-t <val>          set packet ttl (default 64)";
   LoggerInfo() << "-a <val> <pass>   set the passphrase and the number of "
                   "suffixes in interest manifest (default 0);";
   LoggerInfo()
@@ -337,7 +352,10 @@ void help() {
                   "libtransport";
   LoggerInfo() << "-b <type>         Traffic generator type. Use 'RANDOM' for "
                   "random prefixes and suffixes. Default: sequential suffixes.";
-  LoggerInfo() << "-H                prints this message";
+  LoggerInfo()
+      << "-w <packet_format> Packet format (without signature, defaults "
+         "to IPV6_TCP)" LoggerInfo()
+      << "-H                prints this message";
 }
 
 int start(int argc, char *argv[]) {
@@ -356,8 +374,7 @@ int start(int argc, char *argv[]) {
   transport::interface::global_config::IoModuleConfiguration io_config;
   io_config.name = "hicnlight_module";
 
-  while ((opt = getopt(argc, argv, "a:b:j::t:i:m:s:d:n:l:f:c:SAOHz:F:")) !=
-         -1) {
+  while ((opt = getopt(argc, argv, "a:b:i:m:f:n:l:c:z:F:w:H")) != -1) {
     switch (opt) {
       case 'a':
         c->num_int_manifest_suffixes_ = std::stoi(optarg);
@@ -365,9 +382,6 @@ int start(int argc, char *argv[]) {
         break;
       case 'b':
         c->traffic_generator_type_ = optarg;
-        break;
-      case 't':
-        c->ttl_ = uint8_t(std::stoi(optarg));
         break;
       case 'i':
         c->pingInterval_ = std::stoi(optarg);
@@ -377,12 +391,6 @@ int start(int argc, char *argv[]) {
         break;
       case 'f':
         c->first_suffix_ = uint32_t(std::stoul(optarg));
-        break;
-      case 's':
-        c->srcPort_ = uint16_t(std::stoi(optarg));
-        break;
-      case 'd':
-        c->dstPort_ = uint16_t(std::stoi(optarg));
         break;
       case 'n':
         c->name_ = optarg;
@@ -399,6 +407,15 @@ int start(int argc, char *argv[]) {
       case 'F':
         conf_file = optarg;
         break;
+      case 'w': {
+        std::string packet_format_s = std::string(optarg);
+        TO_LOWER(packet_format_s);
+        auto it = packet_format_map.find(std::string(optarg));
+        if (it == packet_format_map.end())
+          throw std::runtime_error("Bad packet format");
+        c->packet_format_ = it->second;
+        break;
+      }
       case 'H':;
       default:
         help();

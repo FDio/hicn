@@ -130,9 +130,6 @@ class ProducerSocket : private utils::NonCopyable {
   int setSocketOption(int socket_option_key,
                       const std::string &socket_option_value);
 
-  int setSocketOption(int socket_option_key,
-                      Packet::Format socket_option_value);
-
   int getSocketOption(int socket_option_key, uint32_t &socket_option_value);
 
   int getSocketOption(int socket_option_key, bool &socket_option_value);
@@ -162,9 +159,6 @@ class ProducerSocket : private utils::NonCopyable {
                       std::shared_ptr<auth::Verifier> &socket_option_value);
 
   int getSocketOption(int socket_option_key, std::string &socket_option_value);
-
-  int getSocketOption(int socket_option_key,
-                      Packet::Format &socket_option_value);
 
  protected:
   ProducerSocket(bool);

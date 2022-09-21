@@ -46,8 +46,6 @@ DECLARE_set_data_locator (tcp, UNEXPECTED);
 DECLARE_get_data_name (tcp, UNEXPECTED);
 DECLARE_set_data_name (tcp, UNEXPECTED);
 DECLARE_set_payload_len (tcp, UNEXPECTED);
-DECLARE_get_ttl (tcp, UNEXPECTED);
-DECLARE_set_ttl (tcp, UNEXPECTED);
 
 int tcp_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
 				      size_t pos, u16 *old_val, u16 *new_val,
@@ -115,7 +113,8 @@ tcp_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
     .urg_ptr = 65000,
   };
 
-  uint8_t ah_flag = ((format.as_u8[pos + 1] == IPPROTO_AH) ? AH_FLAG : 0);
+  uint8_t ah_flag =
+    (HICN_PACKET_FORMAT_GET (format, pos + 1) == IPPROTO_AH) ? AH_FLAG : 0;
 
   tcp->flags |= ah_flag;
 
@@ -587,38 +586,6 @@ tcp_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
   _tcp_header_t *tcp = pkbuf_get_tcp (pkbuf);
   tcp->flags |= HICN_TCP_FLAG_RST;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-tcp_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  _tcp_header_t *tcp = pkbuf_get_tcp (pkbuf);
-  *port = ntohs (tcp->sport);
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-tcp_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  _tcp_header_t *tcp = pkbuf_get_tcp (pkbuf);
-  tcp->sport = htons (port);
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-tcp_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  _tcp_header_t *tcp = pkbuf_get_tcp (pkbuf);
-  *port = ntohs (tcp->dport);
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-tcp_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  _tcp_header_t *tcp = pkbuf_get_tcp (pkbuf);
-  tcp->dport = htons (port);
   return HICN_LIB_ERROR_NONE;
 }
 

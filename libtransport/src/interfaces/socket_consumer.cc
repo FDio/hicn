@@ -127,11 +127,6 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
-int ConsumerSocket::setSocketOption(int socket_option_key,
-                                    Packet::Format socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
 int ConsumerSocket::getSocketOption(int socket_option_key,
                                     double &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
@@ -197,11 +192,6 @@ int ConsumerSocket::getSocketOption(
 
 int ConsumerSocket::getSocketOption(int socket_option_key,
                                     StrategyCallback **socket_option_value) {
-  return socket_->getSocketOption(socket_option_key, socket_option_value);
-}
-
-int ConsumerSocket::getSocketOption(int socket_option_key,
-                                    Packet::Format &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

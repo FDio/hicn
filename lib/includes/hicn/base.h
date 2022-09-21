@@ -65,59 +65,33 @@ typedef u32 hicn_lifetime_t;
  * [IPPROTO_ICMPRD, IPPROTO_AH, IPPROTO_ICMP, IPPROTO_IPV6]
  */
 
-#define HICN_FORMAT_LEN 4
-
-typedef union
-{
-  /** protocol layers representation */
-  struct
-  {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    u8 l1; /**< First layer */
-    u8 l2; /**< Second layer */
-    u8 l3; /**< Third layer */
-    u8 l4; /**< Fourth layer */
-#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    u8 l4; /**< Fourth layer */
-    u8 l3; /**< Third layer */
-    u8 l2; /**< Second layer */
-    u8 l1; /**< First layer */
-#elif _WIN32 /* Windows is assumed little-endian */
-    u8 l1;
-    u8 l2;
-    u8 l3;
-    u8 l4;
-#else
-#error "Unsupported endianness"
-#endif
-  };
-  /** u32 representation */
-  u32 as_u32;
-  u8 as_u8[HICN_FORMAT_LEN];
-} hicn_packet_format_t;
+typedef uint32_t hicn_packet_format_t;
 
 /* Common protocol layers */
-/* Common protocol layers */
-#ifndef _WIN32
 #define HICN_PACKET_FORMAT(x, y, z, t)                                        \
-  (hicn_packet_format_t)                                                      \
-  {                                                                           \
+  (uint32_t) (((x) << 24) + ((y) << 16) + ((z) << 8) + (t))
+
+#define HICN_PACKET_FORMAT_SIZE 4
+
+// i = 0..3
+#define HICN_PACKET_FORMAT_GET(format, i)                                     \
+  (i < 0 || i > 3) ? IPPROTO_NONE : ((format >> ((3 - (i)) << 3)) & 0xFF)
+
+#define HICN_PACKET_FORMAT_SET(format, i, val)                                \
+  format = ((val << ((3 - i) << 3)) |                                         \
+	    (format & (0xFFFFFFFF ^ (0xFF << ((3 - i) << 3)))))
+
+#define HICN_PACKET_FORMAT_ENUMERATE(FORMAT, POS, PROTOCOL, BODY)             \
+  for (unsigned POS = 0; POS <= HICN_PACKET_FORMAT_SIZE - 1; POS++)           \
     {                                                                         \
-      .l1 = x, .l2 = y, .l3 = z, .l4 = t                                      \
-    }                                                                         \
-  }
-#else
-inline const hicn_packet_format_t
-HICN_PACKET_FORMAT (int x, int y, int z, int t)
-{
-  hicn_packet_format_t format;
-  format.l1 = x;
-  format.l2 = y;
-  format.l3 = z;
-  format.l4 = t;
-  return format;
-}
-#endif
+      uint8_t PROTOCOL = HICN_PACKET_FORMAT_GET (FORMAT, POS);                \
+      BODY;                                                                   \
+    }
+
+#define HICN_PACKET_FORMAT_L1(format) HICN_PACKET_FORMAT_L ((format), 0)
+#define HICN_PACKET_FORMAT_L2(format) HICN_PACKET_FORMAT_L ((format), 1)
+#define HICN_PACKET_FORMAT_L3(format) HICN_PACKET_FORMAT_L ((format), 2)
+#define HICN_PACKET_FORMAT_L4(format) HICN_PACKET_FORMAT_L ((format), 3)
 
 extern const char *const _protocol_str[];
 
@@ -132,37 +106,36 @@ int hicn_packet_format_snprintf (char *s, size_t size,
 #define constexpr const
 #endif
 
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_TCP =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_ICMP =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_ICMP, IPPROTO_NONE, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_TCP =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_ICMP =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE,
-		      IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_NEW =
-  HICN_PACKET_FORMAT (IPPROTO_ENCAP, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_UDP =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_UDP =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_TCP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_TCP, IPPROTO_AH, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_ICMP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_ICMP, IPPROTO_AH, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_TCP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_AH, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_ICMP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_NEW_AH =
-  HICN_PACKET_FORMAT (IPPROTO_ENCAP, IPPROTO_AH, IPPROTO_NONE, IPPROTO_NONE);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV6_UDP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_AH);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_IPV4_UDP_AH =
-  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_AH);
-static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_NONE =
-  HICN_PACKET_FORMAT (IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_PACKET_FORMAT_IPV4_TCP                                           \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV4_ICMP                                          \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_ICMP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_TCP                                           \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_ICMP                                          \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_NEW                                                \
+  HICN_PACKET_FORMAT (IPPROTO_ENCAP, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV4_UDP                                           \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_UDP                                           \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV4_TCP_AH                                        \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_TCP, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV4_ICMP_AH                                       \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_ICMP, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_TCP_AH                                        \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_ICMP_AH                                       \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_NEW_AH                                             \
+  HICN_PACKET_FORMAT (IPPROTO_ENCAP, IPPROTO_AH, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_PACKET_FORMAT_IPV6_UDP_AH                                        \
+  HICN_PACKET_FORMAT (IPPROTO_IPV6, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_AH)
+#define HICN_PACKET_FORMAT_IPV4_UDP_AH                                        \
+  HICN_PACKET_FORMAT (IPPROTO_IP, IPPROTO_UDP, IPPROTO_ENCAP, IPPROTO_AH)
+#define HICN_PACKET_FORMAT_NONE                                               \
+  HICN_PACKET_FORMAT (IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE)
 
 /**
  * @brief Return the hICN format with an additional AH header
@@ -172,21 +145,21 @@ static constexpr hicn_packet_format_t HICN_PACKET_FORMAT_NONE =
 static inline hicn_packet_format_t
 hicn_get_ah_format (hicn_packet_format_t format)
 {
-  hicn_packet_format_t ret = format;
-  for (unsigned i = 0; i < HICN_FORMAT_LEN; i++)
-    {
-      switch (ret.as_u8[i])
+  HICN_PACKET_FORMAT_ENUMERATE (format, i, protocol, {
+    switch (protocol)
+      {
 	{
 	case IPPROTO_AH:
-	  return ret;
+	  return format;
 	case IPPROTO_NONE:
-	  ret.as_u8[i] = IPPROTO_AH;
-	  return ret;
+	  HICN_PACKET_FORMAT_SET (format, i, IPPROTO_AH);
+	  return format;
 	default:
 	  break;
 	}
-    }
-  return ret;
+      }
+  });
+  return format;
 }
 
 /*
@@ -196,27 +169,22 @@ hicn_get_ah_format (hicn_packet_format_t format)
  */
 #define HICN_HDRLEN_MAX 72
 
-/**
- * @brief Check if type is none.
- * @return 1 if none, 0 otherwise
- */
-static inline int
-hicn_type_is_none (hicn_packet_format_t format)
-{
-  return (format.l1 == IPPROTO_NONE) && (format.l2 == IPPROTO_NONE) &&
-	 (format.l3 == IPPROTO_NONE) && (format.l4 == IPPROTO_NONE);
-}
+#define HICN_PACKET_FORMAT_IS_NONE(format)                                    \
+  (HICN_PACKET_FORMAT_GET (format, 0) == IPPROTO_NONE) &&                     \
+    (HICN_PACKET_FORMAT_GET (format, 1) == IPPROTO_NONE) &&                   \
+    (HICN_PACKET_FORMAT_GET (format, 2) == IPPROTO_NONE) &&                   \
+    (HICN_PACKET_FORMAT_GET (format, 3) == IPPROTO_NONE)
 
-#define _is_ipv4(format) (format.l1 == IPPROTO_IP)
-#define _is_ipv6(format) (format.l1 == IPPROTO_IPV6)
-#define _is_tcp(format)	 (format.l2 == IPPROTO_TCP)
-#define _is_udp(format)	 (format.l2 == IPPROTO_UDP)
-#define _is_icmp(format)                                                      \
-  ((format.l2 == IPPROTO_ICMP) || (format.l2 == IPPROTO_ICMPV6))
-#define _is_cmpr(format) ((format & HFO_CMPR) >> 5)
-#define _is_ah(format)                                                        \
-  ((format.l1 == IPPROTO_AH) || (format.l2 == IPPROTO_AH) ||                  \
-   (format.l3 == IPPROTO_AH))
+#define HICN_PACKET_FORMAT_IS_AH(format)                                      \
+  (HICN_PACKET_FORMAT_GET (format, 0) == IPPROTO_AH) ||                       \
+    (HICN_PACKET_FORMAT_GET (format, 1) == IPPROTO_AH) ||                     \
+    (HICN_PACKET_FORMAT_GET (format, 2) == IPPROTO_AH) ||                     \
+    (HICN_PACKET_FORMAT_GET (format, 3) == IPPROTO_AH)
+
+#define HICN_PACKET_FORMAT_IS_IPV4(format)                                    \
+  (HICN_PACKET_FORMAT_GET (format, 0) == IPPROTO_IP)
+#define HICN_PACKET_FORMAT_IS_IPV6(format)                                    \
+  (HICN_PACKET_FORMAT_GET (format, 0) == IPPROTO_IPV6)
 
 /*
  * @brief hICN packet types
@@ -276,9 +244,9 @@ typedef u8 hicn_path_label_t;
 /**
  * @brief Path label computations
  *
- * Path label is computed by accumulating the identifiers of successive output
- * faces as a Data packet is traveling from its producer back to the consumer
- * originating the Interest.
+ * Path label is computed by accumulating the identifiers of successive
+ * output faces as a Data packet is traveling from its producer back to the
+ * consumer originating the Interest.
  *
  * NOTE: this computation is not (yet) part of the hICN specification.
  */
