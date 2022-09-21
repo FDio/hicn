@@ -16,6 +16,7 @@
 set -eEo pipefail
 
 sudo apt-get install -y clang-format-12
+sudo pip3 install -U Commitizen
 
 CLANG_FORMAT_VER_REGEX='([0-9]+)\.[0-9]+\.[0-9]+'
 CLANG_FORMAT_DIFF="/usr/share/clang/clang-format-diff.py"
@@ -25,6 +26,16 @@ if [[ -z ${CHANGE_TARGET} ]]; then
 else
   DIFF_TARGET="origin/${CHANGE_TARGET}...HEAD"
 fi
+
+###############################################
+# Check commit mesage
+###############################################
+
+cz check --rev-range HEAD~1...HEAD
+
+###############################################
+# Check code style
+###############################################
 
 CLANG_FORMAT_VER=${CLANG_FORMAT_VER:-12}
 GIT_DIFF_ARGS="-U0 --no-color --relative ${DIFF_TARGET}"
