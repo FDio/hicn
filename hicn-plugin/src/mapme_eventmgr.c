@@ -232,8 +232,9 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 
   // pointer to IP layer ? do we need to prepare for ethernet ???
   buffer = vlib_buffer_get_current (b);
-  b->current_length = (format.l1 == IPPROTO_IPV6) ? EXPECTED_MAPME_V6_HDRLEN :
-							  EXPECTED_MAPME_V4_HDRLEN;
+  b->current_length = HICN_PACKET_FORMAT_IS_IPV6 (format) ?
+			      EXPECTED_MAPME_V6_HDRLEN :
+			      EXPECTED_MAPME_V4_HDRLEN;
 
   return buffer;
 }
