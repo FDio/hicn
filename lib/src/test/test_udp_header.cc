@@ -125,7 +125,7 @@ protected:
 TEST_F (UdpHeaderTest, GetFormat)
 {
   hicn_packet_format_t format = hicn_packet_get_format (&pkbuf_);
-  EXPECT_EQ (format.as_u32, HICN_PACKET_FORMAT_IPV6_UDP.as_u32);
+  EXPECT_EQ (format, HICN_PACKET_FORMAT_IPV6_UDP);
 }
 
 TEST_F (UdpHeaderAHTest, GetFormat)
@@ -134,7 +134,7 @@ TEST_F (UdpHeaderAHTest, GetFormat)
   hicn_packet_format_t format = hicn_packet_get_format (&pkbuf_);
 
   // Check it corresponds to the new header format
-  EXPECT_EQ (format.as_u32, HICN_PACKET_FORMAT_IPV6_UDP_AH.as_u32);
+  EXPECT_EQ (format, HICN_PACKET_FORMAT_IPV6_UDP_AH);
 }
 
 #if 0

@@ -88,7 +88,7 @@ TEST_F(AuthTest, AsymmetricRSA) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<AsymmetricVerifier>(pubKey);
 
-  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
+  EXPECT_EQ(packet.getFormat(), HICN_PACKET_FORMAT_IPV6_TCP_AH);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::RSA_SHA256);
   EXPECT_EQ(signer->getSignatureSize(), 256u);
@@ -202,7 +202,7 @@ TEST_F(AuthTest, AsymmetricVerifierDSA) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<AsymmetricVerifier>(cert);
 
-  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
+  EXPECT_EQ(packet.getFormat(), HICN_PACKET_FORMAT_IPV6_TCP_AH);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::DSA_SHA256);
   EXPECT_EQ(verifier->verifyPackets(&packet), VerificationPolicy::ACCEPT);
@@ -269,7 +269,7 @@ TEST_F(AuthTest, AsymmetricVerifierECDSA) {
     packet.appendPayload(buffer, 256);
     signer->signPacket(&packet);
 
-    EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
+    EXPECT_EQ(packet.getFormat(), HICN_PACKET_FORMAT_IPV6_TCP_AH);
     EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
     EXPECT_EQ(signer->getSuite(), CryptoSuite::ECDSA_SHA256);
     EXPECT_EQ(verifier->verifyPackets(&packet), VerificationPolicy::ACCEPT);
@@ -314,7 +314,7 @@ TEST_F(AuthTest, HMACVerifier) {
   std::shared_ptr<Verifier> verifier =
       std::make_shared<SymmetricVerifier>(PASSPHRASE);
 
-  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32);
+  EXPECT_EQ(packet.getFormat(), HICN_PACKET_FORMAT_IPV6_TCP_AH);
   EXPECT_EQ(signer->getHashType(), CryptoHashType::SHA256);
   EXPECT_EQ(signer->getSuite(), CryptoSuite::HMAC_SHA256);
   EXPECT_EQ(signer->getSignatureSize(), 32u);

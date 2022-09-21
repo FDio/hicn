@@ -106,7 +106,7 @@ auth::VerificationPolicy RTCVerifier::verifyFec(
 
 auth::VerificationPolicy RTCVerifier::verifyData(
     core::ContentObject &content_object) {
-  if (_is_ah(content_object.getFormat())) {
+  if (HICN_PACKET_FORMAT_IS_AH(content_object.getFormat())) {
     return verifier_->verifyPackets(&content_object);
   }
 
