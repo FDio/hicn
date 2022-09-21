@@ -1,0 +1,50 @@
+<type>[optional scope]: <description>
+# |<----  Using a maximum of 50 characters  ---->|
+
+Explain why this change is being made
+# |<----   Try to limit each line to a maximum of 72 characters   ---->|
+
+Ticket: <JIRA #id>
+# Fixes: <offending-git-commit-id>
+# Change-Id: <sha1>
+# Signed-off-by: <email>
+#
+#
+# --- COMMIT END ---
+#
+# Type can be
+#    feat        (new feature)
+#    fix         (bug fix)
+#    refactor    (refactoring production code)
+#    build       (change to the build system)
+#    style       (formatting, missing semi colons, etc; no code change)
+#    docs        (changes to documentation)
+#    test        (adding or refactoring tests; no production code change)
+#    ci          (change to CI scripts/configuration)
+#    chore       (no production code change)
+#    perf        (performance improvement)
+#    revert      (revert a change)
+#
+# optional scope:   Is the name of the feature, directory or file
+#                   being modified. Commits across multiple components
+#                   should be split.
+#
+# Fixes: If type is fix refers to the original commit (optional).
+# Ticket: Refers to JIRA ticket if it exists (optional).
+#
+# --------------------
+# Remember to:
+#    Lowercase the subject line.
+#    Use the imperative mood in the subject line.
+#    Not end the subject line with a period.
+#    Separate subject from body with a blank line.
+#    Use the body to explain what and why vs. how.
+#    Use multiple lines with "-" for bullet points in body.
+# --------------------
+# Usage:
+#
+# The template is automatically added to the current repository by
+# make deps.
+# (git config commit.template .git_commit_template.txt)
+#
+# --------------------
