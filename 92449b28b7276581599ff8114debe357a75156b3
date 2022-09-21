@@ -16,6 +16,23 @@
       "message": "recheck",
       "revId": "92449b28b7276581599ff8114debe357a75156b3",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "2a3f79f5_d4f61092",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 7
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-21T16:43:59Z",
+      "side": 1,
+      "message": "It seems like the patch breaks the functional test of hicn-light:\n\n```\n17:58:36 \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n17:58:36 2-Nodes-Hicn-Light                                                            \n17:58:36 \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n17:58:36 Building topology 2-nodes hicn-light\n17:59:35 Done\n17:59:35 Throughput Testing Raaqm Mobile                                       Min Max Average Array: [\u00270\u0027, \u00270\u0027, \u00270\u0027]\n18:00:40 \n| FAIL |\n18:00:40 \"Min does not match (0 \u003c 200)\"\n18:00:40 ------------------------------------------------------------------------------\n18:00:40 Throughput Testing CBR Mobile                                         Min Max Average Array: [\u00270\u0027, \u00270\u0027, \u00270\u0027]\n18:01:45 \n| FAIL |\n18:01:45 \"Min does not match (0 \u003c 200)\"\n18:01:45 ------------------------------------------------------------------------------\n18:01:45 RTC Testing Mobile                                                    Min Max Average Array: [\u00274\u0027, \u00274\u0027, \u00274\u0027]\n18:01:55 | PASS |\n18:01:55 ------------------------------------------------------------------------------\n18:01:55 Latency Testing Mobile                                                Min Max Average Array: [\u00270\u0027, \u00270\u0027, \u0027-nan\u0027]\n18:02:05 \n| FAIL |\n18:02:05 Evaluating expression \u0027-nan \u003c\u003d 3000\u0027 failed: NameError: name \u0027nan\u0027 is not defined nor importable as module\n```",
+      "revId": "92449b28b7276581599ff8114debe357a75156b3",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
   ]
 }
