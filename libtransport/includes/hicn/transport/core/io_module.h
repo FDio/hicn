@@ -88,7 +88,7 @@ class IoModule : utils::NonCopyable {
     counters_.tx_packets++;
     counters_.tx_bytes += packet.payloadSize() + packet.headerSize();
 
-    if (_is_ipv4(packet.getFormat())) {
+    if (HICN_PACKET_FORMAT_IS_IPV4(packet.getFormat())) {
       packet.setLocator(inet_address_);
     } else {
       packet.setLocator(inet6_address_);

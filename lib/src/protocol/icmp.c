@@ -44,12 +44,6 @@ DECLARE_get_signature (icmp, UNEXPECTED);
 DECLARE_has_signature (icmp, UNEXPECTED);
 DECLARE_is_last_data (icmp, UNEXPECTED);
 DECLARE_set_last_data (icmp, UNEXPECTED);
-DECLARE_get_ttl (icmp, UNEXPECTED);
-DECLARE_set_ttl (icmp, UNEXPECTED);
-DECLARE_get_src_port (icmp, UNEXPECTED);
-DECLARE_set_src_port (icmp, UNEXPECTED);
-DECLARE_get_dst_port (icmp, UNEXPECTED);
-DECLARE_set_dst_port (icmp, UNEXPECTED);
 
 int
 icmp_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
