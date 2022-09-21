@@ -53,7 +53,7 @@ ipv6_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 				 (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
 				 (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
     .len = htons(header_len - IPV6_HDRLEN),
-    .nxt = format.as_u8[pos + 1],
+    .nxt = HICN_PACKET_FORMAT_GET(format, pos+1),
     .hlim = HICN_DEFAULT_TTL,
   };
   /* clang-format on */
@@ -466,51 +466,6 @@ int
 ipv6_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
   return CALL_CHILD (set_last_data, pkbuf, pos);
-}
-
-int
-ipv6_get_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 *hops)
-{
-  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
-
-  *hops = ipv6->hlim;
-
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_set_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 hops)
-{
-
-  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
-
-  ipv6->hlim = hops;
-
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  return CALL_CHILD (get_src_port, pkbuf, pos, port);
-}
-
-int
-ipv6_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  return CALL_CHILD (set_src_port, pkbuf, pos, port);
-}
-
-int
-ipv6_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  return CALL_CHILD (get_dst_port, pkbuf, pos, port);
-}
-
-int
-ipv6_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  return CALL_CHILD (set_dst_port, pkbuf, pos, port);
 }
 
 DECLARE_HICN_OPS (ipv6, IPV6_HDRLEN);

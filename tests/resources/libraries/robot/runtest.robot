@@ -90,3 +90,13 @@ Run RTC Test
     ...                ${EXPECTED_AVG} The expected avg bitrate
     [Arguments]        ${TEST_SETUP}=${NONE}                                                                         ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                                                 rtc                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+
+Run Ping Test New
+    [Documentation]    Run hicn-ping on the ${TEST_SETUP} topology with the new packet format and measure latency.
+    ...                Arguments:
+    ...                ${TEST_SETUP} The setup of the test.
+    ...                ${EXPECTED_MIN} The expected min latency
+    ...                ${EXPECTED_MAX} The expected max latency
+    ...                ${EXPECTED_AVG} The expected avg latency
+    [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
+    Run Test           ${TEST_SETUP}                                                       ping-new                   ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}

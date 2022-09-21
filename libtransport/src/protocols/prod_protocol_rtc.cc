@@ -692,7 +692,7 @@ void RTCProductionProtocol::sendNack(uint32_t sequence) {
 
 void RTCProductionProtocol::sendContentObject(
     std::shared_ptr<ContentObject> content_object, bool nack, bool fec) {
-  bool is_ah = _is_ah(content_object->getFormat());
+  bool is_ah = HICN_PACKET_FORMAT_IS_AH(content_object->getFormat());
 
   // Compute signature
   if (is_ah) {

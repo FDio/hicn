@@ -48,6 +48,7 @@ class ProducerSocket : public Socket {
                  std::shared_ptr<core::Portal> &&portal)
       : Socket(std::move(portal)),
         producer_interface_(producer_socket),
+        packet_format_(default_values::packet_format),
         data_packet_size_(default_values::content_object_packet_size),
         max_segment_size_(default_values::content_object_packet_size),
         content_object_expiry_time_(default_values::content_object_expiry_time),
@@ -197,6 +198,10 @@ class ProducerSocket : public Socket {
 
       case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:
         content_object_expiry_time_ = socket_option_value;
+        break;
+
+      case GeneralTransportOptions::PACKET_FORMAT:
+        packet_format_ = socket_option_value;
         break;
 
       default:
@@ -490,6 +495,10 @@ class ProducerSocket : public Socket {
         socket_option_value = content_object_expiry_time_;
         break;
 
+      case GeneralTransportOptions::PACKET_FORMAT:
+        socket_option_value = packet_format_;
+        break;
+
       default:
         return SOCKET_OPTION_NOT_SET;
     }
@@ -758,6 +767,7 @@ class ProducerSocket : public Socket {
   // Threads
  protected:
   interface::ProducerSocket *producer_interface_;
+  std::atomic<hicn_packet_format_t> packet_format_;
   std::atomic<size_t> data_packet_size_;
   std::atomic<size_t> max_segment_size_;
   std::atomic<uint32_t> content_object_expiry_time_;

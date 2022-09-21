@@ -60,7 +60,7 @@ ipv4_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
     .id = htons (IPV4_DEFAULT_ID),
     .frag_off = htons (IPV4_DEFAULT_FRAG_OFF),
     .ttl = HICN_DEFAULT_TTL,
-    .protocol = format.as_u8[pos + 1],
+    .protocol = HICN_PACKET_FORMAT_GET (format, pos + 1),
     .csum = 0,
     .saddr.as_u32 = 0,
     .daddr.as_u32 = 0,
@@ -528,50 +528,6 @@ int
 ipv4_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
   return CALL_CHILD (set_last_data, pkbuf, pos);
-}
-
-int
-ipv4_get_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 *hops)
-{
-  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
-
-  *hops = ipv4->ttl;
-
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_set_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 hops)
-{
-  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
-
-  ipv4->ttl = hops;
-
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  return CALL_CHILD (get_src_port, pkbuf, pos, port);
-}
-
-int
-ipv4_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  return CALL_CHILD (set_src_port, pkbuf, pos, port);
-}
-
-int
-ipv4_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  return CALL_CHILD (get_dst_port, pkbuf, pos, port);
-}
-
-int
-ipv4_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  return CALL_CHILD (set_dst_port, pkbuf, pos, port);
 }
 
 DECLARE_HICN_OPS (ipv4, IPV4_HDRLEN);
