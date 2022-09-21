@@ -39,6 +39,7 @@ HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
 HIPERF_CMD_MEMIF_CBR="${HIPERF_CMD_CBR} -z memif_module"
 
 PING_CMD="ENABLE_LOG_PREFIX=OFF LOG_LEVEL=1 hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER}"
+PING_CMD_NEW="ENABLE_LOG_PREFIX=OFF LOG_LEVEL=1 hicn-ping-client -m 50 -i 200000 -n ${PING_PRODUCER} -w new"
 PING_CMD_MEMIF="${PING_CMD} -z memif_module"
 POSTPROCESS_COMMAND_PING='grep trip |       \
   cut -f 4 -d " " |                         \
@@ -88,6 +89,7 @@ declare -A tests=(
   ["vpp-bridge-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["hicn-light-new"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
 )
 
 declare -A link_model=(
