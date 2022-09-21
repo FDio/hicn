@@ -25,6 +25,7 @@
 
 bool hc_connection_is_local(const hc_connection_t *connection);
 bool hc_connection_has_local(const hc_connection_t *connection);
+bool hc_connection_has_valid_id(const hc_connection_t *connection);
 
 DECLARE_OBJECT_OPS_H(OBJECT_TYPE_CONNECTION, connection);
 

@@ -60,6 +60,7 @@
 
 int on_face_create(hc_face_t* face) {
   face->admin_state = FACE_STATE_UP;
+  face->id = INVALID_FACE_ID;
   return 0;
 }
 
@@ -110,3 +111,20 @@ static const command_parser_t command_face_list = {
     .nparams = 0,
 };
 COMMAND_REGISTER(command_face_list);
+
+static const command_parser_t command_face_remove6 = {
+    .action = ACTION_DELETE,
+    .object_type = OBJECT_TYPE_FACE,
+    .nparams = 6,
+    .parameters = {type_tcp_udp, local_address, local_port, remote_address,
+                   remote_port, interface},
+};
+COMMAND_REGISTER(command_face_remove6);
+
+static const command_parser_t command_face_remove1 = {
+    .action = ACTION_DELETE,
+    .object_type = OBJECT_TYPE_FACE,
+    .nparams = 1,
+    .parameters = {symbolic_or_id},
+};
+COMMAND_REGISTER(command_face_remove1);
