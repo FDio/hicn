@@ -191,6 +191,10 @@ int _hc_connection_cmp(const hc_object_t *object1, const hc_object_t *object2) {
   return hc_connection_cmp(&object1->connection, &object2->connection);
 }
 
+int hc_connection_has_valid_id(const hc_connection_t *connection) {
+  return connection->id != INVALID_FACE_ID;
+}
+
 /* CONNECTION SNPRINTF */
 
 /* /!\ Please update constants in header file upon changes */
@@ -273,7 +277,6 @@ int hc_connection_set_priority(hc_sock_t *s, const char *conn_id_or_name,
 }
 
 int hc_connection_set_tags(hc_sock_t *s, const char *conn_id_or_name,
-
                            policy_tags_t tags) {
   hc_object_t object;
   memset(&object, 0, sizeof(hc_object_t));
