@@ -25,6 +25,7 @@
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/content_object.h>
+#include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/utils/string_tokenizer.h>
@@ -39,26 +40,21 @@ using HashAlgorithm = core::HashAlgorithm;
 using CryptoSuite = auth::CryptoSuite;
 
 class CallbackContainer {
-  const std::size_t log2_content_object_buffer_size = 12;
-
  private:
   std::shared_ptr<ContentObject> createContentObject(const Name &name,
                                                      uint32_t lifetime,
                                                      const Interest &interest) {
-    auto &content_object = content_objects_[content_objects_index_++ & mask_];
+    auto content_object =
+        core::PacketManager<>::getInstance().getPacket<ContentObject>(
+            interest.getFormat(),
+            (sign_ && signer_) ? signer_->getSignatureFieldSize() : 0);
 
     content_object->setName(name);
     content_object->setLifetime(lifetime);
     content_object->setLocator(interest.getLocator());
-    content_object->setSrcPort(interest.getDstPort());
-    content_object->setDstPort(interest.getSrcPort());
-    content_object->setTTL(ttl_);
 
     if (LoggerIsOn(2)) {
-      LoggerInfo() << ">>> send object " << content_object->getName()
-                   << " src port: " << content_object->getSrcPort()
-                   << " dst port: " << content_object->getDstPort()
-                   << " TTL: " << (int)content_object->getTTL();
+      LoggerInfo() << ">>> send object " << content_object->getName();
     } else if (LoggerIsOn(1)) {
       LoggerInfo() << ">>> send object " << content_object->getName();
     }
@@ -74,38 +70,13 @@ class CallbackContainer {
   }
 
  public:
-  CallbackContainer(const Name &prefix, uint32_t object_size, uint8_t ttl,
+  CallbackContainer(const Name &prefix, uint32_t object_size,
                     auth::Signer *signer, bool sign, std::string passphrase,
                     uint32_t lifetime)
-      : buffer_(object_size, 'X'),
-        content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
-        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
-        content_objects_index_(0),
-        ttl_(ttl),
-        signer_(signer),
-        sign_(sign) {
+      : buffer_(object_size, 'X'), signer_(signer), sign_(sign) {
     // Verifier for interest manifests
     if (!passphrase.empty())
       verifier_ = std::make_unique<auth::SymmetricVerifier>(passphrase);
-
-    core::Packet::Format format;
-    if (prefix.getAddressFamily() == AF_INET) {
-      format = HICN_PACKET_FORMAT_IPV4_TCP;
-      if (sign_) {
-        format = HICN_PACKET_FORMAT_IPV4_TCP_AH;
-      }
-    } else {
-      format = HICN_PACKET_FORMAT_IPV6_TCP;
-      if (sign_) {
-        format = HICN_PACKET_FORMAT_IPV6_TCP_AH;
-      }
-    }
-
-    for (int i = 0; i < (1 << log2_content_object_buffer_size); i++) {
-      content_objects_[i] = std::make_shared<ContentObject>(
-          prefix, format, 0, (const uint8_t *)buffer_.data(), buffer_.size());
-      content_objects_[i]->setLifetime(lifetime);
-    }
   }
 
   void processInterest(ProducerSocket &p, Interest &interest,
@@ -124,9 +95,6 @@ class CallbackContainer {
 
     if (LoggerIsOn(2)) {
       LoggerInfo() << "<<< received interest " << interest.getName()
-                   << " src port: " << interest.getSrcPort()
-                   << " dst port: " << interest.getDstPort()
-                   << "TTL: " << (int)interest.getTTL()
                    << " suffixes in manifest: " << interest.numberOfSuffixes();
     } else if (LoggerIsOn(1)) {
       LoggerInfo() << "<<< received interest " << interest.getName();
@@ -162,10 +130,6 @@ class CallbackContainer {
 
  private:
   std::string buffer_;
-  std::vector<std::shared_ptr<ContentObject>> content_objects_;
-  std::uint16_t mask_;
-  std::uint16_t content_objects_index_;
-  uint8_t ttl_;
   auth::Signer *signer_;
   bool sign_;
   std::unique_ptr<auth::Verifier> verifier_;
@@ -177,7 +141,6 @@ void help() {
   LoggerInfo() << "-s <val>          object content size (default 1350B)";
   LoggerInfo() << "-n <val>          hicn name (default b001::/64)";
   LoggerInfo() << "-l                data lifetime";
-  LoggerInfo() << "-t                set ttl (default 64)";
   LoggerInfo() << "OUTPUT options";
   LoggerInfo() << "-V                verbose, prints statistics about the "
                   "messagges sent "
@@ -206,7 +169,6 @@ int main(int argc, char **argv) {
   std::string name_prefix = "b001::0/64";
   std::string delimiter = "/";
   uint32_t object_size = 1250;
-  uint8_t ttl = 64;
   std::string keystore_path = "./rsa_crypto_material.p12";
   std::string keystore_password = "cisco";
   std::string passphrase = "";
@@ -232,9 +194,6 @@ int main(int argc, char **argv) {
         break;
       case 'n':
         name_prefix = optarg;
-        break;
-      case 't':
-        ttl = (uint8_t)std::stoi(optarg);
         break;
       case 'l':
         data_lifetime = std::stoi(optarg);
@@ -294,11 +253,11 @@ int main(int argc, char **argv) {
   if (sign) {
     signer = std::make_unique<auth::AsymmetricSigner>(keystore_path,
                                                       keystore_password);
-    stubs = new CallbackContainer(n, object_size, ttl, signer.get(), sign,
+    stubs = new CallbackContainer(n, object_size, signer.get(), sign,
                                   passphrase, data_lifetime);
   } else {
     auth::Signer *signer = nullptr;
-    stubs = new CallbackContainer(n, object_size, ttl, signer, sign, passphrase,
+    stubs = new CallbackContainer(n, object_size, signer, sign, passphrase,
                                   data_lifetime);
   }
 

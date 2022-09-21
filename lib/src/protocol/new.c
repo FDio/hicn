@@ -24,13 +24,6 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-DECLARE_get_ttl (new, UNEXPECTED);
-DECLARE_set_ttl (new, UNEXPECTED);
-DECLARE_get_src_port (new, UNEXPECTED);
-DECLARE_set_src_port (new, UNEXPECTED);
-DECLARE_get_dst_port (new, UNEXPECTED);
-DECLARE_set_dst_port (new, UNEXPECTED);
-
 int
 new_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
@@ -45,8 +38,9 @@ new_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 
   memset (new, 0, sizeof (_new_header_t));
   _set_new_header_version (new);
-  uint8_t ah_flag =
-    format.as_u8[pos + 1] == IPPROTO_AH ? HICN_NEW_FLAG_SIG : 0;
+  uint8_t ah_flag = (HICN_PACKET_FORMAT_GET (format, pos + 1) == IPPROTO_AH) ?
+			    HICN_NEW_FLAG_SIG :
+			    0;
   new->flags |= ah_flag;
 
   return CALL_CHILD (init_packet_header, pkbuf, pos);
@@ -128,6 +122,8 @@ new_get_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
   return HICN_LIB_ERROR_NONE;
 }
 
+// XXX never called and thus packet is never initialized as interest
+// DECLARE_set_interest_name (udp, UNEXPECTED);
 int
 new_set_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       const hicn_name_t *name)
