@@ -18,6 +18,7 @@ FUNCTIONAL := tests/run-functional.sh
 MKDIR := mkdir -p
 RM := rm
 VERSIONFILE := $(CURDIR)/versions.cmake
+COMMIT_TEMPLATE_FILE = .git_commit_template.txt
 
 # Docker stuff
 DOCKER := docker
@@ -82,12 +83,16 @@ help:
 	@echo " SONAR_BUILD_WRAPPER=$(SONAR_BUILD_WRAPPER)"
 	@echo " SONAR_OUT_DIR=$(SONAR_OUT_DIR)"
 
+.PHONY = commit-template
+commit-template:
+	@git config commit.template $(COMMIT_TEMPLATE_FILE)
+
 .PHONY = vpp-dep
 vpp-dep:
 	VERSION_PATH=$(VERSIONFILE) sudo -E $(SHELL) scripts/install-vpp.sh
 
 .PHONY = dep
-dep: vpp-dep
+dep: vpp-dep commit-template
 ifeq ($(shell uname),Darwin)
 	brew install $(MACOS_DEPENDS)
 else ifeq ($(filter ubuntu debian,$(OS_ID)),$(OS_ID))
