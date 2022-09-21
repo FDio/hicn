@@ -233,6 +233,10 @@ void hicn_packet_set_format (hicn_packet_buffer_t *pkbuf,
 			     hicn_packet_format_t format);
 
 hicn_packet_type_t hicn_packet_get_type (const hicn_packet_buffer_t *pkbuf);
+
+void hicn_packet_initialize_type (hicn_packet_buffer_t *pkbuf,
+				  hicn_packet_type_t type);
+
 void hicn_packet_set_type (hicn_packet_buffer_t *pkbuf,
 			   hicn_packet_type_t type);
 
@@ -643,57 +647,6 @@ int hicn_packet_compute_header_checksum (const hicn_packet_buffer_t *pkbuf,
  */
 int hicn_packet_check_integrity_no_payload (const hicn_packet_buffer_t *pkbuf,
 					    u16 init_sum);
-
-/**
- * @brief Returns the packet TTL
- * @param [in] pkbuf - hICN packet buffer
- * @param [out] hops - Pointer to the variable receiving the TTL value
- * @return hICN error code
- */
-int hicn_packet_get_ttl (const hicn_packet_buffer_t *pkbuf, u8 *hops);
-
-/**
- * @brief Returns the packet source port
- * @param [in] pkbuf - hICN packet buffer
- * @param [in, out] pos - Current position in the sequence of headers while
- * @param [out] hops - The TTL value to set
- * @return hICN error code
- */
-int hicn_packet_set_ttl (const hicn_packet_buffer_t *pkbuf, u8 hops);
-
-/**
- * @brief Returns the packet source port
- * @param [in] pkbuf - hICN packet buffer
- * @param [out] port - Pointer to the variable that will receive the port
- * number
- * @return hICN error code
- */
-int hicn_packet_get_src_port (const hicn_packet_buffer_t *pkbuf, u16 *port);
-
-/**
- * @brief Sets the packet source port
- * @param [in] pkbuf - hICN packet buffer
- * @param [out] port - The port number to set
- * @return hICN error code
- */
-int hicn_packet_set_src_port (const hicn_packet_buffer_t *pkbuf, u16 port);
-
-/**
- * @brief Returns the packet source port
- * @param [in] pkbuf - hICN packet buffer
- * @param [out] port - Pointer to the variable that will receive the port
- * number
- * @return hICN error code
- */
-int hicn_packet_get_dst_port (const hicn_packet_buffer_t *pkbuf, u16 *port);
-
-/**
- * @brief Sets the packet source port
- * @param [in] pkbuf - hICN packet buffer
- * @param [out] port - The port number to set
- * @return hICN error code
- */
-int hicn_packet_set_dst_port (const hicn_packet_buffer_t *pkbuf, u16 port);
 
 int hicn_interest_rewrite (const hicn_packet_buffer_t *pkbuf,
 			   const hicn_ip_address_t *addr_new,

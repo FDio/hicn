@@ -554,65 +554,6 @@ typedef struct hicn_ops_s
    */
   int (*set_last_data) (const hicn_packet_buffer_t *pkbuf, size_t pos);
 
-  /**
-   * @brief Returns the packet TTL
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] hops - Pointer to the variable receiving the TTL value
-   * @return hICN error code
-   */
-  int (*get_ttl) (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 *hops);
-
-  /**
-   * @brief Returns the packet source port
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] hops - The TTL value to set
-   * @return hICN error code
-   */
-  int (*set_ttl) (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 hops);
-
-  /**
-   * @brief Returns the packet source port
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] port - Pointer to the variable that will receive the port
-   * number
-   * @return hICN error code
-   */
-  int (*get_src_port) (const hicn_packet_buffer_t *pkbuf, size_t pos,
-		       u16 *port);
-
-  /**
-   * @brief Sets the packet source port
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] port - The port number to set
-   * @return hICN error code
-   */
-  int (*set_src_port) (const hicn_packet_buffer_t *pkbuf, size_t pos,
-		       u16 port);
-
-  /**
-   * @brief Returns the packet source port
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] port - Pointer to the variable that will receive the port
-   * number
-   * @return hICN error code
-   */
-  int (*get_dst_port) (const hicn_packet_buffer_t *pkbuf, size_t pos,
-		       u16 *port);
-
-  /**
-   * @brief Sets the packet source port
-   * @param [in] pkbuf - hICN packet buffer
-   * @param [in, out] pos - Current position in the sequence of headers while
-   * @param [out] port - The port number to set
-   * @return hICN error code
-   */
-  int (*set_dst_port) (const hicn_packet_buffer_t *pkbuf, size_t pos,
-		       u16 port);
 } hicn_ops_t;
 
 #define DECLARE_HICN_OPS(protocol, len)                                       \
@@ -667,12 +608,6 @@ typedef struct hicn_ops_s
     ATTR_INIT (set_signature_size, protocol##_set_signature_size),            \
     ATTR_INIT (get_signature_padding, protocol##_get_signature_padding),      \
     ATTR_INIT (is_last_data, protocol##_is_last_data),                        \
-    ATTR_INIT (get_ttl, protocol##_get_ttl),                                  \
-    ATTR_INIT (set_ttl, protocol##_set_ttl),                                  \
-    ATTR_INIT (get_src_port, protocol##_get_src_port),                        \
-    ATTR_INIT (set_src_port, protocol##_set_src_port),                        \
-    ATTR_INIT (get_dst_port, protocol##_get_dst_port),                        \
-    ATTR_INIT (set_dst_port, protocol##_set_dst_port),                        \
   }
 
 /**
@@ -681,10 +616,14 @@ typedef struct hicn_ops_s
  */
 extern const hicn_ops_t *const hicn_ops_vft[];
 
-#define PROT(pkbuf, pos)                                                      \
-  ((pos < (HICN_FORMAT_LEN - 1)) ?                                            \
-	   hicn_packet_get_format (pkbuf).as_u8[(pos) + 1] :                        \
-	   IPPROTO_NONE)
+static inline uint8_t
+PROT (const hicn_packet_buffer_t *pkbuf, int pos)
+{
+  if (pos < -1 || pos >= HICN_PACKET_FORMAT_SIZE - 1)
+    return IPPROTO_NONE;
+  hicn_packet_format_t format = hicn_packet_get_format (pkbuf);
+  return HICN_PACKET_FORMAT_GET (format, pos + 1);
+}
 
 #define CALL_CHILD(method, pkbuf, pos, ...)                                   \
   hicn_ops_vft[PROT (pkbuf, (pos))]->method (pkbuf, (pos) + 1, ##__VA_ARGS__);
@@ -1025,48 +964,6 @@ extern const hicn_ops_t *const hicn_ops_vft[];
 #define DECLARE_set_last_data(protocol, error)                                \
   int protocol##_set_last_data (const hicn_packet_buffer_t *pkbuf,            \
 				size_t pos)                                   \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_get_ttl(protocol, error)                                      \
-  int protocol##_get_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos,      \
-			  u8 *hops)                                           \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_set_ttl(protocol, error)                                      \
-  int protocol##_set_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos,      \
-			  u8 hops)                                            \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_get_src_port(protocol, error)                                 \
-  int protocol##_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, \
-			       u16 *port)                                     \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_set_src_port(protocol, error)                                 \
-  int protocol##_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, \
-			       u16 port)                                      \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_get_dst_port(protocol, error)                                 \
-  int protocol##_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, \
-			       u16 *port)                                     \
-  {                                                                           \
-    return HICN_LIB_ERROR_##error;                                            \
-  }
-
-#define DECLARE_set_dst_port(protocol, error)                                 \
-  int protocol##_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, \
-			       u16 port)                                      \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }

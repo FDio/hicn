@@ -72,7 +72,6 @@ typedef struct
   /**
    * Cached packet info
    */
-  u16 port;
   u16 payload_type;
   hicn_lifetime_t lifetime;
 
@@ -90,8 +89,7 @@ typedef struct
 STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_id) == 24, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 28, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 32, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, port) == 36, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, payload_type) == 38, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, payload_type) == 36, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, lifetime) == 40, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, face_id) == 44, "");
 STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 48, "");
@@ -126,7 +124,7 @@ hicn_buffer_is_v6 (vlib_buffer_t *b0)
 {
   hicn_packet_format_t format =
     hicn_packet_get_format (&hicn_get_buffer (b0)->pkbuf);
-  return format.l1 == IPPROTO_IPV6;
+  return HICN_PACKET_FORMAT_IS_IPV6 (format);
 }
 
 always_inline void

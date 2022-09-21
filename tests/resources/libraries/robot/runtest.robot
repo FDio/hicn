@@ -32,6 +32,10 @@ Run Test
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
+    ELSE IF             '${TESTID}' == 'latency-new'
+    Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
+    Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
+    Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
     ELSE
     Fail                "Provided Test ID does not exist"
     END
@@ -90,3 +94,13 @@ Run RTC Test
     ...                ${EXPECTED_AVG} The expected avg bitrate
     [Arguments]        ${TEST_SETUP}=${NONE}                                                                         ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                                                 rtc                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+
+Run Latency Test New
+    [Documentation]    Run hicn-ping on the ${TEST_SETUP} topology with the new packet format and measure latency.
+    ...                Arguments:
+    ...                ${TEST_SETUP} The setup of the test.
+    ...                ${EXPECTED_MIN} The expected min latency
+    ...                ${EXPECTED_MAX} The expected max latency
+    ...                ${EXPECTED_AVG} The expected avg latency
+    [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
+    Run Test           ${TEST_SETUP}                                                       latency-new                ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}

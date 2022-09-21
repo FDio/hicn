@@ -41,9 +41,9 @@ Packet::Packet(Type type, Format format, std::size_t additional_header_size)
    * We define the format and the storage area of the packet buffer we
    * manipulate
    */
-  setType(type);
   setFormat(format);
   setBuffer();
+  initializeType(type);  // type requires packet format
   initialize(additional_header_size);
 }
 
@@ -141,6 +141,10 @@ void Packet::analyze() {
 }
 
 Packet::Type Packet::getType() const { return hicn_packet_get_type(&pkbuf_); }
+
+void Packet::initializeType(Packet::Type type) {
+  hicn_packet_initialize_type(&pkbuf_, type);
+}
 
 void Packet::setType(Packet::Type type) { hicn_packet_set_type(&pkbuf_, type); }
 
@@ -313,62 +317,7 @@ bool Packet::checkIntegrity() const {
   return true;
 }
 
-Packet &Packet::setSrcPort(uint16_t srcPort) {
-  if (hicn_packet_set_src_port(&pkbuf_, srcPort) < 0) {
-    throw errors::RuntimeException("Error setting source port in the packet.");
-  }
-
-  return *this;
-}
-
-Packet &Packet::setDstPort(uint16_t dstPort) {
-  if (hicn_packet_set_dst_port(&pkbuf_, dstPort) < 0) {
-    throw errors::RuntimeException(
-        "Error setting destination port in the packet.");
-  }
-
-  return *this;
-}
-
-uint16_t Packet::getSrcPort() const {
-  uint16_t port = 0;
-
-  if (hicn_packet_get_src_port(&pkbuf_, &port) < 0) {
-    throw errors::RuntimeException("Error reading source port in the packet.");
-  }
-
-  return port;
-}
-
-uint16_t Packet::getDstPort() const {
-  uint16_t port = 0;
-
-  if (hicn_packet_get_dst_port(&pkbuf_, &port) < 0) {
-    throw errors::RuntimeException(
-        "Error reading destination port in the packet.");
-  }
-
-  return port;
-}
-
-Packet &Packet::setTTL(uint8_t hops) {
-  if (hicn_packet_set_ttl(&pkbuf_, hops) < 0) {
-    throw errors::RuntimeException("Error setting TTL.");
-  }
-
-  return *this;
-}
-
-uint8_t Packet::getTTL() const {
-  uint8_t hops = 0;
-  if (hicn_packet_get_ttl(&pkbuf_, &hops) < 0) {
-    throw errors::RuntimeException("Error reading TTL.");
-  }
-
-  return hops;
-}
-
-bool Packet::hasAH() const { return _is_ah(getFormat()); }
+bool Packet::hasAH() const { return HICN_PACKET_FORMAT_IS_AH(getFormat()); }
 
 utils::MemBuf::Ptr Packet::getSignature() const {
   if (!hasAH()) {
@@ -553,7 +502,7 @@ std::size_t Packet::getHeaderSizeFromFormat(Format format,
                                             std::size_t signature_size) {
   std::size_t header_length;
   hicn_packet_get_header_length_from_format(format, &header_length);
-  int is_ah = _is_ah(format);
+  int is_ah = HICN_PACKET_FORMAT_IS_AH(format);
   return is_ah * (header_length + signature_size) + (!is_ah) * header_length;
 }
 

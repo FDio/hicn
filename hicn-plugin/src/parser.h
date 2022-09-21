@@ -34,7 +34,6 @@ parse (vlib_buffer_t *pkt, uword size)
 
   int ret = HICN_ERROR_NONE;
 
-  u16 *port;
   hicn_lifetime_t *lifetime;
   hicn_payload_type_t payload_type;
 
@@ -42,14 +41,6 @@ parse (vlib_buffer_t *pkt, uword size)
 
   hicn_packet_set_buffer (pkbuf, vlib_buffer_get_current (pkt), size, size);
   hicn_packet_analyze (&hicn_get_buffer (pkt)->pkbuf);
-
-  /* get source port*/
-  port = &hicn_get_buffer (pkt)->port;
-  hicn_packet_get_src_port (pkbuf, port);
-  if (PREDICT_FALSE (ret))
-    {
-      return HICN_ERROR_PARSER_PKT_INVAL;
-    }
 
   /* get lifetime*/
   lifetime = &hicn_get_buffer (pkt)->lifetime;

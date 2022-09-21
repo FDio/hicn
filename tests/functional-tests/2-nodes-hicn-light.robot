@@ -22,3 +22,7 @@ RTC Testing Mobile
 Latency Testing Mobile
     Set Link            hicn-light    500     1       0       0
     Run Latency Test    hicn-light    3000    3000    3000
+
+Latency Testing Mobile New
+    Set Link                    hicn-light    500     1       0       0
+    Run Latency Test New        hicn-light    3000    3000    3000

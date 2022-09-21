@@ -86,12 +86,6 @@ DECLARE_get_signature_padding (none, NONE);
 DECLARE_set_signature_padding (none, NONE);
 DECLARE_is_last_data (none, NONE);
 DECLARE_set_last_data (none, NONE);
-DECLARE_get_ttl (none, NONE);
-DECLARE_set_ttl (none, NONE);
-DECLARE_get_src_port (none, NONE);
-DECLARE_set_src_port (none, NONE);
-DECLARE_get_dst_port (none, NONE);
-DECLARE_set_dst_port (none, NONE);
 DECLARE_HICN_OPS (none, 0);
 
 /**
