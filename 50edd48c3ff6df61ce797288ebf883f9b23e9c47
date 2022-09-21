@@ -35,6 +35,24 @@
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "6c4021d7_3a13184c",
+        "filename": "apps/common-includes/hicn/apps/utils/logger.h",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-21T07:52:02Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "d1fddd7e_1e2774bd",
+      "revId": "50edd48c3ff6df61ce797288ebf883f9b23e9c47",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "102c41ee_216e0545",
@@ -48,6 +66,24 @@
       "writtenOn": "2022-09-21T07:34:53Z",
       "side": 1,
       "message": "Use your macro here in place of TRANSPORT_LOG_ERROR",
+      "revId": "50edd48c3ff6df61ce797288ebf883f9b23e9c47",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "1339e2c6_f260c2f5",
+        "filename": "apps/http-proxy/src/icn_receiver.cc",
+        "patchSetId": 6
+      },
+      "lineNbr": 161,
+      "author": {
+        "id": 2430
+      },
+      "writtenOn": "2022-09-21T07:52:02Z",
+      "side": 1,
+      "message": "good spot!",
+      "parentUuid": "102c41ee_216e0545",
       "revId": "50edd48c3ff6df61ce797288ebf883f9b23e9c47",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
