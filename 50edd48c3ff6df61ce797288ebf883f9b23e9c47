@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "d08a10e1_89e76752",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 6
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-21T07:33:11Z",
+      "side": 1,
+      "message": "It seems fine to me, just add the license in the missing file and update it in  modified ones.",
+      "revId": "50edd48c3ff6df61ce797288ebf883f9b23e9c47",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "d1fddd7e_1e2774bd",
+        "filename": "apps/common-includes/hicn/apps/utils/logger.h",
+        "patchSetId": 6
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-09-21T07:33:11Z",
+      "side": 1,
+      "message": "Add the license/copyright at beginning.",
+      "revId": "50edd48c3ff6df61ce797288ebf883f9b23e9c47",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    }
+  ]
+}
