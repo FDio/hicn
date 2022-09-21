@@ -57,11 +57,11 @@ Face &Face::operator=(Face &&other) {
 void Face::onPacket(const Packet &packet) {
   DLOG_IF(INFO, VLOG_IS_ON(3)) << "Sending content to local socket.";
 
-  switch (packet->getFormat()) {
-    case HICN_PACKET_FORMAT_INTEREST:
+  switch (packet->getType()) {
+    case HICN_PACKET_TYPE_INTEREST:
       rescheduleOnIoService<Interest>(packet);
       break;
-    case HICN_PACKET_FORMAT_DATA:
+    case HICN_PACKET_TYPE_DATA:
       rescheduleOnIoService<ContentObject>(packet);
       break;
     default:
