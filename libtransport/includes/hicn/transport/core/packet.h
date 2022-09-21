@@ -100,6 +100,7 @@ class Packet : public utils::MemBuf,
   void initialize(std::size_t additional_header_size = 0);
   void analyze();
 
+  void initializeType(Packet::Type type);
   hicn_packet_type_t getType() const;
   void setType(Packet::Type type);
 
@@ -146,12 +147,6 @@ class Packet : public utils::MemBuf,
   // TCP methods
   void setChecksum();
   bool checkIntegrity() const;
-  Packet &setSrcPort(uint16_t srcPort);
-  Packet &setDstPort(uint16_t dstPort);
-  uint16_t getSrcPort() const;
-  uint16_t getDstPort() const;
-  Packet &setTTL(uint8_t hops);
-  uint8_t getTTL() const;
 
   // Authentication Header methods
   bool hasAH() const;

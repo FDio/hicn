@@ -395,4 +395,7 @@ TEST_F (PrefixTest, PrefixLPM)
   HICN_PREFIX (b009, "b009::/64");
 
   EXPECT_EQ (hicn_prefix_lpm (&b007, &b009), (uint32_t) 12);
+
+  HICN_PREFIX(pfx, "1122:3344:5566:7788:9900:aabb:ccdd:eeff/128");
+  EXPECT_EQ (hicn_prefix_lpm (&pfx, &pfx), (uint32_t) 128);
 }

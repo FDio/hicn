@@ -50,12 +50,6 @@ DECLARE_get_payload_type (ah, UNEXPECTED);
 DECLARE_set_payload_type (ah, UNEXPECTED);
 DECLARE_is_last_data (ah, UNEXPECTED);
 DECLARE_set_last_data (ah, UNEXPECTED);
-DECLARE_get_ttl (ah, UNEXPECTED);
-DECLARE_set_ttl (ah, UNEXPECTED);
-DECLARE_get_src_port (ah, UNEXPECTED);
-DECLARE_set_src_port (ah, UNEXPECTED);
-DECLARE_get_dst_port (ah, UNEXPECTED);
-DECLARE_set_dst_port (ah, UNEXPECTED);
 
 int
 ah_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)

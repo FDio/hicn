@@ -55,20 +55,31 @@ void _fib_add_prefix(fib_t *fib, const hicn_prefix_t *prefix) {
   fib_add(fib, entry);
 }
 
+#if 0
 static const hicn_prefix_t p0010 = (hicn_prefix_t){
     .name = {.v6 = {.as_u64 = {0x1122334455667788, 0x9900aabbccddeeff}}},
     .len = 4};
+#endif
+
+#define HICN_PREFIX(P, STR)                                                   \
+  hicn_prefix_t P;                                                            \
+  hicn_ip_prefix_t _##P;                                                      \
+  EXPECT_EQ (hicn_ip_prefix_pton (STR, &_##P), 0);                            \
+  EXPECT_EQ (hicn_prefix_create_from_ip_prefix (&_##P, &P), 0);
+
 
 /* TEST: Fib allocation and initialization */
 TEST_F(FibTest, FibAddOne) {
   /* Empty fib should be valid */
+
+  HICN_PREFIX(pfx, "1122:3344:5566:7788:9900:aabb:ccdd:eeff/4");
 
   const hicn_prefix_t *empty_prefix_array[] = {};
   bool empty_used_array[] = {};
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, empty_prefix_array, empty_used_array));
 
-  const hicn_prefix_t *prefix_array[] = {&p0010};
+  const hicn_prefix_t *prefix_array[] = {&pfx};
   bool used_array[] = {true};
 
   for (unsigned i = 0; i < ARRAY_SIZE(prefix_array); i++) {
@@ -84,10 +95,42 @@ TEST_F(FibTest, FibAddOne) {
   /* Check that free indices and bitmaps are correctly updated */
 }
 
-#if 0
-22-09-2022 13:07:57 fib_entry_on_event: b002::/64
-22-09-2022 13:08:01 fib_entry_on_event: b002::abcd:0:0:0/128
-22-09-2022 13:08:01 fib_entry_on_event: b002::2/128
-22-09-2022 13:08:01 fib_entry_on_event: b002::abcd:0:0:1/128
-22-09-2022 13:08:01 fib_entry_on_event: b002::3/128
-#endif
+TEST_F(FibTest, FibAddTwo) {
+  HICN_PREFIX(b001, "b001::/64");
+  HICN_PREFIX(c001, "c001::/64");
+  HICN_PREFIX(inner_8000_1, "8000::/1");
+
+  const hicn_prefix_t *prefix_array[] = {&b001, &inner_8000_1, &c001};
+  bool used_array[] = {true, false, true};
+
+  _fib_add_prefix(fib, &b001);
+  _fib_add_prefix(fib, &c001);
+
+  fib_dump(fib);
+
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array, used_array));
+}
+
+TEST_F(FibTest, FibAddFive) {
+  HICN_PREFIX(b002, "b002::/64");
+  HICN_PREFIX(b002_abcd_0, "b002::abcd:0:0:0/128");
+  HICN_PREFIX(b002_2, "b002::2/128");
+  HICN_PREFIX(b002_abcd_1, "b002::abcd:0:0:1/128");
+  HICN_PREFIX(b002_3, "b002::3/128");
+  HICN_PREFIX(inner_b002_2, "b002::2/127"); 
+  HICN_PREFIX(inner_b002_abcd_0, "b002::abcd:0:0:0/127");
+  const hicn_prefix_t *prefix_array[] = {&b002_2, &inner_b002_2, &b002_3, &b002, &b002_abcd_0, &inner_b002_abcd_0, &b002_abcd_1};
+  bool used_array[] = {true, false, true, true, true, false, true};
+
+  _fib_add_prefix(fib, &b002);
+  _fib_add_prefix(fib, &b002_abcd_0);
+  _fib_add_prefix(fib, &b002_2);
+  _fib_add_prefix(fib, &b002_abcd_1);
+  _fib_add_prefix(fib, &b002_3);
+
+  fib_dump(fib);
+
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array, used_array));
+}
