@@ -15,10 +15,8 @@
 
 /**
  * @file udp.c
- * #brief Implementation of the UDP face
- *
- * Old comment:
- * - The Send() function may overflow the output buffer
+ * #brief Implementation of the native UDP face leveraging the new packet format
+ * to avoid encapsulation.
  *
  */
 
@@ -59,14 +57,6 @@
 #include "../core/listener.h"
 #include "../core/listener_vft.h"
 #include "../core/msgbuf.h"
-//#include "../hicn-light/config.h"
-
-// Batching based on recvmmsg is also generic
-// the difference is the handling of packet as in tcp we need to go through the
-// ring buffer first to do the framing, while in UDP this is already done
-//
-// each module should have a function to process a packet, then call a callback
-// in the forwarder again
 
 #define BATCH_SOCKET_BUFFER 512 * 1024 /* 256k */
 

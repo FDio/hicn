@@ -1,1 +1,33 @@
-Dockerfile.dev
+FROM ubuntu:focal
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /hicn-build
+
+ARG USERNAME=ubuntu
+ARG USER_UID=1000
+ARG USER_GID=${USER_UID}
+
+COPY Makefile versions.cmake ./
+COPY scripts scripts/
+
+USER root
+
+RUN apt update && apt-get install -y \
+  make \
+  sudo \
+  curl \
+  valgrind \
+  git \
+  zsh
+
+RUN make deps debug-tools
+
+# Add non-root user
+RUN groupadd --gid ${USER_GID} ${USERNAME} && \
+  useradd -s /bin/bash --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} && \
+  echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL >/etc/sudoers.d/${USERNAME} && \
+  chmod 0440 /etc/sudoers.d/${USERNAME}
+
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+ENV DEBIAN_FRONTEND=

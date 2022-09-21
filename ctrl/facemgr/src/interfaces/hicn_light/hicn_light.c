@@ -218,7 +218,6 @@ int hl_connect_timeout(interface_t *interface, int fd, void *unused) {
  * connected to succeed.
  */
 int _hl_connect(interface_t *interface) {
-  ERROR("[MACCHA] CONNECT");
   hl_data_t *data = interface->data;
   assert(!data->s);
   assert(!data->sp);

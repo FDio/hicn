@@ -229,10 +229,13 @@ pkbuf_set_header (hicn_packet_buffer_t *pkbuf, uint8_t *header)
 hicn_packet_format_t
 hicn_packet_get_format (const hicn_packet_buffer_t *pkbuf);
 
-void hicn_packet_set_format (hicn_packet_buffer_t *pkbuf,
-			     hicn_packet_format_t format);
+void hicn_packet_set_format (hicn_packet_buffer_t *pkbuf, hicn_packet_format_t format);
 
 hicn_packet_type_t hicn_packet_get_type (const hicn_packet_buffer_t *pkbuf);
+
+void hicn_packet_initialize_type (hicn_packet_buffer_t *pkbuf,
+				  hicn_packet_type_t type);
+
 void hicn_packet_set_type (hicn_packet_buffer_t *pkbuf,
 			   hicn_packet_type_t type);
 

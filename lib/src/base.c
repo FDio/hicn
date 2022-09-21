@@ -32,21 +32,20 @@ hicn_packet_format_snprintf (char *s, size_t size, hicn_packet_format_t format)
 {
   char *cur = s;
   int rc;
-  for (unsigned i = 0; i < 4; i++)
-    {
-      if (i > 0)
-	{
-	  rc = snprintf (cur, size - (cur - s), " %s ", "/");
-	  if (rc < 0 || rc >= size - (cur - s))
-	    return rc;
-	  cur += rc;
-	}
 
-      rc = snprintf (cur, size - (cur - s), "%s",
-		     hicn_ops_vft[format.as_u8[i]]->name);
-      if (rc < 0 || rc >= size - (cur - s))
-	return rc;
-      cur += rc;
-    }
+  HICN_PACKET_FORMAT_ENUMERATE (format, i, protocol, {
+    if (i > 1)
+      {
+	rc = snprintf (cur, size - (cur - s), " %s ", "/");
+	if (rc < 0 || rc >= size - (cur - s))
+	  return rc;
+	cur += rc;
+      }
+
+    rc = snprintf (cur, size - (cur - s), "%s", hicn_ops_vft[protocol]->name);
+    if (rc < 0 || rc >= size - (cur - s))
+      return rc;
+    cur += rc;
+  });
   return (int) (cur - s);
 }

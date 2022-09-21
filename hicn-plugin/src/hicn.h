@@ -126,7 +126,7 @@ hicn_buffer_is_v6 (vlib_buffer_t *b0)
 {
   hicn_packet_format_t format =
     hicn_packet_get_format (&hicn_get_buffer (b0)->pkbuf);
-  return format.l1 == IPPROTO_IPV6;
+  return HICN_PACKET_FORMAT_IS_IPV6(format);
 }
 
 always_inline void

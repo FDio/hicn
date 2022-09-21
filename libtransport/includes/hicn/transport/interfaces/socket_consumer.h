@@ -266,9 +266,6 @@ class ConsumerSocket : private utils::NonCopyable {
   int setSocketOption(int socket_option_key,
                       StrategyCallback socket_option_value);
 
-  int setSocketOption(int socket_option_key,
-                      Packet::Format socket_option_value);
-
   int getSocketOption(int socket_option_key, double &socket_option_value);
 
   int getSocketOption(int socket_option_key, uint32_t &socket_option_value);
@@ -301,9 +298,6 @@ class ConsumerSocket : private utils::NonCopyable {
 
   int getSocketOption(int socket_option_key,
                       interface::TransportStatistics **socket_option_value);
-
-  int getSocketOption(int socket_option_key,
-                      Packet::Format &socket_option_value);
 
  protected:
   ConsumerSocket();

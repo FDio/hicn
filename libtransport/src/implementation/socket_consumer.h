@@ -39,6 +39,7 @@ class ConsumerSocket : public Socket {
                  std::shared_ptr<core::Portal> &&portal)
       : Socket(std::move(portal)),
         consumer_interface_(consumer),
+        packet_format_(default_values::packet_format),
         interest_lifetime_(default_values::interest_lifetime),
         min_window_size_(default_values::min_window_size),
         max_window_size_(default_values::max_window_size),
@@ -273,6 +274,11 @@ class ConsumerSocket : public Socket {
         manifest_factor_alert_ = socket_option_value;
         break;
 
+      case GeneralTransportOptions::PACKET_FORMAT:
+        packet_format_ = socket_option_value;
+        break;
+
+
       default:
         return SOCKET_OPTION_NOT_SET;
     }
@@ -318,7 +324,6 @@ class ConsumerSocket : public Socket {
                 on_content_object_input_ = VOID_HANDLER;
                 break;
               }
-
             default:
               return SOCKET_OPTION_NOT_SET;
           }
@@ -602,6 +607,10 @@ class ConsumerSocket : public Socket {
         socket_option_value = manifest_factor_alert_;
         break;
 
+      case GeneralTransportOptions::PACKET_FORMAT:
+        socket_option_value = packet_format_;
+        break;
+
       default:
         return SOCKET_OPTION_NOT_GET;
     }
@@ -854,6 +863,7 @@ class ConsumerSocket : public Socket {
   // set from the consume
   Name network_name_;
 
+  hicn_packet_format_t packet_format_;
   int interest_lifetime_;
 
   double min_window_size_;
