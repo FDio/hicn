@@ -55,6 +55,15 @@ hicn_packet_get_type (const hicn_packet_buffer_t *pkbuf)
 }
 
 void
+hicn_packet_initialize_type (hicn_packet_buffer_t *pkbuf,
+			     hicn_packet_type_t type)
+{
+  assert (pkbuf->format != HICN_PACKET_FORMAT_NONE);
+  pkbuf->type = type;
+  CALL (set_type, pkbuf, type);
+}
+
+void
 hicn_packet_set_type (hicn_packet_buffer_t *pkbuf, hicn_packet_type_t type)
 {
   pkbuf->type = type;
@@ -84,7 +93,7 @@ hicn_packet_init_header (hicn_packet_buffer_t *pkbuf,
 {
   if (hicn_packet_is_undefined (pkbuf))
     return HICN_LIB_ERROR_UNEXPECTED;
-  if (hicn_packet_get_format (pkbuf).as_u32 == HICN_PACKET_FORMAT_NONE.as_u32)
+  if (hicn_packet_get_format (pkbuf) == HICN_PACKET_FORMAT_NONE)
     return HICN_LIB_ERROR_UNEXPECTED;
   if (!pkbuf_get_header (pkbuf))
     return HICN_LIB_ERROR_UNEXPECTED;
@@ -124,8 +133,6 @@ hicn_packet_analyze (hicn_packet_buffer_t *pkbuf)
   size_t signature_size;
   int rc;
 
-  hicn_packet_format_t *format = &pkbuf->format;
-
   /* Bootstrap: assume IP packet, and get version from header */
   switch (HICN_IP_VERSION (pkbuf_get_header (pkbuf)))
     {
@@ -135,14 +142,17 @@ hicn_packet_analyze (hicn_packet_buffer_t *pkbuf)
     case 6:
       protocol = IPPROTO_IPV6;
       break;
+    case 9:
+      protocol = IPPROTO_ENCAP; // new
+      break;
     default:
       goto ERR;
     }
 
-  format->as_u32 = 0;
-  for (unsigned i = 0; i < HICN_FORMAT_LEN; i++)
+  hicn_packet_format_t *format = &pkbuf->format;
+  for (unsigned i = 0; i < HICN_PACKET_FORMAT_SIZE; i++)
     {
-      format->as_u8[i] = protocol;
+      HICN_PACKET_FORMAT_SET (*format, i, protocol);
 
       /* Next protocol + increment offset */
       switch (protocol)
@@ -257,7 +267,7 @@ hicn_packet_analyze (hicn_packet_buffer_t *pkbuf)
   return HICN_LIB_ERROR_NONE;
 
 ERR:
-  *format = HICN_PACKET_FORMAT_NONE;
+  pkbuf->format = HICN_PACKET_FORMAT_NONE;
   pkbuf->type = HICN_PACKET_TYPE_UNDEFINED;
   return HICN_LIB_ERROR_UNEXPECTED;
 }
@@ -346,10 +356,9 @@ hicn_packet_get_header_length_from_format (hicn_packet_format_t format,
 					   size_t *header_length)
 {
   *header_length = 0;
-  for (unsigned i = 0; i < HICN_FORMAT_LEN; i++)
-    {
-      *header_length += hicn_ops_vft[format.as_u8[i]]->header_len;
-    }
+  HICN_PACKET_FORMAT_ENUMERATE (format, i, protocol, {
+    *header_length += hicn_ops_vft[protocol]->header_len;
+  });
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -385,11 +394,10 @@ int
 hicn_packet_compare (const hicn_packet_buffer_t *pkbuf1,
 		     const hicn_packet_buffer_t *pkbuf2)
 {
-
   hicn_packet_format_t format1 = hicn_packet_get_format (pkbuf1);
   hicn_packet_format_t format2 = hicn_packet_get_format (pkbuf2);
 
-  if (format1.as_u32 != format2.as_u32)
+  if (format1 != format2)
     return HICN_LIB_ERROR_UNEXPECTED;
 
   size_t len1 = hicn_packet_get_len (pkbuf1);
@@ -563,7 +571,7 @@ hicn_packet_save_header (const hicn_packet_buffer_t *pkbuf, u8 *header,
 			 size_t *header_len, bool copy_ah)
 {
   hicn_packet_format_t format = hicn_packet_get_format (pkbuf);
-  if (copy_ah || !_is_ah (format))
+  if (copy_ah || !HICN_PACKET_FORMAT_IS_AH (format))
     {
       int rc = hicn_packet_get_header_len (pkbuf, header_len);
       if (HICN_LIB_IS_ERROR (rc))

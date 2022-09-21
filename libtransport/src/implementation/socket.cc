@@ -23,34 +23,17 @@ namespace implementation {
 Socket::Socket(std::shared_ptr<core::Portal> &&portal)
     : portal_(std::move(portal)),
       is_async_(false),
-      packet_format_(interface::default_values::packet_format),
       signer_(std::make_shared<auth::VoidSigner>()),
       verifier_(std::make_shared<auth::VoidVerifier>()) {}
 
 int Socket::setSocketOption(int socket_option_key,
                             hicn_packet_format_t packet_format) {
-  switch (socket_option_key) {
-    case interface::GeneralTransportOptions::PACKET_FORMAT:
-      packet_format_ = packet_format;
-      break;
-    default:
-      return SOCKET_OPTION_NOT_SET;
-  }
-
-  return SOCKET_OPTION_SET;
+  return SOCKET_OPTION_NOT_SET;
 }
 
 int Socket::getSocketOption(int socket_option_key,
                             hicn_packet_format_t &packet_format) {
-  switch (socket_option_key) {
-    case interface::GeneralTransportOptions::PACKET_FORMAT:
-      packet_format = packet_format_;
-      break;
-    default:
-      return SOCKET_OPTION_NOT_GET;
-  }
-
-  return SOCKET_OPTION_GET;
+  return SOCKET_OPTION_NOT_GET;
 }
 
 }  // namespace implementation

@@ -30,8 +30,6 @@ DECLARE_set_data_locator (udp, UNEXPECTED);
 DECLARE_get_data_name (udp, UNEXPECTED);
 DECLARE_set_data_name (udp, UNEXPECTED);
 DECLARE_set_payload_len (udp, UNEXPECTED);
-DECLARE_get_ttl (udp, UNEXPECTED);
-DECLARE_set_ttl (udp, UNEXPECTED);
 
 int
 udp_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
@@ -297,42 +295,6 @@ int
 udp_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
   return CALL_CHILD (set_last_data, pkbuf, pos);
-}
-
-int
-udp_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
-
-  *port = udp->src_port;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
-
-  udp->src_port = port;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
-{
-  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
-
-  *port = udp->dst_port;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
-{
-  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
-
-  udp->dst_port = port;
-  return HICN_LIB_ERROR_NONE;
 }
 
 DECLARE_HICN_OPS (udp, UDP_HDRLEN);

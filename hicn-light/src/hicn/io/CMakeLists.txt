@@ -21,13 +21,5 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/udp.c
 )
 
-#if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-#  list(APPEND SOURCE_FILES
-#    io/hicnTunnel.c
-#    io/hicnConnection.c
-#    io/hicnListener.c
-#  )
-#endif()
-
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)

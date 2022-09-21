@@ -71,7 +71,6 @@ class Socket {
  protected:
   std::shared_ptr<core::Portal> portal_;
   bool is_async_;
-  hicn_packet_format_t packet_format_;
   std::shared_ptr<auth::Signer> signer_;
   std::shared_ptr<auth::Verifier> verifier_;
 };
