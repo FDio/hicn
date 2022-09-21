@@ -43,7 +43,11 @@ typedef int (*HC_PARSE)(const uint8_t *, uint8_t *);
   _(CONNECTION_CREATE_LISTENER_CHECK)   \
   _(CONNECTION_CREATE)                  \
   _(CONNECTION_CREATE_N)                \
+  _(CONNECTION_GET)                     \
+  _(CONNECTION_DELETE_WITH_ID)          \
+  _(CONNECTION_DELETE_AFTER_GET)        \
   _(FACE_CREATE_CONNECTION_CREATE)      \
+  _(FACE_DELETE_CONNECTION_DELETE)      \
   _(FACE_CREATE_CONNECTION_CHECK)       \
   _(FACE_CREATE_CONNECTION_GET)         \
   _(FACE_CREATE_CONNECTION_VERIFY)      \

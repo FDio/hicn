@@ -593,6 +593,66 @@ NEXT:
   return 0;
 }
 
+/*
+ * XXX shall we update the object in the request for faces ? it is not done
+ * for other objects, but for faces it is needed to further add a route !!!
+ */
+static ssize_t hicnlight_prepare_face_delete(hc_sock_t *sock,
+                                             hc_request_t *request,
+                                             uint8_t **buffer) {
+  hc_request_t *current_request = hc_request_get_current(request);
+  hc_object_t *object = hc_request_get_object(current_request);
+  hc_data_t *data = hc_request_get_data(current_request);
+  hc_face_t *face = &object->face;
+
+  // XXX those objects are created on stack and expected to be valid across
+  // several calls. A quick fix is to make them static
+  static hc_object_t connection;
+
+  hc_request_state_t state;
+
+NEXT:
+  state = hc_request_get_state(current_request);
+  DEBUG("hicnlight_prepare_face_delete > %s", hc_request_state_str(state));
+
+  switch (state) {
+    case REQUEST_STATE_INIT:
+      _ASSERT(!data);
+
+      switch (face->type) {
+        case FACE_TYPE_HICN:
+        case FACE_TYPE_TCP:
+        case FACE_TYPE_UDP:
+          hc_request_set_state(current_request,
+                               REQUEST_STATE_FACE_DELETE_CONNECTION_DELETE);
+          goto NEXT;
+        case FACE_TYPE_HICN_LISTENER:
+        case FACE_TYPE_TCP_LISTENER:
+        case FACE_TYPE_UDP_LISTENER:
+        case FACE_TYPE_UNDEFINED:
+        case FACE_TYPE_N:
+          return -99;  // Not implemented
+      }
+
+    case REQUEST_STATE_FACE_DELETE_CONNECTION_DELETE:
+      if (hc_face_to_connection(face, &connection.connection, true) < 0) {
+        ERROR("[hc_face_create] Could not convert face to connection.");
+        return -1;
+      }
+      hc_request_set_state(current_request, REQUEST_STATE_COMPLETE);
+
+      return hicnlight_prepare_subrequest(sock, request, ACTION_DELETE,
+                                          OBJECT_TYPE_CONNECTION, &connection,
+                                          buffer);
+    case REQUEST_STATE_COMPLETE:
+      break;
+    default:
+      return -1;
+  }
+
+  return 0;
+}
+
 static ssize_t hicnlight_prepare_face_list(hc_sock_t *sock,
                                            hc_request_t *request,
                                            uint8_t **buffer) {
@@ -698,6 +758,8 @@ static ssize_t hicnlight_prepare_face(hc_sock_t *sock, hc_request_t *request,
   switch (action) {
     case ACTION_CREATE:
       return hicnlight_prepare_face_create(sock, request, buffer);
+    case ACTION_DELETE:
+      return hicnlight_prepare_face_delete(sock, request, buffer);
     case ACTION_LIST:
       return hicnlight_prepare_face_list(sock, request, buffer);
     default:
@@ -1006,6 +1068,91 @@ NEXT:
   return 0;
 }
 
+static ssize_t hicnlight_prepare_connection_delete(hc_sock_t *sock,
+                                                   hc_request_t *request,
+                                                   uint8_t **buffer) {
+  hc_request_t *current_request = hc_request_get_current(request);
+
+  hc_action_t action = hc_request_get_action(current_request);
+  hc_object_type_t object_type = hc_request_get_object_type(current_request);
+  hc_object_t *object = hc_request_get_object(current_request);
+
+  _ASSERT(action == ACTION_DELETE);
+  _ASSERT(object_type == OBJECT_TYPE_CONNECTION);
+
+  hc_data_t *data = hc_request_get_data(current_request);
+  hc_request_state_t state;
+
+NEXT:
+  state = hc_request_get_state(current_request);
+  DEBUG("hicnlight_prepare_connection_delete > %s",
+        hc_request_state_str(state));
+
+  switch (state) {
+    case REQUEST_STATE_INIT:
+      /* Two behaviours depending on the content of the connection id:
+       * - Valid Id :   delete connection with provided ID
+       * - Invalid Id:  Retrieve ID and then delete connection
+       *
+       * We assume connection has been already validated.
+       */
+      if (hc_connection_has_valid_id(&object->connection)) {
+        // Id is valid. Proceed with deleting the connection.
+        hc_request_set_state(current_request,
+                             REQUEST_STATE_CONNECTION_DELETE_WITH_ID);
+      } else {
+        // Id is not valid. Try to retrieve it using the info in the connection.
+        hc_request_set_state(current_request, REQUEST_STATE_CONNECTION_GET);
+      }
+      goto NEXT;
+
+    case REQUEST_STATE_CONNECTION_DELETE_WITH_ID:
+      // We have a valid id. Let's delete the connection.
+      hc_request_reset_data(current_request);
+      hc_request_set_state(current_request, REQUEST_STATE_COMPLETE);
+      return hicnlight_prepare_generic(sock, request, buffer);
+
+    case REQUEST_STATE_CONNECTION_GET:
+      // Get the connection info from the forwarder.
+      hc_request_set_state(current_request,
+                           REQUEST_STATE_CONNECTION_DELETE_AFTER_GET);
+      return hicnlight_prepare_subrequest(
+          sock, request, ACTION_GET, OBJECT_TYPE_CONNECTION, object, buffer);
+
+    case REQUEST_STATE_CONNECTION_DELETE_AFTER_GET:
+      // We got the response from the forwarder. If valid, let's take the ID and
+      // delete the connection by ID.
+      if (!data) return -1;
+
+      int rc = hc_data_get_result(data);
+      if (rc < 0) {
+        return -1;
+      }
+
+      if (hc_data_get_size(data) != 1) {
+        return -1;
+      }
+
+      _ASSERT(hc_data_get_object_type(data) == OBJECT_TYPE_CONNECTION);
+
+      object->connection.id = hc_data_get_object(data, 0)->connection.id;
+
+      hc_request_set_state(current_request,
+                           REQUEST_STATE_CONNECTION_DELETE_WITH_ID);
+      goto NEXT;
+
+    case REQUEST_STATE_COMPLETE:
+      // Connection delete complete.
+      hc_data_set_complete(data);
+      break;
+
+    default:
+      return -1;
+  }
+
+  return 0;
+}
+
 static int hicnlight_recv(hc_sock_t *sock) {
   hc_sock_light_data_t *s = (hc_sock_light_data_t *)sock->data;
   int rc;
@@ -1119,6 +1266,16 @@ static ssize_t hicnlight_prepare(hc_sock_t *sock, hc_request_t *request,
 
       hc_request_set(request, ACTION_CREATE, OBJECT_TYPE_SUBSCRIPTION, object);
       break;
+
+    case ACTION_DELETE:
+      switch (object_type) {
+        case OBJECT_TYPE_CONNECTION:
+          return hicnlight_prepare_connection_delete(sock, request, buffer);
+          break;
+
+        default:
+          break;
+      }
 
     default:
       break;
