@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
+#include <hicn/apps/utils/logger.h>
 #include <hicn/http-proxy/http_proxy.h>
 #include <hicn/transport/utils/branch_prediction.h>
-#include <hicn/transport/utils/log.h>
 
 #include <iostream>
 
@@ -269,7 +269,7 @@ void HTTPSession::doReadHeader() {
 void HTTPSession::tryReconnection() {
   if (on_connection_closed_callback_(socket_)) {
     if (state_ == ConnectorState::CONNECTED) {
-      TRANSPORT_LOG_ERROR << "Connection lost. Trying to reconnect...";
+      LoggerErr() << "Connection lost. Trying to reconnect...";
       state_ = ConnectorState::CONNECTING;
       is_reconnection_ = true;
       io_service_.post([this]() {
@@ -306,11 +306,11 @@ void HTTPSession::doConnect() {
 
           if (is_reconnection_) {
             is_reconnection_ = false;
-            TRANSPORT_LOG_INFO << "Connection recovered!";
+            LoggerInfo() << "Connection recovered!";
           }
 
         } else {
-          TRANSPORT_LOG_ERROR << "Impossible to reconnect: " << ec.message();
+          LoggerErr() << "Impossible to reconnect: " << ec.message();
           close();
         }
       });
@@ -330,7 +330,7 @@ void HTTPSession::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();
-      TRANSPORT_LOG_ERROR << "Error connecting. Is the server running?";
+      LoggerErr() << "Error connecting. Is the server running?";
       io_service_.stop();
     });
   }

@@ -50,7 +50,6 @@ set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
 find_package(Threads REQUIRED)
 find_package(Libconfig++ ${LIBCONFIG_DEFAULT_VERSION} REQUIRED)
 
-
 ##############################################################
 # Check if building as subproject or as root project
 ##############################################################
@@ -84,6 +83,19 @@ else()
 
   list(APPEND DEPENDENCIES
     ${LIBTRANSPORT_LIBRARIES}
+  )
+
+  # glog
+  list(APPEND THIRD_PARTY_INCLUDE_DIRS
+    ${glog_BINARY_DIR}
+    ${glog_SOURCE_DIR}/src
+  )
+  list(APPEND THIRD_PARTY_DEPENDENCIES
+    glog
+  )
+
+  set(COMMON_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/common-includes
   )
 endif()
 

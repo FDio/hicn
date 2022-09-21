@@ -200,8 +200,7 @@ CryptoHashType Signer::getHashType() const {
 }
 
 void Signer::display() {
-  std::cout << getStringSuite(suite_) << ": " << getStringSignature()
-            << std::endl;
+  LOG(INFO) << getStringSuite(suite_) << ": " << getStringSignature();
 }
 
 // ---------------------------------------------------------
