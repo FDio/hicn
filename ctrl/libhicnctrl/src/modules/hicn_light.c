@@ -956,7 +956,7 @@ NEXT:
 
     /* Check whether listener creation succeeded */
     case REQUEST_STATE_CONNECTION_CREATE_LISTENER_CHECK:
-      if (!data || hc_data_get_result(data)) return -1;
+      if (!data || !hc_data_get_result(data)) return -1;
       hc_request_set_state(current_request, REQUEST_STATE_CONNECTION_CREATE);
       goto NEXT;
 
@@ -1212,8 +1212,13 @@ static ssize_t hicnlight_prepare(hc_sock_t *sock, hc_request_t *request,
 
   static hc_object_t object_subscribe;
 
-  DEBUG("[hicnlight_prepare] %s %s", action_str(action),
-        object_type_str(object_type));
+  WITH_DEBUG({
+    char buf[MAXSZ_HC_OBJECT];
+    hc_request_state_t state = hc_request_get_state(current_request);
+    hc_object_snprintf(buf, sizeof(buf), object_type, object);
+    DEBUG("[hicnlight_prepare] %s %s [%s] %s", action_str(action),
+          object_type_str(object_type), hc_request_state_str(state), buf);
+  });
 
   /*
    * Here the request is in progress and we just need to iterate through the

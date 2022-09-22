@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
   unsigned priority = atoi(argv[2]);
   char face_id_s[SYMBOLIC_NAME_LEN];
 
-  hc_sock_t *socket = hc_sock_create();
+  hc_sock_t *socket = hc_sock_create_forwarder(FORWARDER_TYPE_HICNLIGHT);
   if (!socket) {
     DEBUG("Error creating libhicnctrl socket");
     goto ERR_SOCK;

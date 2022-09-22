@@ -89,8 +89,8 @@ static const command_parser_t command_face_create5 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_FACE,
     .nparams = 5,
-    .parameters = {type_tcp_udp, remote_address, remote_port, local_address,
-                   local_port},
+    .parameters = {type_tcp_udp, local_address, local_port, remote_address,
+                   remote_port},
     .post_hook = (parser_hook_t)on_face_create,
 };
 COMMAND_REGISTER(command_face_create5);
@@ -99,8 +99,8 @@ static const command_parser_t command_face_create6 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_FACE,
     .nparams = 6,
-    .parameters = {type_tcp_udp, remote_address, remote_port, local_address,
-                   local_port, interface},
+    .parameters = {type_tcp_udp, local_address, local_port, remote_address,
+                   remote_port, interface},
     .post_hook = (parser_hook_t)on_face_create,
 };
 COMMAND_REGISTER(command_face_create6);
