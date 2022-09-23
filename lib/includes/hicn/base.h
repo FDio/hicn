@@ -364,6 +364,7 @@ typedef struct
 
 typedef struct
 {
+  uint32_t conn_id;
   struct
   {
     uint32_t rx_pkts;

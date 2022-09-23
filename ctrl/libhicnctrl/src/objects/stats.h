@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,15 +14,16 @@
  */
 
 /**
- * \file modules/hicn_light/route.h
- * \brief route object VFT for hicn_light.
+ * \file stats.h
+ * \brief Stats.
  */
 
-#ifndef HICNCTRL_MODULE_HICNLIGHT_ROUTE_H
-#define HICNCTRL_MODULE_HICNLIGHT_ROUTE_H
+#ifndef HICNCTRL_IMPL_OBJECTS_STATS_H
+#define HICNCTRL_IMPL_OBJECTS_STATS_H
 
-#include "../../module.h"
+#include "../object_vft.h"
 
-DECLARE_MODULE_OBJECT_OPS_H(hicnlight, route);
+DECLARE_OBJECT_OPS_H(OBJECT_TYPE_STATS, stats);
+DECLARE_OBJECT_OPS_H(OBJECT_TYPE_FACE_STATS, face_stats);
 
-#endif /* HICNCTRL_MODULE_HICNLIGHT_ROUTE_H */
+#endif /* HICNCTRL_IMPL_OBJECTS_STATS_H */

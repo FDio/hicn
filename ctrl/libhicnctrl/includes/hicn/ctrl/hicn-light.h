@@ -91,8 +91,8 @@ typedef enum {
   _(active_interface_update, ACTIVE_INTERFACE_UPDATE)     \
   _(subscription_add, SUBSCRIPTION_ADD)                   \
   _(subscription_remove, SUBSCRIPTION_REMOVE)             \
-  _(stats_get, STATS_GET)                                 \
-  _(stats_list, STATS_LIST)
+  _(stats_list, STATS_LIST)                               \
+  _(face_stats_list, FACE_STATS_LIST)
 
 typedef enum {
   COMMAND_TYPE_UNDEFINED,
@@ -339,12 +339,12 @@ typedef struct {
 // General stats
 typedef struct {
   void *_;
-} cmd_stats_get_t;
+} cmd_stats_list_t;
 
 // Per-face stats
 typedef struct {
   void *_;
-} cmd_stats_list_t;
+} cmd_face_stats_list_t;
 
 typedef void *cmd_active_interface_update_t;
 
@@ -498,20 +498,25 @@ typedef struct {
 
 /* Statistics */
 
+// General stats
 typedef struct {
-  cmd_header_t header;
-  hicn_light_stats_t payload;
-} msg_stats_get_reply_t;
-
-typedef struct {
-  uint32_t id;
-  connection_stats_t stats;
+  hc_stats_t stats;
 } cmd_stats_list_item_t;
 
 typedef struct {
   cmd_header_t header;
   cmd_stats_list_item_t payload;
 } msg_stats_list_reply_t;
+
+// Per-face stats
+typedef struct {
+  hc_face_stats_t stats;
+} cmd_face_stats_list_item_t;
+
+typedef struct {
+  cmd_header_t header;
+  cmd_face_stats_list_item_t payload;
+} msg_face_stats_list_reply_t;
 
 //===== size of commands ======
 // REMINDER: when a new_command is added, the following switch has to be
