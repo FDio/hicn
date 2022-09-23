@@ -1486,6 +1486,8 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
   forwarder->stats.countReceived++;
   msgbuf->type = type;
 #endif
+  forwarder->stats.countReceived++;
+
   /* Initialize packet buffer stored in msgbuf through libhicn */
   msgbuf_initialize_from_packet(msgbuf);
   hicn_packet_analyze(msgbuf_get_pkbuf(msgbuf));

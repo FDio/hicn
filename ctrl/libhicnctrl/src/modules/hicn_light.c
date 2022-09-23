@@ -41,6 +41,7 @@
 #include "../objects/connection.h"  // hc_connection_has_local
 #include "../objects/listener.h"    // hc_listener_is_local
 #include "../objects/route.h"       // hc_route_has_face
+#include "../objects/stats.h"
 #include "../request.h"
 #include "../socket_private.h"
 #include "hicn_light.h"
@@ -50,6 +51,7 @@
 #include "hicn_light/listener.h"
 #include "hicn_light/face.h"
 #include "hicn_light/route.h"
+#include "hicn_light/stats.h"
 #include "hicn_light/strategy.h"
 #include "hicn_light/subscription.h"
 
@@ -1283,20 +1285,18 @@ static ssize_t hicnlight_prepare(hc_sock_t *sock, hc_request_t *request,
       break;
   }
 
-    /*
-     * Generic requests should complete after a single call to hicnlight_send,
-     * with *pdata = NULL. If *pdata is not NULL, that means the request has
-     * completed and we can close it.
-     * It is the responsability of each state machine to complete the request
-     * otherwise.
-     */
-#if 1
+  /*
+   * Generic requests should complete after a single call to hicnlight_send,
+   * with *pdata = NULL. If *pdata is not NULL, that means the request has
+   * completed and we can close it.
+   * It is the responsability of each state machine to complete the request
+   * otherwise.
+   */
   hc_data_t *data = hc_request_get_data(current_request);
   if (data) {
     hc_request_set_complete(current_request);
     return 0;
   }
-#endif
 
   return hicnlight_prepare_generic(sock, request, buffer);
 }
@@ -1391,7 +1391,6 @@ int hc_sock_initialize_module(hc_sock_t *s) {
    * We do this because initialization in the static struct fails with
    * 'initializer element is not constant'
    */
-#if 1
   hc_sock_light.object_vft[OBJECT_TYPE_LISTENER] =
       hicnlight_listener_module_ops;
   hc_sock_light.object_vft[OBJECT_TYPE_CONNECTION] =
@@ -1403,11 +1402,13 @@ int hc_sock_initialize_module(hc_sock_t *s) {
   hc_sock_light.object_vft[OBJECT_TYPE_WLDR] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_POLICY] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_ROUTE] = hicnlight_route_module_ops;
+  hc_sock_light.object_vft[OBJECT_TYPE_STATS] = hicnlight_stats_module_ops;
+  hc_sock_light.object_vft[OBJECT_TYPE_FACE_STATS] =
+      hicnlight_face_stats_module_ops;
   hc_sock_light.object_vft[OBJECT_TYPE_STRATEGY] =
       hicnlight_strategy_module_ops;
   hc_sock_light.object_vft[OBJECT_TYPE_SUBSCRIPTION] =
       hicnlight_subscription_module_ops;
-#endif
 
   if (s) s->ops = hc_sock_light;
   return 0;

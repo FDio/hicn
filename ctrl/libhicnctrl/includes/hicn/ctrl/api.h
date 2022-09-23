@@ -194,47 +194,17 @@ typedef struct hc_result_s hc_result_t;
 #define UNSUPPORTED_CMD_ERROR -3
 
 /*----------------------------------------------------------------------------*
- * Strategy
- *----------------------------------------------------------------------------*/
-
-/*----------------------------------------------------------------------------*
  * WLDR
  *----------------------------------------------------------------------------*/
 
 // per connection
 int hc_wldr_set(hc_sock_t *s /* XXX */);
 
-/*----------------------------------------------------------------------------*
- * MAP-Me
- *----------------------------------------------------------------------------*/
-
-/*----------------------------------------------------------------------------*
- * Policies
- *----------------------------------------------------------------------------*/
-
-/*----------------------------------------------------------------------------*
- * Subscription
- *----------------------------------------------------------------------------*/
-// Topics
-
-#if 0
-/* Result */
-
-hc_msg_t *hc_result_get_msg(hc_sock_t *s, hc_result_t *result);
-int hc_result_get_cmd_id(hc_sock_t *s, hc_result_t *result);
-bool hc_result_get_success(hc_sock_t *s, hc_result_t *result);
-void hc_result_free(hc_result_t *result);
-#endif
-
 /* Object */
-
-// FIXME
-#define MAXSZ_HC_SUBSCRIPTION 1
 
 #define MAXSZ_HC_OBJECT                                                       \
   MAX8(MAXSZ_HC_CONNECTION, MAXSZ_HC_LISTENER, MAXSZ_HC_ROUTE, MAXSZ_HC_FACE, \
-       MAXSZ_HC_PUNTING, MAXSZ_HC_STRATEGY, MAXSZ_HC_POLICY,                  \
-       MAXSZ_HC_SUBSCRIPTION)
+       MAXSZ_HC_PUNTING, MAXSZ_HC_STRATEGY, MAXSZ_HC_POLICY, MAXSZ_HC_STATS)
 
 typedef struct {
   hc_action_t action;
@@ -244,10 +214,6 @@ typedef struct {
 
 // NEW API CALLS
 
-// XXX private ?
-int _hc_execute(hc_sock_t *s, hc_action_t action, hc_object_type_t object_type,
-                hc_object_t *object, hc_result_callback_t callback,
-                void *callback_data, hc_data_t **pdata);
 int hc_execute(hc_sock_t *s, hc_action_t action, hc_object_type_t object_type,
                hc_object_t *object, hc_data_t **pdata);
 int hc_execute_async(hc_sock_t *s, hc_action_t action,
@@ -288,11 +254,6 @@ int hc_connection_set_priority(hc_sock_t *s, const char *conn_id_or_name,
                                uint32_t priority);
 int hc_connection_set_tags(hc_sock_t *s, const char *conn_id_or_name,
                            policy_tags_t tags);
-
-/*
-int hc_connection_remove_by_id(hc_sock_t * s, char * name);
-int hc_connection_remove_by_name(hc_sock_t * s, char * name);
-*/
 
 int hc_connection_set_admin_state(hc_sock_t *s, const char *conn_id_or_name,
                                   face_state_t state);
@@ -357,8 +318,7 @@ int hc_punting_list(hc_sock_t *s, hc_data_t **pdata);
 int hc_subscription_create(hc_sock_t *s, hc_subscription_t *subscription);
 int hc_subscription_delete(hc_sock_t *s, hc_subscription_t *subscription);
 
-int hc_stats_get(hc_sock_t *s, hc_data_t **pdata);   // General stats
-int hc_stats_list(hc_sock_t *s, hc_data_t **pdata);  // Per-face stats
-int hc_stats_snprintf(char *s, size_t size, const hicn_light_stats_t *stats);
+int hc_stats_snprintf(char *s, size_t size, const hc_stats_t *stats);
+int hc_face_stats_snprintf(char *s, size_t size, const hc_face_stats_t *stats);
 
 #endif /* HICNTRL_API */
