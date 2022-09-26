@@ -1,5 +1,5 @@
 diff --git a/extras/libmemif/CMakeLists.txt b/extras/libmemif/CMakeLists.txt
-index b6b658c2d..28bb8c135 100644
+index b6b658c2d..e5f5ffd9d 100644
 --- a/extras/libmemif/CMakeLists.txt
 +++ b/extras/libmemif/CMakeLists.txt
 @@ -24,7 +24,7 @@ if (NOT CMAKE_BUILD_TYPE)
@@ -11,6 +11,15 @@ index b6b658c2d..28bb8c135 100644
  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
  set(CMAKE_INSTALL_MESSAGE NEVER)
+@@ -59,7 +59,7 @@ endforeach()
+   # extract version from git
+ execute_process(
+   COMMAND git describe --long --match v*
+-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
++  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+   OUTPUT_VARIABLE VER
+   OUTPUT_STRIP_TRAILING_WHITESPACE
+ )
 diff --git a/extras/libmemif/src/CMakeLists.txt b/extras/libmemif/src/CMakeLists.txt
 index ddb8a52f8..b52566e5c 100644
 --- a/extras/libmemif/src/CMakeLists.txt
