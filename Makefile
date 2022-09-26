@@ -37,6 +37,11 @@ OS_ID         = $(shell grep '^ID=' /etc/os-release | cut -f2- -d= | sed -e 's/\
 OS_VERSION_ID = $(shell grep '^VERSION_ID=' /etc/os-release | cut -f2- -d= | sed -e 's/\"//g')
 endif
 
+#
+# Git Repo detction
+#
+GIT_INFO = $(shell git -C . rev-parse 2>/dev/null; echo $$?)
+
 ifeq ($(shell uname),Darwin)
 BUILD_HICNPLUGIN := OFF
 PUNTING := OFF
@@ -85,14 +90,16 @@ help:
 
 .PHONY = commit-template
 commit-template:
-	@git config commit.template $(COMMIT_TEMPLATE_FILE)
+ifeq ($(GIT_INFO),0)
+	git config commit.template $(COMMIT_TEMPLATE_FILE)
+endif
 
 .PHONY = vpp-dep
 vpp-dep:
 	VERSION_PATH=$(VERSIONFILE) sudo -E $(SHELL) scripts/install-vpp.sh
 
 .PHONY = dep
-dep: vpp-dep #commit-template
+dep: vpp-dep
 ifeq ($(shell uname),Darwin)
 	brew install $(MACOS_DEPENDS)
 else ifeq ($(filter ubuntu debian,$(OS_ID)),$(OS_ID))
