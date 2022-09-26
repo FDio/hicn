@@ -199,6 +199,11 @@ execute_process(
   COMMAND ${VPP_HOME}/bin/vapi_c_gen.py ${PROJECT_BINARY_DIR}/vapi/hicn.api.json
   COMMAND ${VPP_HOME}/bin/vapi_cpp_gen.py ${PROJECT_BINARY_DIR}/vapi/hicn.api.json
 )
+install(
+  FILES ${PROJECT_BINARY_DIR}/vapi/hicn.api.json
+  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/vpp/api/plugins
+  COMPONENT ${HICN_PLUGIN}
+)
 
 
 ##############################################################
