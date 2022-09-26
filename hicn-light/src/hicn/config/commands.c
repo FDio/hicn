@@ -549,14 +549,6 @@ static inline void fill_connections_command(const connection_t *connection,
   }
 }
 
-static inline void fill_connection_stats_command(connection_t *connection,
-                                                 cmd_stats_list_item_t *cmd) {
-  assert(connection && cmd);
-
-  cmd->id = connection->id;
-  cmd->stats = connection->stats;
-}
-
 uint8_t *configuration_on_connection_list(forwarder_t *forwarder,
                                           uint8_t *packet, unsigned ingress_id,
                                           size_t *reply_size) {
@@ -1065,38 +1057,12 @@ NACK:
 
 /* Statistics */
 
-uint8_t *configuration_on_stats_get(forwarder_t *forwarder, uint8_t *packet,
-                                    unsigned ingress_id, size_t *reply_size) {
-  assert(forwarder && packet);
-  INFO("CMD: stats get (ingress=%d)", ingress_id);
-
-  msg_stats_get_t *msg_received = (msg_stats_get_t *)packet;
-  uint32_t seq_num = msg_received->header.seq_num;
-
-  msg_stats_get_reply_t *msg = malloc(sizeof(*msg));
-  *msg = (msg_stats_get_reply_t){
-      .header = {.message_type = RESPONSE_LIGHT,
-                 .length = 1,
-                 .seq_num = seq_num},
-      .payload = {.forwarder = forwarder_get_stats(forwarder),
-                  .pkt_cache =
-                      pkt_cache_get_stats(forwarder_get_pkt_cache(forwarder))}
-
-  };
-
-  *reply_size = sizeof(*msg);
-  return (uint8_t *)msg;
-}
-
 uint8_t *configuration_on_stats_list(forwarder_t *forwarder, uint8_t *packet,
                                      unsigned ingress_id, size_t *reply_size) {
   assert(forwarder && packet);
   INFO("CMD: stats list (ingress=%d)", ingress_id);
 
-  connection_table_t *table = forwarder_get_connection_table(forwarder);
-  // -1 since current connection (i.e. the one used to send
-  // the command) is not considered
-  size_t n = connection_table_len(table) - 1;
+  size_t n = 1;
   msg_stats_list_t *msg_received = (msg_stats_list_t *)packet;
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
@@ -1106,10 +1072,42 @@ uint8_t *configuration_on_stats_list(forwarder_t *forwarder, uint8_t *packet,
   if (!msg) goto NACK;
 
   cmd_stats_list_item_t *payload = &msg->payload;
+  payload->stats.forwarder = forwarder_get_stats(forwarder);
+  payload->stats.pkt_cache =
+      pkt_cache_get_stats(forwarder_get_pkt_cache(forwarder));
+
+  *reply_size = sizeof(msg->header) + n * sizeof(msg->payload);
+  return (uint8_t *)msg;
+
+NACK:
+  *reply_size = sizeof(msg_header_t);
+  make_nack(msg);
+  return (uint8_t *)msg;
+}
+
+uint8_t *configuration_on_face_stats_list(forwarder_t *forwarder,
+                                          uint8_t *packet, unsigned ingress_id,
+                                          size_t *reply_size) {
+  assert(forwarder && packet);
+  INFO("CMD: face stats list (ingress=%d)", ingress_id);
+
+  connection_table_t *table = forwarder_get_connection_table(forwarder);
+  // -1 since current connection (i.e. the one used to send
+  // the command) is not considered
+  size_t n = connection_table_len(table) - 1;
+  msg_face_stats_list_t *msg_received = (msg_face_stats_list_t *)packet;
+  uint8_t command_id = msg_received->header.command_id;
+  uint32_t seq_num = msg_received->header.seq_num;
+
+  msg_face_stats_list_reply_t *msg = NULL;
+  msg_malloc_list(msg, command_id, n, seq_num);
+  if (!msg) goto NACK;
+
+  cmd_face_stats_list_item_t *payload = &msg->payload;
   connection_t *connection;
   connection_table_foreach(table, connection, {
     if (connection->id == ingress_id) continue;
-    fill_connection_stats_command(connection, payload);
+    payload->stats = connection->stats;
     payload++;
   });
 

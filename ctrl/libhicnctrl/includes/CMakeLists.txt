@@ -46,6 +46,7 @@ set(TO_INSTALL_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/policy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/punting.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/route.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/stats.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/strategy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/objects/subscription.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/parse.h

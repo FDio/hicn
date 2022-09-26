@@ -20,6 +20,7 @@ list(APPEND HICNLIGHT_MODULE_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/face.c
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.c
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/stats.c
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/strategy.c
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/subscription.c
 )
@@ -30,6 +31,7 @@ list(APPEND HICNLIGHT_MODULE_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/face.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/stats.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/strategy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/subscription.h
   )

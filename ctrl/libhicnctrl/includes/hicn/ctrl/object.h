@@ -22,17 +22,7 @@
 #define HICNCTRL_OBJECT_H
 
 #include <hicn/ctrl/object_type.h>
-
-#include <hicn/ctrl/objects/listener.h>
-#include <hicn/ctrl/objects/connection.h>
-#include <hicn/ctrl/objects/route.h>
-#include <hicn/ctrl/objects/punting.h>
-#include <hicn/ctrl/objects/strategy.h>
-#include <hicn/ctrl/objects/policy.h>
-#include <hicn/ctrl/objects/subscription.h>
-#include <hicn/ctrl/objects/cache.h>
-#include <hicn/ctrl/objects/mapme.h>
-#include <hicn/ctrl/objects/active_interface.h>
+#include <hicn/ctrl/objects.h>
 
 typedef union {
   hc_connection_t connection;
@@ -41,6 +31,8 @@ typedef union {
   hc_face_t face;
   // hc_data_t *data;
   hc_punting_t punting;
+  hc_stats_t stats;
+  hc_face_stats_t face_stats;
   hc_strategy_t strategy;
   hc_policy_t policy;
   hc_subscription_t subscription;

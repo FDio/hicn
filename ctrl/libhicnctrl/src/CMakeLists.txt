@@ -41,6 +41,7 @@ set(SOURCE_FILES
   objects/listener.c
   objects/route.c
   objects/strategy.c
+  objects/stats.c
   objects/subscription.c
   parse.c
   request.c
@@ -56,6 +57,7 @@ set(HEADER_FILES
   objects/face.h
   objects/listener.h
   objects/route.h
+  objects/stats.h
   objects/strategy.h
   objects/subscription.h
   request.h
@@ -114,6 +116,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/stats.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/subscription.c
   )
@@ -122,6 +125,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/stats.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/subscription.h
   )

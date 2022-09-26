@@ -38,6 +38,7 @@
   _(SUBSCRIPTION)           \
   _(ACTIVE_INTERFACE)       \
   _(STATS)                  \
+  _(FACE_STATS)             \
   _(N)
 
 typedef enum {

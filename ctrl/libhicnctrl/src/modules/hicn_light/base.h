@@ -3,16 +3,13 @@
 
 #include <hicn/ctrl/hicn-light.h>
 
-#if 1
 #ifdef __APPLE__
 #define RANDBYTE() (u8)(arc4random() & 0xFF)
 #else
 #define RANDBYTE() (u8)(random() & 0xFF)
 #endif
-#else
-#define RANDBYTE() (u8)(rand() & 0xFF)
-#endif
 
+// TODO: is this used?
 #define foreach_hc_command     \
   _(connection_add)            \
   _(connection_remove)         \
@@ -35,14 +32,6 @@
   _(mapme_timing)              \
   _(subscription_add)          \
   _(subscription_remove)
-
-#if 0
-const char *command_type_str[] = {
-#define _(l, u) [COMMAND_TYPE_##u] = STRINGIZE(u),
-    foreach_command_type
-#undef _
-};
-#endif
 
 typedef union {
 #define _(x) cmd_##x##_t x;

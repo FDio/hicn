@@ -154,6 +154,7 @@ int connection_initialize(connection_t *connection, face_type_t type,
       .wldr = NULL,
       .wldr_autostart = true,
   };
+  connection->stats.conn_id = connection_id;
 
   connection->interface_type =
       connection_get_netdevice_type(connection->interface_name);
