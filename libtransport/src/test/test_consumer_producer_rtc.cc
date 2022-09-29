@@ -25,6 +25,17 @@ namespace interface {
 
 namespace {
 
+class IoModuleInit {
+ public:
+  IoModuleInit() {
+    global_config::IoModuleConfiguration config;
+    config.name = "forwarder_module";
+    config.set();
+  }
+};
+
+static IoModuleInit init;
+
 class ConsumerProducerTest : public ::testing::Test,
                              public ConsumerSocket::ReadCallback {
   static const constexpr char prefix[] = "b001::1/128";
@@ -40,16 +51,12 @@ class ConsumerProducerTest : public ::testing::Test,
       : io_service_(),
         rtc_timer_(io_service_),
         stop_timer_(io_service_),
-        consumer_(TransportProtocolAlgorithms::RTC, io_service_),
-        producer_(ProductionProtocolAlgorithms::RTC_PROD, thread_),
+        consumer_(TransportProtocolAlgorithms::RTC),
+        producer_(ProductionProtocolAlgorithms::RTC_PROD),
         producer_prefix_(prefix),
         consumer_name_(name),
         packets_sent_(0),
-        packets_received_(0) {
-    global_config::IoModuleConfiguration config;
-    config.name = "loopback_module";
-    config.set();
-  }
+        packets_received_(0) {}
 
   virtual ~ConsumerProducerTest() {
     // You can do clean-up work that doesn't throw exceptions here.
@@ -69,6 +76,7 @@ class ConsumerProducerTest : public ::testing::Test,
     consumer_.connect();
     producer_.registerPrefix(producer_prefix_);
     producer_.connect();
+    producer_.start();
   }
 
   virtual void TearDown() override {
@@ -116,7 +124,9 @@ class ConsumerProducerTest : public ::testing::Test,
     *max_length = receive_buffer_size;
   }
 
-  void readDataAvailable(std::size_t length) noexcept override {}
+  void readDataAvailable(std::size_t length) noexcept override {
+    packets_received_++;
+  }
 
   size_t maxBufferSize() const override { return receive_buffer_size; }
 
@@ -125,9 +135,7 @@ class ConsumerProducerTest : public ::testing::Test,
     FAIL() << "Error while reading from RTC socket";
   }
 
-  void readSuccess(std::size_t total_size) noexcept override {
-    packets_received_++;
-  }
+  void readSuccess(std::size_t total_size) noexcept override {}
 
   asio::io_service io_service_;
   asio::steady_timer rtc_timer_;
@@ -148,7 +156,7 @@ const char ConsumerProducerTest::name[];
 
 }  // namespace
 
-TEST_F(ConsumerProducerTest, DISABLED_EndToEnd) {
+TEST_F(ConsumerProducerTest, EndToEnd) {
   produceRTCPacket(std::error_code());
   consumer_.consume(consumer_name_);
   setStopTimer();
