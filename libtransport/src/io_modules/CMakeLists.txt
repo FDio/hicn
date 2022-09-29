@@ -70,7 +70,6 @@ else()
 # Compile submodules
 ##############################################################
   add_subdirectory(hicn-light)
-  add_subdirectory(loopback)
   add_subdirectory(forwarder)
 
   if (__vpp__)
