@@ -699,8 +699,6 @@ void RTCProductionProtocol::sendContentObject(
     signer_->signPacket(content_object.get());
   }
 
-  portal_->sendContentObject(*content_object);
-
   // Compute and save data packet digest
   if (manifest_max_capacity_ && !is_ah) {
     auth::CryptoHashType hash_algo;
@@ -709,6 +707,8 @@ void RTCProductionProtocol::sendContentObject(
     manifest_entries_.push({content_object->getName().getSuffix(),
                             content_object->computeDigest(hash_algo)});
   }
+
+  portal_->sendContentObject(*content_object);
 }
 
 void RTCProductionProtocol::onFecPackets(fec::BufferArray &packets) {

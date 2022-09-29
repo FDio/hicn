@@ -17,8 +17,8 @@
 list(APPEND TESTS_SRC
   main.cc
   test_aggregated_header.cc
-  #######test_auth.cc
-  # test_consumer_producer_rtc.cc
+  test_auth.cc
+  test_consumer_producer_rtc.cc
   test_core_manifest.cc
   # test_event_thread.cc
   test_fec_base_rs.cc

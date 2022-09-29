@@ -54,7 +54,7 @@ class Forwarder {
 
   Connector::Ptr getConnector(Connector::Id id);
 
-  void send(Packet &packet);
+  void send(Packet &packet, Connector::Id id);
 
   void stop();
 

@@ -161,19 +161,24 @@ void Forwarder::onPacketReceived(Connector *connector,
   // Forward packet to local connectors
 }
 
-void Forwarder::send(Packet &packet) {
+void Forwarder::send(Packet &packet, Connector::Id connector_id) {
   // TODo Here a nice PIT/CS / FIB would be required:)
   // For now let's just forward the packet on the remote connector we get
-  if (remote_connectors_.begin() == remote_connectors_.end()) {
-    return;
+  for (auto &c : remote_connectors_) {
+    auto remote_endpoint = c.second->getRemoteEndpoint();
+    DLOG_IF(INFO, VLOG_IS_ON(3))
+        << "Sending packet to: " << remote_endpoint.getAddress() << ":"
+        << remote_endpoint.getPort();
+    c.second->send(packet);
   }
 
-  auto remote_endpoint =
-      remote_connectors_.begin()->second->getRemoteEndpoint();
-  DLOG_IF(INFO, VLOG_IS_ON(3))
-      << "Sending packet to: " << remote_endpoint.getAddress() << ":"
-      << remote_endpoint.getPort();
-  remote_connectors_.begin()->second->send(packet);
+  for (auto &c : local_connectors_) {
+    if (c.first != connector_id) {
+      DLOG_IF(INFO, VLOG_IS_ON(3))
+          << "Sending packet to local connector " << c.first << std::endl;
+      c.second->receive({packet.shared_from_this()});
+    }
+  }
 }
 
 void Forwarder::onPacketSent(Connector *connector, const std::error_code &ec) {}
