@@ -34,7 +34,7 @@ bool ForwarderModule::isConnected() { return true; }
 
 void ForwarderModule::send(Packet &packet) {
   IoModule::send(packet);
-  forwarder_.send(packet);
+  forwarder_.send(packet, connector_id_);
   DLOG_IF(INFO, VLOG_IS_ON(3))
       << "Sending from " << connector_id_ << " to " << 1 - connector_id_;
 }
