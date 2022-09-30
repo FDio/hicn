@@ -2,6 +2,8 @@ version: "3"
 services:
   client:
     container_name: ${TEST_VPP_BRIDGE}-client
+    capabilities:
+      - CAP_NET_ADMIN
     command:
       - |
         if [ -d /workspace/build-dev ]; then
@@ -52,6 +54,8 @@ services:
 
   server:
     container_name: ${TEST_VPP_BRIDGE}-server
+    capabilities:
+      - CAP_NET_ADMIN
     command:
       - |
         if [ -d /workspace/build-dev ]; then
