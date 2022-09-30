@@ -4,6 +4,8 @@
 #include <hicn/ctrl/objects/connection.h>
 #include <hicn/ctrl/objects/face.h>
 
+int hc_connection_to_face(const hc_connection_t *connection, hc_face_t *face);
+
 int hc_face_from_connection(const hc_connection_t *connection, hc_face_t *face);
 
 int hc_face_to_connection(const hc_face_t *face, hc_connection_t *connection,
