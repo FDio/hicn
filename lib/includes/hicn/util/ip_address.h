@@ -40,7 +40,7 @@
 #endif
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h> // snprintf
+#include <stdio.h>  // snprintf
 #include <string.h> // memset
 
 #include "types.h"
@@ -188,6 +188,8 @@ bool hicn_ip_address_match_family (const hicn_ip_address_t *address,
 				   int family);
 
 uint32_t hicn_ip_address_get_hash (const hicn_ip_address_t *address);
+
+void hicn_ip_address_clear (hicn_ip_address_t *address);
 
 /* Prefix */
 

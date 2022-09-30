@@ -39,10 +39,13 @@
 
 /* Hash functions for indices. */
 #define address_pair_hash(pair) (hash_struct(pair))
+#define address_hash(address) (hash_struct(address))
 
 /* Hash table types for indices. */
 KHASH_INIT(ct_pair, const address_pair_t *, unsigned, 1, address_pair_hash,
            address_pair_equals);
+KHASH_INIT(ct_address, const address_t *, unsigned, 1, address_hash,
+           address_equals);
 KHASH_MAP_INIT_STR(ct_name, unsigned);
 
 typedef struct {
@@ -50,6 +53,8 @@ typedef struct {
 
   kh_ct_pair_t *id_by_pair;
   slab_t *pair_keys;
+  kh_ct_address_t *id_by_address;
+  slab_t *address_keys;
   kh_ct_name_t *id_by_name;
   slab_t *name_keys;
 

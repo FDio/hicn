@@ -360,7 +360,7 @@ END:
 #if 0
   fib_dump(fib);
 #endif
-    ; /* required for clang */
+    ; /* required by clang */
 }
 
 /*

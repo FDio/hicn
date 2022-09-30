@@ -75,6 +75,7 @@ typedef struct hc_sock_impl_s hc_sock_impl_t;
 int hc_data_ensure_available(hc_data_t *data, size_t count);
 u8 *hc_data_get_next(hc_data_t *data);
 
+#if 0
 int hc_listener_to_face(const hc_listener_t *listener, hc_face_t *face);
 
 int hc_connection_to_face(const hc_connection_t *connection, hc_face_t *face);
@@ -86,5 +87,6 @@ int hc_connection_to_local_listener(const hc_connection_t *connection,
 
 int hc_face_to_connection(const hc_face_t *face, hc_connection_t *connection,
                           bool generate_name);
+#endif
 
 #endif  // HICN_API_PRIVATE_H
