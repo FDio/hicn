@@ -147,7 +147,9 @@ uint8_t *configuration_on_listener_add(forwarder_t *forwarder, uint8_t *packet,
     case FACE_TYPE_TCP_LISTENER:
     case FACE_TYPE_HICN_LISTENER:
       break;
-    default:
+    case FACE_TYPE_UDP:
+    case FACE_TYPE_TCP:
+    case FACE_TYPE_HICN:
       ERROR("Wrong listener type");
       goto NACK;
   }
@@ -388,7 +390,11 @@ uint8_t *configuration_on_connection_add(forwarder_t *forwarder,
     case FACE_TYPE_TCP:
     case FACE_TYPE_HICN:
       break;
-    default:
+    case FACE_TYPE_UDP_LISTENER:
+    case FACE_TYPE_TCP_LISTENER:
+    case FACE_TYPE_HICN_LISTENER:
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
       goto NACK;
   }
 
