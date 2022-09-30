@@ -76,6 +76,7 @@ static inline const hicn_name_t *msgbuf_get_name(const msgbuf_t *msgbuf) {
 }
 
 #define msgbuf_get_connection_id(M) ((M)->connection_id)
+#define msgbuf_set_connection_id(M, ID) (M)->connection_id = (ID)
 #define msgbuf_get_packet(M) ((M)->packet)
 #define msgbuf_get_command_type(M) ((M)->command.type)
 #if WITH_WLDR

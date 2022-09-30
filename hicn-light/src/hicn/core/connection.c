@@ -37,7 +37,8 @@ connection_t *connection_create(face_type_t type, const char *name,
   assert(pair);
   assert(forwarder);
 
-  face_type_t listener_type;
+  /* initialized so that gcc-9 does not complain */
+  face_type_t listener_type = FACE_TYPE_UNDEFINED;
   switch (type) {
     case FACE_TYPE_UDP:
       listener_type = FACE_TYPE_UDP_LISTENER;
@@ -45,7 +46,13 @@ connection_t *connection_create(face_type_t type, const char *name,
     case FACE_TYPE_TCP:
       listener_type = FACE_TYPE_TCP_LISTENER;
       break;
-    default:
+    case FACE_TYPE_HICN:
+      return NULL; /* Not implemented */
+    case FACE_TYPE_HICN_LISTENER:
+    case FACE_TYPE_UDP_LISTENER:
+    case FACE_TYPE_TCP_LISTENER:
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
       return NULL;
   }
 

@@ -241,6 +241,12 @@ hicn_ip_address_empty (const hicn_ip_address_t *ip)
   return (memcmp (ip, &IP_ADDRESS_EMPTY, sizeof (hicn_ip_address_t)) == 0);
 }
 
+void
+hicn_ip_address_clear (hicn_ip_address_t *address)
+{
+  memset (address, 0, sizeof (hicn_ip_address_t));
+}
+
 /* Prefix */
 
 /* Parse IP Prefixes in presentation format (in bits, separated by a slash) */
