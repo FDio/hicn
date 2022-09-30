@@ -8,14 +8,10 @@ services:
           sudo ninja -C /workspace/build-dev install
         fi
 
-        sudo ip link add br0 type bridge
-        sudo ip addr add 192.168.1.1/24 dev br0
-        sudo ip link set eth0 master br0
+        sudo ip addr add 192.168.1.1/24 dev eth0
         sudo ip link set eth0 up
-        sudo ip link set br0 up
-        sudo ip route add 192.168.1.2 via 192.168.1.1 dev br0
         tee -a /tmp/hicn-light.conf <<EOF
-        add listener udp local0 192.168.1.1 9199 br0
+        add listener udp local0 192.168.1.1 9199 eth0
         add connection udp conn0 192.168.1.1 9199 192.168.1.2 9199
         add route conn0 b002::/64 1
         EOF
@@ -37,16 +33,13 @@ services:
           sudo ninja -C /workspace/build-dev install
         fi
 
-        sudo ip link add br0 type bridge
-        sudo ip addr add 192.168.1.2/24 dev br0
-        sudo ip link set eth0 master br0
+        sudo ip addr add 192.168.1.2/24 dev eth0
         sudo ip link set eth0 up
-        sudo ip link set br0 up
 
         tee -a /tmp/hicn-light.conf <<EOF
-        add listener udp local0 192.168.1.2 9199 br0
+        add listener udp local0 192.168.1.2 9199 eth0
         add connection udp conn0 192.168.1.2 9199 192.168.1.1 9199
-        add route conn0 b002::/64 1
+        #add route conn0 b002::/64 1
         EOF
 
         rm -f /tmp/lite_server.log
@@ -60,7 +53,7 @@ services:
 
         hiperf -q -z hicnlight_module -S -R -B 4000kbps ${RTC_PRODUCER} -P 2 &
         hiperf -q -z hicnlight_module -S ${RAAQM_PRODUCER}/128 &
-        hiperf -q -z hicnlight_module -S ${RAAQM_PRODUCER_NEW}/128 &
+        hiperf -q -z hicnlight_module -S ${RAAQM_PRODUCER_NEW}/128 -w new &
         hicn-ping-server -z hicnlight_module -s 0 -n ${PING_PRODUCER}/128 &
 
         tail -f /dev/null
