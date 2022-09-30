@@ -447,7 +447,9 @@ get_protocol (face_type_t face_type)
     case FACE_TYPE_UDP_LISTENER:
       return FACE_PROTOCOL_UDP;
 
-    default:
-      return FACE_PROTOCOL_UNKNOWN;
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
+      break;
     }
+  return FACE_PROTOCOL_UNKNOWN;
 }

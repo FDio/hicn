@@ -55,7 +55,7 @@ int _hc_subscription_cmp(const hc_object_t *object1,
 /* /!\ Please update constants in header file upon changes */
 int hc_subscription_snprintf(char *s, size_t size,
                              const hc_subscription_t *subscription) {
-  return -1;
+  return -99; /* Not implemented */
 }
 
 int _hc_subscription_snprintf(char *s, size_t size, const hc_object_t *object) {
