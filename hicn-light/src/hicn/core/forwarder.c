@@ -1460,42 +1460,37 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
   assert(msgbuf_id_is_valid(msgbuf_id));
   assert(pair);
 
+  hicn_name_t name;
   msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
   assert(msgbuf);
 
   size_t size = msgbuf_get_len(msgbuf);
 
-  /* Connection lookup */
   const connection_table_t *table =
       forwarder_get_connection_table(listener->forwarder);
-  connection_t *connection = connection_table_get_by_pair(table, pair);
-  unsigned conn_id = connection ? (unsigned)connection_table_get_connection_id(
-                                      table, connection)
-                                : CONNECTION_ID_UNDEFINED;
 
-  assert((conn_id != CONNECTION_ID_UNDEFINED) || listener);
+  /* Connection lookup */
+  if (msgbuf_get_connection_id(msgbuf) == CONNECTION_ID_UNDEFINED) {
+    connection_t *connection = connection_table_get_by_pair(table, pair);
+    unsigned conn_id =
+        connection
+            ? (unsigned)connection_table_get_connection_id(table, connection)
+            : CONNECTION_ID_UNDEFINED;
 
-#if 0
-  /*
-   * We have a msgbuf with payload and size, we nee to populate other
-   * information, including packet type etc.
-   */
-  msgbuf_type_t type = get_type_from_packet(msgbuf_get_packet(msgbuf));
+    assert((conn_id != CONNECTION_ID_UNDEFINED) || listener);
+    msgbuf->connection_id = conn_id;
+  }
 
-  forwarder->stats.countReceived++;
-  msgbuf->type = type;
-#endif
   forwarder->stats.countReceived++;
 
   /* Initialize packet buffer stored in msgbuf through libhicn */
   msgbuf_initialize_from_packet(msgbuf);
+
+  /* Detect packet type */
   hicn_packet_analyze(msgbuf_get_pkbuf(msgbuf));
 
-  msgbuf->connection_id = conn_id;
   msgbuf->recv_ts = now;
-
-  hicn_name_t name;
 
 RETRY:
 
@@ -1516,7 +1511,6 @@ RETRY:
           goto DROP;
         }
         msgbuf->connection_id = connection_id;
-        connection = connection_table_get_by_id(table, connection_id);
       }
       msgbuf->path_label = 0;  // not used for interest packets
       hicn_interest_get_name(msgbuf_get_pkbuf(msgbuf), &name);
@@ -1546,13 +1540,17 @@ RETRY:
       pkt_cache_log(forwarder->pkt_cache);
       break;
 
+#ifdef WITH_WLDR
     case HICN_PACKET_TYPE_WLDR_NOTIFICATION:
       if (!connection_id_is_valid(msgbuf->connection_id)) {
         ERROR("Invalid connection for WLDR packet");
         goto DROP;
       }
+      connection_t *connection =
+          connection_table_get_by_id(table, msgbuf->connection_id);
       connection_wldr_handle_notification(connection, msgbuf);
       break;
+#endif
 
     case HICN_PACKET_TYPE_MAPME:
       // XXX what about acks ?
@@ -1592,7 +1590,6 @@ RETRY:
           goto DROP;
         }
         msgbuf->connection_id = connection_id;
-        connection = connection_table_get_by_id(table, connection_id);
       }
 
       msg_header_t *msg = (msg_header_t *)msgbuf_get_packet(msgbuf);
@@ -1602,6 +1599,12 @@ RETRY:
         goto DROP;
       }
 
+      /*
+       * We need to retrieve the connection (in case it is useful) before
+       * proceeding through the removal
+       */
+      connection_t *connection =
+          connection_table_get_by_id(table, msgbuf_get_connection_id(msgbuf));
       size = command_process_msgbuf(forwarder, msgbuf);
       if (msgbuf->command.type == COMMAND_TYPE_CONNECTION_REMOVE)
         _forwarder_finalize_connection_if_self(connection, msgbuf);
