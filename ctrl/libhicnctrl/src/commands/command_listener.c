@@ -68,8 +68,13 @@ int on_listener_create(hc_listener_t* listener) {
     case FACE_TYPE_HICN:
       listener->type = FACE_TYPE_HICN_LISTENER;
       break;
-    default:
+    case FACE_TYPE_UDP_LISTENER:
+    case FACE_TYPE_TCP_LISTENER:
+    case FACE_TYPE_HICN_LISTENER:
       break;
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
+      return -1;
   }
   return 0;
 }

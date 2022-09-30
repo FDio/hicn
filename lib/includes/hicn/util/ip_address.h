@@ -189,6 +189,8 @@ bool hicn_ip_address_match_family (const hicn_ip_address_t *address,
 
 uint32_t hicn_ip_address_get_hash (const hicn_ip_address_t *address);
 
+void hicn_ip_address_clear (hicn_ip_address_t *address);
+
 /* Prefix */
 
 int hicn_ip_prefix_pton (const char *ip_address_str,

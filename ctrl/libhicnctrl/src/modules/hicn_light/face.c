@@ -161,15 +161,5 @@ int hc_face_to_connection(const hc_face_t *face, hc_connection_t *connection,
 }
 
 int hc_face_to_listener(const hc_face_t *face, hc_listener_t *listener) {
-  switch (face->type) {
-    case FACE_TYPE_HICN_LISTENER:
-      break;
-    case FACE_TYPE_TCP_LISTENER:
-      break;
-    case FACE_TYPE_UDP_LISTENER:
-      break;
-    default:
-      return -1;
-  }
-  return -1; /* XXX Not implemented */
+  return -99; /* XXX Not implemented */
 }
