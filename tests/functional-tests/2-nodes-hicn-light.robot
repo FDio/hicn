@@ -13,14 +13,14 @@ Resource          resources/libraries/robot/runtest.robot
 Throughput Testing Raaqm Mobile
     Run Throughput Test Raaqm    hicn-light    200    500    400
 
-Throughput Testing Raaqm Mobile New
-    Run Throughput Test Raaqm New    hicn-light    200    500    400
+Throughput Testing Raaqm Mobile New Packet Format
+    Run Throughput Test Raaqm New Packet Format    hicn-light    200    500    400
 
 Throughput Testing CBR Mobile
     Run Throughput Test CBR    hicn-light    200    500    400
 
-Throughput Testing CBR Mobile New
-    Run Throughput Test CBR New    hicn-light    200    500    400
+Throughput Testing CBR Mobile New Packet Format
+    Run Throughput Test CBR New Packet Format    hicn-light    200    500    400
 
 RTC Testing Mobile
     Run RTC Test    hicn-light    4    4    4
@@ -29,6 +29,6 @@ Latency Testing Mobile
     Set Link            hicn-light    500     1       0       0
     Run Latency Test    hicn-light    3000    3000    3000
 
-Latency Testing Mobile New
+Latency Testing Mobile New Packet Format
     Set Link                    hicn-light    500     1       0       0
-    Run Latency Test New        hicn-light    3000    3000    3000
+    Run Latency Test New Packet Format        hicn-light    3000    3000    3000
