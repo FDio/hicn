@@ -79,13 +79,13 @@ declare -A tests=(
   ["vpp-memif-replication-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-requin"]="${HIPERF_CMD_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-requin-new-paket-format"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-requin-new-packet-format"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-cbr"]="${HIPERF_CMD_CBR} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-cbr-new-paket-format"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-cbr-new-packet-format"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
@@ -94,7 +94,7 @@ declare -A tests=(
   ["vpp-bridge-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
-  ["hicn-light-latency-new-paket-format"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["hicn-light-latency-new-packet-format"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
 )
 
 declare -A link_model=(
