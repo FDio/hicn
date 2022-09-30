@@ -44,6 +44,8 @@ connection_table_t *_connection_table_create(size_t init_size,
   /* Initialize indices */
   table->id_by_pair = kh_init_ct_pair();
   table->pair_keys = slab_create(address_pair_t, SLAB_INIT_SIZE);
+  table->id_by_address = kh_init_ct_address();
+  table->address_keys = slab_create(address_t, SLAB_INIT_SIZE);
   table->id_by_name = kh_init_ct_name();
   table->name_keys = slab_create(name_key_t, SLAB_INIT_SIZE);
 
@@ -68,6 +70,8 @@ void connection_table_free(connection_table_t *table) {
 
   kh_destroy_ct_pair(table->id_by_pair);
   slab_free(table->pair_keys);
+  kh_destroy_ct_address(table->id_by_address);
+  slab_free(table->address_keys);
   kh_destroy_ct_name(table->id_by_name);
   slab_free(table->name_keys);
 
@@ -101,15 +105,30 @@ connection_t *connection_table_allocate(const connection_table_t *table,
   assert(rc == KH_ADDED || rc == KH_RESET);
   kh_value(table->id_by_name, k) = (unsigned int)id;
 
-  // Add in pair hash table
-  address_pair_t *pair_copy = slab_get(address_pair_t, table->pair_keys);
-  memcpy(pair_copy, pair, sizeof(address_pair_t));
+  const address_t *remote = address_pair_get_remote(pair);
+  if (!address_empty(remote)) {
+    // Add in pair hash table
+    address_pair_t *pair_copy = slab_get(address_pair_t, table->pair_keys);
+    memcpy(pair_copy, pair, sizeof(address_pair_t));
 
-  k = kh_put_ct_pair(table->id_by_pair, pair_copy, &rc);
-  assert(rc == KH_ADDED || rc == KH_RESET);
-  kh_value(table->id_by_pair, k) = (unsigned int)id;
+    k = kh_put_ct_pair(table->id_by_pair, pair_copy, &rc);
+    assert(rc == KH_ADDED || rc == KH_RESET);
+    kh_value(table->id_by_pair, k) = (unsigned int)id;
 
-  assert(kh_size(table->id_by_name) == kh_size(table->id_by_pair));
+  } else {
+    const address_t *local = address_pair_get_local(pair);
+
+    // Add in address hash table
+    address_t *local_copy = slab_get(address_t, table->address_keys);
+    memcpy(local_copy, local, sizeof(address_t));
+
+    k = kh_put_ct_address(table->id_by_address, local_copy, &rc);
+    assert(rc == KH_ADDED || rc == KH_RESET);
+    kh_value(table->id_by_address, k) = (unsigned int)id;
+  }
+
+  assert(kh_size(table->id_by_name) ==
+         kh_size(table->id_by_pair) + kh_size(table->id_by_address));
   return conn;
 }
 
@@ -132,13 +151,25 @@ void connection_table_deallocate(const connection_table_t *table,
   kh_del_ct_name(table->id_by_name, k);
   slab_put(table->name_keys, kh_key(table->id_by_name, k));
 
-  // Remove from pair hash table
-  k = kh_get_ct_pair(table->id_by_pair, pair);
-  assert(k != kh_end(table->id_by_pair));
-  kh_del_ct_pair(table->id_by_pair, k);
-  slab_put(table->pair_keys, kh_key(table->id_by_pair, k));
+  const address_t *remote = address_pair_get_remote(pair);
+  if (!address_empty(remote)) {
+    // Remove from pair hash table
+    k = kh_get_ct_pair(table->id_by_pair, pair);
+    assert(k != kh_end(table->id_by_pair));
+    kh_del_ct_pair(table->id_by_pair, k);
+    slab_put(table->pair_keys, kh_key(table->id_by_pair, k));
 
-  assert(kh_size(table->id_by_name) == kh_size(table->id_by_pair));
+  } else {
+    // Remove from address hash table
+    const address_t *local = address_pair_get_local(pair);
+    k = kh_get_ct_address(table->id_by_address, local);
+    assert(k != kh_end(table->id_by_address));
+    kh_del_ct_address(table->id_by_address, k);
+    slab_put(table->address_keys, kh_key(table->id_by_address, k));
+  }
+
+  assert(kh_size(table->id_by_name) ==
+         kh_size(table->id_by_pair) + kh_size(table->id_by_address));
   pool_put(table->connections, conn);
 }
 
@@ -152,8 +183,29 @@ connection_t *connection_table_get_by_pair(const connection_table_t *table,
   *ptr = 0x0;
 #endif /* __APPLE__ */
 
-  khiter_t k = kh_get_ct_pair(table->id_by_pair, pair);
-  if (k == kh_end(table->id_by_pair)) return NULL;
+  khiter_t k;
+
+  /* 4-tuple lookup */
+  if (kh_size(table->id_by_pair) > 0) {
+    k = kh_get_ct_pair(table->id_by_pair, pair);
+    if (k != kh_end(table->id_by_pair)) goto END;
+  }
+
+  /* 2-tuple lookup */
+  const address_t *remote = address_pair_get_remote(pair);
+  if (kh_size(table->id_by_address) > 0) {
+    k = kh_get_ct_address(table->id_by_address, remote);
+    if (k != kh_end(table->id_by_address)) goto END;
+  }
+
+  /*
+   * This could further be extended to a 1-tuple lookup (and would thus need to
+   * be restricted to a given ingress interface)
+   */
+
+  return NULL;
+
+END:
   return table->connections + kh_val(table->id_by_pair, k);
 }
 

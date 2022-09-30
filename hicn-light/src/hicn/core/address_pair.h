@@ -54,6 +54,11 @@ static inline int address_pair_equals(const address_pair_t* pair1,
 #define address_pair_get_local(pair) (&(pair)->local)
 #define address_pair_get_remote(pair) (&(pair)->remote)
 
+#define address_pair_set_local(pair, address) (pair)->local = (address)
+#define address_pair_set_remote(pair, address) (pair)->remote = (address)
+#define address_pair_set_localp(pair, address) (pair)->local = *(address)
+#define address_pair_set_remotep(pair, address) (pair)->remote = *(address)
+
 #define address_pair_get_local_family(pair) \
   (address_family(address_pair_get_local(pair)))
 #define address_pair_get_remote_family(pair) \
