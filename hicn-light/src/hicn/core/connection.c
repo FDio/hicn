@@ -207,7 +207,8 @@ int connection_initialize(connection_t *connection, face_type_t type,
      * the listener.
      */
     loop_fd_event_create(&connection->event_data, MAIN_LOOP, fd, listener,
-                         (fd_callback_t)listener_read_callback, NULL);
+                         (fd_callback_t)listener_read_callback, connection->id,
+                         NULL);
 
     if (!connection->event_data) {
       goto ERR_REGISTER_FD;
