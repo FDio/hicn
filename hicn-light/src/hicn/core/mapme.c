@@ -218,7 +218,7 @@ static mapme_t mapme_default = {
 
 /******************************************************************************/
 
-int mapme_on_timeout(void *mapme_arg, int fd, void *data);
+int mapme_on_timeout(void *mapme_arg, int fd, unsigned id, void *data);
 
 mapme_t *mapme_create(void *forwarder) {
   mapme_t *mapme = malloc(sizeof(mapme_t));
@@ -575,9 +575,10 @@ int mapme_create_fib_entry(const mapme_t *mapme, const Name *name,
 }
 #endif
 
-int mapme_on_timeout(void *mapme_arg, int fd, void *data) {
+int mapme_on_timeout(void *mapme_arg, int fd, unsigned id, void *data) {
   mapme_t *mapme = mapme_arg;
   assert(mapme);
+  assert(id == 0);
   assert(!data);
   /* Timeout occurred, we have to retransmit IUs for all pending
    * prefixes having entries in TFIB

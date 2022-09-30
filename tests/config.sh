@@ -34,7 +34,7 @@ POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   }"'
 
 HIPERF_CMD_RAAQM="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
-HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER} -w new"
+HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER_NEW} -w new"
 HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_CBR_NEW="${HIPERF_CMD_RAAQM_NEW} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
@@ -78,13 +78,13 @@ declare -A tests=(
   ["vpp-memif-replication-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-requin"]="${HIPERF_CMD_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-requin-new"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-requin-new-packet-format"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-cbr"]="${HIPERF_CMD_CBR} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-cbr-new"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-cbr-new-packet-format"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
@@ -93,7 +93,7 @@ declare -A tests=(
   ["vpp-bridge-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
-  ["hicn-light-latency-new"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["hicn-light-latency-new-packet-format"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
 )
 
 declare -A link_model=(
@@ -204,6 +204,8 @@ function setup() {
   docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml up --remove-orphans --force-recreate -d
 
   sleep 10
+
+  docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml logs
 }
 
 function start() {
