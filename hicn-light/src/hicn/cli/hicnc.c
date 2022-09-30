@@ -60,55 +60,6 @@ void signal_handler(int sig) {
   stop = true;
 }
 
-#if 0
-int hc_active_interface_snprintf(char *buf, size_t size,
-                                 hc_event_active_interface_update_t *event) {
-  int rc;
-  char *pos = buf;
-
-  rc = ip_prefix_snprintf(pos, size, &event->prefix);
-  if ((rc < 0) || (rc >= size)) return rc;
-  pos += rc;
-  size -= rc;
-
-  for (netdevice_type_t type = NETDEVICE_TYPE_UNDEFINED + 1;
-       type < NETDEVICE_TYPE_N; type++) {
-    if (!netdevice_flags_has(event->interface_type, type)) continue;
-    rc = snprintf(pos, size, " %s", netdevice_type_str(type));
-    if ((rc < 0) || (rc >= size)) return pos - buf + rc;
-
-    pos += rc;
-    size -= rc;
-  }
-  return pos - buf;
-}
-
-// XXX hc_object_snprintf
-void hc_subscription_display(command_type_t command_type,
-                             const uint8_t *buffer) {
-  char buf[65535];
-
-  switch (command_type) {
-    case COMMAND_TYPE_CONNECTION_ADD:
-    case COMMAND_TYPE_CONNECTION_REMOVE:
-    case COMMAND_TYPE_CONNECTION_UPDATE:
-      hc_connection_snprintf(buf, sizeof(buf), (hc_connection_t *)buffer);
-      break;
-    case COMMAND_TYPE_ACTIVE_INTERFACE_UPDATE:
-      hc_active_interface_snprintf(
-          buf, sizeof(buf), (hc_event_active_interface_update_t *)buffer);
-      break;
-    case COMMAND_TYPE_ROUTE_LIST:
-      hc_route_snprintf(buf, sizeof(buf), (hc_route_t *)buffer);
-      break;
-    default:
-      INFO("Unknown event received");
-      return;
-  }
-  INFO("%s %s", command_type_str(command_type), buf);
-}
-#endif
-
 int main(int argc, char *const *argv) {
   log_conf.log_level = LOG_INFO;
 
@@ -126,10 +77,13 @@ int main(int argc, char *const *argv) {
     // getopt_long stores the option index here.
     int optind = 0;
 
-    int c = getopt_long(argc, argv, "hS:P:", longFormOptions, &optind);
+    int c = getopt_long(argc, argv, "dhS:P:", longFormOptions, &optind);
     if (c == -1) break;
 
     switch (c) {
+      case 'd':
+        log_conf.log_level = LOG_DEBUG;
+        break;
       case 'S':
         server_ip = optarg;
         break;
