@@ -57,20 +57,25 @@ class LoopTest : public ::testing::Test {
     // before the destructor).
   }
 
-  static int onFirstTimerExpiration(void *owner, int fd, void *arg) {
+  static int onFirstTimerExpiration(void *owner, int fd, unsigned id,
+                                    void *arg) {
+    assert(id == 0);
     std::cout << "This function should never be called" << std::endl;
     EXPECT_TRUE(false);
     return -1;
   }
 
-  static int onSecondTimerExpiration(void *owner, int fd, void *arg) {
+  static int onSecondTimerExpiration(void *owner, int fd, unsigned id,
+                                     void *arg) {
+    assert(id == 0);
     std::cout << "First timer expired. Cancel second timer." << std::endl;
     LoopTest *test = (LoopTest *)(arg);
     loop_event_unregister(test->timer_);
     return 0;
   }
 
-  static int onTimerExpiration(void *owner, int fd, void *arg) {
+  static int onTimerExpiration(void *owner, int fd, unsigned id, void *arg) {
+    assert(id == 0);
     // Create client socket
     struct sockaddr_in addr;
     int client_socket;
@@ -103,7 +108,8 @@ class LoopTest : public ::testing::Test {
     return 0;
   }
 
-  static int onNewConnection(void *owner, int fd, void *arg) {
+  static int onNewConnection(void *owner, int fd, unsigned id, void *arg) {
+    assert(id == 0);
     LoopTest *test = (LoopTest *)arg;
     struct sockaddr_in addr;
     addr.sin_addr.s_addr = INADDR_ANY;
@@ -193,7 +199,7 @@ TEST_F(LoopTest, EventCreateAndFree) {
   loop_ = loop_create();
 
   ret = loop_fd_event_create(&event_, loop_, fd, nullptr,
-                             &LoopTest::onNewConnection, this);
+                             &LoopTest::onNewConnection, 0, this);
   EXPECT_TRUE(ret >= 0);
   EXPECT_TRUE(event_);
 
@@ -257,7 +263,7 @@ TEST_F(LoopTest, LoopDispatch) {
   loop_ = loop_create();
 
   ret = loop_fd_event_create(&event_, loop_, connection_socket_, nullptr,
-                             &LoopTest::onNewConnection, this);
+                             &LoopTest::onNewConnection, 0, this);
   EXPECT_TRUE(ret >= 0);
   EXPECT_TRUE(event_);
 

@@ -48,7 +48,7 @@ Run Test
         Should Be True
         ...    ${min_max_avg}[2] >= ${EXPECTED_AVG}
         ...    msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF    '${TESTID}' == 'requin-new-paket-format'
+    ELSE IF    '${TESTID}' == 'requin-new-packet-format'
         Should Be True
         ...    ${min_max_avg}[0] >= ${EXPECTED_MIN}
         ...    msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
@@ -68,7 +68,7 @@ Run Test
         Should Be True
         ...    ${min_max_avg}[2] <= ${EXPECTED_AVG}
         ...    msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
-    ELSE IF    '${TESTID}' == 'latency-new-paket-format'
+    ELSE IF    '${TESTID}' == 'latency-new-packet-format'
         Should Be True
         ...    ${min_max_avg}[0] <= ${EXPECTED_MIN}
         ...    msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
@@ -88,7 +88,7 @@ Run Test
         Should Be True
         ...    ${min_max_avg}[2] >= ${EXPECTED_AVG}
         ...    msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF    '${TESTID}' == 'cbr-new-paket-format'
+    ELSE IF    '${TESTID}' == 'cbr-new-packet-format'
         Should Be True
         ...    ${min_max_avg}[0] >= ${EXPECTED_MIN}
         ...    msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
@@ -193,7 +193,7 @@ Run Throughput Test Raaqm New Packet Format
     Run Test
     ...    ${TEST_TOPOLOGY}
     ...    ${TEST_SETUP}
-    ...    requin-new-paket-format
+    ...    requin-new-packet-format
     ...    ${EXPECTED_MIN}
     ...    ${EXPECTED_MAX}
     ...    ${EXPECTED_AVG}
@@ -239,7 +239,7 @@ Run Throughput Test CBR New Packet Format
     Run Test
     ...    ${TEST_TOPOLOGY}
     ...    ${TEST_SETUP}
-    ...    cbr-new-paket-format
+    ...    cbr-new-packet-format
     ...    ${EXPECTED_MIN}
     ...    ${EXPECTED_MAX}
     ...    ${EXPECTED_AVG}
@@ -287,7 +287,7 @@ Run Latency Test New Packet Format
     Run Test
     ...    ${TEST_TOPOLOGY}
     ...    ${TEST_SETUP}
-    ...    latency-new-paket-format
+    ...    latency-new-packet-format
     ...    ${EXPECTED_MIN}
     ...    ${EXPECTED_MAX}
     ...    ${EXPECTED_AVG}
