@@ -261,15 +261,10 @@ DECLARE_LISTENER(udp);
 #define RING_LEN 5 * MAX_MSG
 
 typedef struct {
-  /*
-   * Ring buffer
-   *
-   * This is sized to more than a batch to cope with transient failures of
-   * sendmmsg.
-   */
+#ifdef __linux__
+  /* Ring buffer */
   off_t *ring;
 
-#ifdef __linux__
   struct mmsghdr msghdr[MAX_MSG];
   struct iovec iovecs[MAX_MSG];
 #endif /* __linux__ */
