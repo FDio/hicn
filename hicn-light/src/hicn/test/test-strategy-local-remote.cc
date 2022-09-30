@@ -66,7 +66,7 @@ class StrategyLocalRemoteTest : public ::testing::Test {
   }
 
   strategy_entry_t entry_;
-  nexthops_t available_nexthops_;
+  nexthops_t available_nexthops_ = NEXTHOPS_EMPTY;
   configuration_t* conf_;
   forwarder_t* fwd_;
   msgbuf_t msgbuf_;
