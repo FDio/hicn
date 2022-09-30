@@ -111,7 +111,8 @@ int listener_initialize(listener_t *listener, face_type_t type,
   // XXX data should be pre-allocated here
 
   loop_fd_event_create(&listener->event_data, MAIN_LOOP, listener->fd, listener,
-                       (fd_callback_t)listener_read_callback, NULL);
+                       (fd_callback_t)listener_read_callback,
+                       CONNECTION_ID_UNDEFINED, NULL);
 
   if (!listener->event_data) {
     goto ERR_REGISTER_FD;
@@ -189,6 +190,23 @@ unsigned listener_create_connection(listener_t *listener,
   assert(listener_has_valid_type(listener));
   assert(pair);
 
+  face_type_t connection_type;
+  switch (listener->type) {
+    case FACE_TYPE_UDP_LISTENER:
+      connection_type = FACE_TYPE_UDP;
+      break;
+    case FACE_TYPE_TCP_LISTENER:
+      connection_type = FACE_TYPE_TCP;
+      break;
+    case FACE_TYPE_HICN:
+    case FACE_TYPE_HICN_LISTENER:
+    case FACE_TYPE_UDP:
+    case FACE_TYPE_TCP:
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
+      return CONNECTION_ID_UNDEFINED;
+  }
+
   connection_table_t *table =
       forwarder_get_connection_table(listener->forwarder);
   connection_t *connection =
@@ -200,7 +218,8 @@ unsigned listener_create_connection(listener_t *listener,
    * We create a connected connection with its own fd, instead of returning
    * the fd of the listener. This will allow to avoid specifying the
    * destination address when sending packets, and will increase performance
-   * by avoiding a FIB lookup for each packet.
+   * by avoiding : a FIB lookup for each sent packet, and a connection table
+   * lookup for subsequent received packets.
    */
 #ifdef USE_CONNECTED_SOCKETS
   int fd = listener_get_socket(listener, address_pair_get_local(pair),
@@ -210,19 +229,6 @@ unsigned listener_create_connection(listener_t *listener,
   int fd = 0;  // means listener->fd;
 #endif
   bool local = address_is_local(address_pair_get_local(pair));
-
-  face_type_t connection_type;
-  switch (listener->type) {
-    case FACE_TYPE_UDP_LISTENER:
-      connection_type = FACE_TYPE_UDP;
-      break;
-    case FACE_TYPE_TCP_LISTENER:
-      connection_type = FACE_TYPE_TCP;
-      break;
-    default:
-      connection_table_remove_by_id(table, connection_id);
-      return CONNECTION_ID_UNDEFINED;
-  }
 
   int rc = connection_initialize(connection, connection_type, connection_name,
                                  listener->interface_name, fd, pair, local,
@@ -261,7 +267,8 @@ int listener_punt(const listener_t *listener, const char *prefix_s) {
   return listener_vft[get_protocol(listener->type)]->punt(listener, prefix_s);
 }
 
-ssize_t listener_read_single(listener_t *listener, int fd) {
+ssize_t listener_read_single(listener_t *listener, int fd,
+                             unsigned connection_id) {
   assert(listener);
 
   msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(listener->forwarder);
@@ -285,6 +292,7 @@ ssize_t listener_read_single(listener_t *listener, int fd) {
   }
 
   msgbuf_pool_acquire(msgbuf);
+  msgbuf_set_connection_id(msgbuf, connection_id);
 
   // Process received packet
   size_t processed_bytes = forwarder_receive(listener->forwarder, listener,
@@ -302,7 +310,8 @@ ssize_t listener_read_single(listener_t *listener, int fd) {
   return processed_bytes;
 }
 
-ssize_t listener_read_batch(listener_t *listener, int fd) {
+ssize_t listener_read_batch(listener_t *listener, int fd,
+                            unsigned connection_id) {
   assert(listener);
 
   size_t total_processed_bytes = 0;
@@ -350,6 +359,7 @@ ssize_t listener_read_batch(listener_t *listener, int fd) {
       }
 
       msgbuf_pool_acquire(msgbufs[i]);
+      msgbuf_set_connection_id(msgbufs[i], connection_id);
       forwarder_acquired_msgbuf_ids_push(forwarder, msgbuf_ids[i]);
     }
 
@@ -386,10 +396,10 @@ ssize_t listener_read_batch(listener_t *listener, int fd) {
  * This might be called for a connection on the listener too. The listener is
  * the entity that owns the buffers used for reading.
  */
-ssize_t listener_read_callback(listener_t *listener, int fd, void *user_data) {
-  // DEBUG("[listener_read_callback]");
-  // XXX make a single callback and arbitrate between read and readbatch
+ssize_t listener_read_callback(listener_t *listener, int fd,
+                               unsigned connection_id, void *user_data) {
   assert(listener);
+  assert(!user_data);
 
   /*
    * As the listener callback is shared between the listener and the different
@@ -398,9 +408,9 @@ ssize_t listener_read_callback(listener_t *listener, int fd, void *user_data) {
   // assert(fd == listener->fd);
 
   if (listener_vft[get_protocol(listener->type)]->read_batch)
-    return listener_read_batch(listener, fd);
+    return listener_read_batch(listener, fd, connection_id);
 
-  return listener_read_single(listener, fd);
+  return listener_read_single(listener, fd, connection_id);
 }
 
 void listener_setup_local(forwarder_t *forwarder, uint16_t port) {
