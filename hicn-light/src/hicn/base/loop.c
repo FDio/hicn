@@ -40,6 +40,7 @@ loop_t *MAIN_LOOP = NULL;
 typedef struct {
   void *owner;
   fd_callback_t callback;
+  unsigned id;
   void *data;
 } cb_wrapper_args_t;
 
@@ -111,16 +112,19 @@ int loop_undispatch(loop_t *loop) { return 0; }
 
 void cb_wrapper(evutil_socket_t fd, short what, void *arg) {
   cb_wrapper_args_t *cb_wrapper_args = arg;
-  cb_wrapper_args->callback(cb_wrapper_args->owner, fd, cb_wrapper_args->data);
+  cb_wrapper_args->callback(cb_wrapper_args->owner, fd, cb_wrapper_args->id,
+                            cb_wrapper_args->data);
 }
 
 static inline void _event_create(event_t **event, loop_t *loop,
                                  event_type_t type, void *callback_owner,
-                                 fd_callback_t callback, void *callback_data) {
+                                 fd_callback_t callback, unsigned id,
+                                 void *callback_data) {
   *event = malloc(sizeof(event_t));
   (*event)->callback = (cb_wrapper_args_t){
       .owner = callback_owner,
       .callback = callback,
+      .id = id,
       .data = callback_data,
   };
   (*event)->event_type = type;
@@ -129,8 +133,8 @@ static inline void _event_create(event_t **event, loop_t *loop,
 
 int loop_fd_event_create(event_t **event, loop_t *loop, int fd,
                          void *callback_owner, fd_callback_t callback,
-                         void *callback_data) {
-  _event_create(event, loop, EVTYPE_FD, callback_owner, callback,
+                         unsigned id, void *callback_data) {
+  _event_create(event, loop, EVTYPE_FD, callback_owner, callback, id,
                 callback_data);
 
   evutil_make_socket_nonblocking(fd);
@@ -161,7 +165,7 @@ int loop_event_unregister(event_t *event) {
 
 int loop_timer_create(event_t **timer, loop_t *loop, void *callback_owner,
                       fd_callback_t callback, void *callback_data) {
-  _event_create(timer, loop, EVTYPE_TIMER, callback_owner, callback,
+  _event_create(timer, loop, EVTYPE_TIMER, callback_owner, callback, 0,
                 callback_data);
 
   evtimer_assign(&(*timer)->raw_event, loop->event_base, cb_wrapper,
