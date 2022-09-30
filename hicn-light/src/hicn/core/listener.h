@@ -115,8 +115,10 @@ void listener_setup_local(struct forwarder_s *forwarder, uint16_t port);
 void listener_process_packet(const listener_t *listener, const uint8_t *packet,
                              size_t size);
 
-ssize_t listener_read_single(listener_t *listener, int fd);
-ssize_t listener_read_batch(listener_t *listener, int fd);
+ssize_t listener_read_single(listener_t *listener, int fd,
+                             unsigned connection_id);
+ssize_t listener_read_batch(listener_t *listener, int fd,
+                            unsigned connection_id);
 
 /**
  * @brief Callback helper function for batch reading data from listener fd.
@@ -129,7 +131,8 @@ ssize_t listener_read_batch(listener_t *listener, int fd);
  * NOTE: the function returns size_t as for TCP we might need to know how much
  * data we can consume from the socket.
  */
-ssize_t listener_read_callback(listener_t *listener, int fd, void *user_data);
+ssize_t listener_read_callback(listener_t *listener, int fd,
+                               unsigned connection_id, void *user_data);
 
 #define listener_get_forwarder(listener) (listener->forwarder)
 #define listener_get_fd(listener) (listener->fd)
