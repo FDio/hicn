@@ -48,7 +48,7 @@ Run Test
         Should Be True
         ...    ${min_max_avg}[2] >= ${EXPECTED_AVG}
         ...    msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF    '${TESTID}' == 'requin-new-paket-format'
+    ELSE IF    '${TESTID}' == 'requin-new-packet-format'
         Should Be True
         ...    ${min_max_avg}[0] >= ${EXPECTED_MIN}
         ...    msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"

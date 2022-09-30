@@ -23,12 +23,13 @@
 
 /* fd & timer callbacks */
 
-typedef int (*fd_callback_t)(void *owner, int fd, void *data);
+typedef int (*fd_callback_t)(void *owner, int fd, unsigned id, void *data);
 
 typedef struct {
   int fd;
   void *owner;
   fd_callback_t callback;
+  unsigned id;
   void *data;
 } fd_callback_data_t;
 
@@ -81,12 +82,14 @@ int loop_undispatch(loop_t *loop);
  * \param [in] callback_owner - Pointer to the owner of the callack (first
  *      parameter of callback function)
  * \param [in] callback - Callback function
+ * \param [in] id - User parameter to pass alongside callback invocation,
+ *      allowing to pass an id without allocating memory.
  * \param [in] callback_data - User data to pass alongside callback invocation
  * \return 0 in case of success, -1 otherwise
  */
 int loop_fd_event_create(event_t **event, loop_t *loop, int fd,
                          void *callback_owner, fd_callback_t callback,
-                         void *callback_data);
+                         unsigned id, void *callback_data);
 
 /**
  * Register event in corresponding event loop.

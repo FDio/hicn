@@ -30,9 +30,11 @@
 #define ALPHA 0.9
 #define STATS_INTERVAL 1000 /* ms */
 
-static int policy_stats_mgr_tick(void* mgr_arg, int fd, void* data) {
+static int policy_stats_mgr_tick(void* mgr_arg, int fd, unsigned id,
+                                 void* data) {
   policy_stats_mgr_t* mgr = mgr_arg;
   assert(mgr);
+  assert(id == 0);
   assert(!data);
 
   uint64_t now = ticks_now();
