@@ -39,13 +39,19 @@ connection_t *connection_create(face_type_t type, const char *name,
 
   face_type_t listener_type;
   switch (type) {
+    case FACE_TYPE_HICN:
+      return NULL; /* Not implemented */
     case FACE_TYPE_UDP:
       listener_type = FACE_TYPE_UDP_LISTENER;
       break;
     case FACE_TYPE_TCP:
       listener_type = FACE_TYPE_TCP_LISTENER;
       break;
-    default:
+    case FACE_TYPE_HICN_LISTENER:
+    case FACE_TYPE_UDP_LISTENER:
+    case FACE_TYPE_TCP_LISTENER:
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
       return NULL;
   }
 
@@ -200,7 +206,8 @@ int connection_initialize(connection_t *connection, face_type_t type,
      * the listener.
      */
     loop_fd_event_create(&connection->event_data, MAIN_LOOP, fd, listener,
-                         (fd_callback_t)listener_read_callback, NULL);
+                         (fd_callback_t)listener_read_callback, connection->id,
+                         NULL);
 
     if (!connection->event_data) {
       goto ERR_REGISTER_FD;
