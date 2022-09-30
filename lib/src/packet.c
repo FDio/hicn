@@ -91,8 +91,14 @@ int
 hicn_packet_init_header (hicn_packet_buffer_t *pkbuf,
 			 size_t additional_header_size)
 {
+#if 0
+  /*
+   * At this stage, the packet is not defined, as we need the offsets to set the
+   * flags
+   */
   if (hicn_packet_is_undefined (pkbuf))
     return HICN_LIB_ERROR_UNEXPECTED;
+#endif
   if (hicn_packet_get_format (pkbuf) == HICN_PACKET_FORMAT_NONE)
     return HICN_LIB_ERROR_UNEXPECTED;
   if (!pkbuf_get_header (pkbuf))

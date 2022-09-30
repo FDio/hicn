@@ -14,6 +14,10 @@ Run Test
     [Arguments]         ${TEST_SETUP}=${NONE}                    ${TESTID}=${NONE}                                                  ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     ${result_test} =    Run Process                              ${EXECDIR}/config.sh                                               start                      ${TEST_SETUP}              ${TESTID}                  stdout=${TEMPDIR}/stdout.txt    stderr=${TEMPDIR}/stderr.txt
     Log Many            stdout: ${result_test.stdout}            stderr: ${result_test.stderr}
+
+    ${output}           Get File                                 /tmp/lite_server.log
+    Log To Console      HICN LIGHT FORWARDER: ${output.strip()}
+
     @{min_max_avg} =    Split String                             ${result_test.stdout.strip()}
     Log To Console      Min Max Average Array: @{min_max_avg}
     IF                  '${TESTID}' == 'rtc'
@@ -24,7 +28,7 @@ Run Test
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF             '${TESTID}' == 'requin-new'
+    ELSE IF             '${TESTID}' == 'requin-new-packet-format'
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
@@ -32,7 +36,7 @@ Run Test
     Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
-    ELSE IF             '${TESTID}' == 'latency-new'
+    ELSE IF             '${TESTID}' == 'latency-new-packet-format'
     Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
@@ -40,7 +44,7 @@ Run Test
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF             '${TESTID}' == 'cbr-new'
+    ELSE IF             '${TESTID}' == 'cbr-new-packet-format'
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
@@ -83,7 +87,7 @@ Run Throughput Test Raaqm
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                       requin                     ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
-Run Throughput Test Raaqm New
+Run Throughput Test Raaqm New Packet Format
     [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
     ...                Arguments:
     ...                ${TEST_SETUP} The setup of the test.
@@ -91,7 +95,7 @@ Run Throughput Test Raaqm New
     ...                ${EXPECTED_MAX} The expected max throughput
     ...                ${EXPECTED_AVG} The expected avg throughput
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
-    Run Test           ${TEST_SETUP}                                                       requin                     ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+    Run Test           ${TEST_SETUP}                                                       requin-new-packet-format   ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
 Run Throughput Test CBR
     [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
@@ -103,7 +107,7 @@ Run Throughput Test CBR
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                       cbr                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
-Run Throughput Test CBR New
+Run Throughput Test CBR New Packet Format
     [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
     ...                Arguments:
     ...                ${TEST_SETUP} The setup of the test.
@@ -111,7 +115,7 @@ Run Throughput Test CBR New
     ...                ${EXPECTED_MAX} The expected max throughput
     ...                ${EXPECTED_AVG} The expected avg throughput
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
-    Run Test           ${TEST_SETUP}                                                       cbr                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+    Run Test           ${TEST_SETUP}                                                       cbr-new-packet-format      ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
 Run RTC Test
     [Documentation]    Run hiperf RTC on the ${TEST_SETUP} topology and check consumer syncs to producer bitrate.
@@ -123,7 +127,7 @@ Run RTC Test
     [Arguments]        ${TEST_SETUP}=${NONE}                                                                         ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                                                 rtc                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
-Run Latency Test New
+Run Latency Test New Packet Format
     [Documentation]    Run hicn-ping on the ${TEST_SETUP} topology with the new packet format and measure latency.
     ...                Arguments:
     ...                ${TEST_SETUP} The setup of the test.
@@ -131,4 +135,4 @@ Run Latency Test New
     ...                ${EXPECTED_MAX} The expected max latency
     ...                ${EXPECTED_AVG} The expected avg latency
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
-    Run Test           ${TEST_SETUP}                                                       latency-new                ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+    Run Test           ${TEST_SETUP}                                                       latency-new-packet-format                ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
