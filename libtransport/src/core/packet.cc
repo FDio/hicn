@@ -43,8 +43,8 @@ Packet::Packet(Type type, Format format, std::size_t additional_header_size)
    */
   setFormat(format);
   setBuffer();
-  initializeType(type);  // type requires packet format
-  initialize(additional_header_size);
+  initialize(additional_header_size); // this sets the offsets in pkbuf
+  initializeType(type);  // type requires packet format and offsets in pkbuf
 }
 
 Packet::Packet(CopyBufferOp, const uint8_t *buffer, std::size_t size)
