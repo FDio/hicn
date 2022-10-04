@@ -60,6 +60,7 @@ services:
 
         hiperf -q -z hicnlight_module -S -R -B 4000kbps ${RTC_PRODUCER} -P 2 &
         hiperf -q -z hicnlight_module -S ${RAAQM_PRODUCER}/128 &
+        hiperf -q -z hicnlight_module -S ${RAAQM_PRODUCER_NEW}/128 &
         hicn-ping-server -z hicnlight_module -s 0 -n ${PING_PRODUCER}/128 &
 
         tail -f /dev/null

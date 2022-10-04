@@ -174,20 +174,6 @@ class PayloadSize {
            transport_size - fec_size;
   }
 
-  static Packet::Format getFormatFromPrefix(const Prefix &prefix,
-                                            bool ah = false) {
-    switch (prefix.getAddressFamily()) {
-      case AF_INET:
-        return ah ? HICN_PACKET_FORMAT_IPV4_TCP_AH
-                  : HICN_PACKET_FORMAT_IPV4_TCP;
-      case AF_INET6:
-        return ah ? HICN_PACKET_FORMAT_IPV6_TCP_AH
-                  : HICN_PACKET_FORMAT_IPV6_TCP;
-      default:
-        return HICN_PACKET_FORMAT_NONE;
-    }
-  }
-
  private:
   std::size_t mtu_;
   Packet::Format format_;

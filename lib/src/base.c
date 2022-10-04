@@ -34,9 +34,9 @@ hicn_packet_format_snprintf (char *s, size_t size, hicn_packet_format_t format)
   int rc;
 
   HICN_PACKET_FORMAT_ENUMERATE (format, i, protocol, {
-    if (i > 1)
+    if (i > 0)
       {
-	rc = snprintf (cur, size - (cur - s), " %s ", "/");
+	rc = snprintf (cur, size - (cur - s), "%s", "/");
 	if (rc < 0 || rc >= size - (cur - s))
 	  return rc;
 	cur += rc;

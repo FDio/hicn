@@ -143,8 +143,9 @@ class HIperfServer::Impl {
                                         signer);
 
       // Compute maximum payload size
-      Packet::Format format = PayloadSize::getFormatFromPrefix(
-          configuration_.name_, !configuration_.manifest_max_capacity_);
+      Packet::Format format = configuration_.packet_format_;
+      if (!configuration_.manifest_max_capacity_)
+        format = Packet::toAHFormat(format);
       payload_size_max_ = PayloadSize(format).getPayloadSizeMax(
           configuration_.rtc_ ? RTC_HEADER_SIZE : 0,
           configuration_.fec_type_.empty() ? 0 : FEC_HEADER_MAX_SIZE,

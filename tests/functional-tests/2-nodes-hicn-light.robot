@@ -13,8 +13,14 @@ Resource          resources/libraries/robot/runtest.robot
 Throughput Testing Raaqm Mobile
     Run Throughput Test Raaqm    hicn-light    200    500    400
 
+Throughput Testing Raaqm Mobile New
+    Run Throughput Test Raaqm New    hicn-light    200    500    400
+
 Throughput Testing CBR Mobile
     Run Throughput Test CBR    hicn-light    200    500    400
+
+Throughput Testing CBR Mobile New
+    Run Throughput Test CBR New    hicn-light    200    500    400
 
 RTC Testing Mobile
     Run RTC Test    hicn-light    4    4    4
