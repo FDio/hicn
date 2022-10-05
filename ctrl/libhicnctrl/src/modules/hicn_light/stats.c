@@ -60,6 +60,10 @@ int hicnlight_stats_serialize_list(const hc_object_t *object, uint8_t *packet) {
   return sizeof(msg_header_t);  // Do not use msg_stats_list_t
 }
 
+int hicnlight_stats_serialize_set(const hc_object_t *object, uint8_t *packet) {
+  return -1;
+}
+
 DECLARE_MODULE_OBJECT_OPS(hicnlight, stats);
 
 /* PER-FACE STATS */
@@ -99,6 +103,11 @@ int hicnlight_face_stats_serialize_list(const hc_object_t *object,
                                  }};
 
   return sizeof(msg_header_t);  // Do not use msg_stats_list_t
+}
+
+int hicnlight_face_stats_serialize_set(const hc_object_t *object,
+                                       uint8_t *packet) {
+  return -1;
 }
 
 DECLARE_MODULE_OBJECT_OPS(hicnlight, face_stats);
