@@ -538,4 +538,9 @@ static int vpp_route_list(hc_sock_t *sock, hc_object_t *object,
   return _vpp_route_list(sock, data);
 }
 
+static int vpp_route_set(hc_sock_t *sock, hc_object_t *object,
+                         hc_data_t *data) {
+  return -1;
+}
+
 DECLARE_VPP_MODULE_OBJECT_OPS(vpp, route);

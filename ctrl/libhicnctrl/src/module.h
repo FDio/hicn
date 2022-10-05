@@ -53,11 +53,13 @@ typedef struct {
             [ACTION_CREATE] = NULL,                         \
             [ACTION_DELETE] = NULL,                         \
             [ACTION_LIST] = NULL,                           \
+            [ACTION_SET] = NULL,                            \
         },                                                  \
     .serialize = {                                          \
       [ACTION_CREATE] = PREFIX##_##NAME##_serialize_create, \
       [ACTION_DELETE] = PREFIX##_##NAME##_serialize_delete, \
       [ACTION_LIST] = PREFIX##_##NAME##_serialize_list,     \
+      [ACTION_SET] = PREFIX##_##NAME##_serialize_set,       \
     }                                                       \
   }
 
@@ -70,11 +72,13 @@ typedef struct {
               [ACTION_CREATE] = NULL,                           \
               [ACTION_DELETE] = NULL,                           \
               [ACTION_LIST] = NULL,                             \
+              [ACTION_SET] = NULL,                              \
           },                                                    \
       .serialize = {                                            \
           [ACTION_CREATE] = PREFIX##_##NAME##_serialize_create, \
           [ACTION_DELETE] = PREFIX##_##NAME##_serialize_delete, \
           [ACTION_LIST] = PREFIX##_##NAME##_serialize_list,     \
+          [ACTION_SET] = PREFIX##_##NAME##_serialize_set,       \
       }};
 
 #define DECLARE_VPP_MODULE_OBJECT_OPS(PREFIX, NAME)             \
@@ -84,12 +88,14 @@ typedef struct {
               [ACTION_CREATE] = PREFIX##_##NAME##_create,       \
               [ACTION_DELETE] = PREFIX##_##NAME##_delete,       \
               [ACTION_LIST] = PREFIX##_##NAME##_list,           \
+              [ACTION_SET] = PREFIX##_##NAME##_set,             \
           },                                                    \
       .serialize =                                              \
           {                                                     \
               [ACTION_CREATE] = NULL,                           \
               [ACTION_DELETE] = NULL,                           \
               [ACTION_LIST] = NULL,                             \
+              [ACTION_SET] = NULL,                              \
           },                                                    \
   };
 

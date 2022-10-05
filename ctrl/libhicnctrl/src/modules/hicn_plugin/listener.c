@@ -181,4 +181,9 @@ static int vpp_listener_list(hc_sock_t *sock, hc_object_t *object,
   return _vpp_listener_list(sock, data);
 }
 
+static int vpp_listener_set(hc_sock_t *sock, hc_object_t *object,
+                            hc_data_t *data) {
+  return -1;
+}
+
 DECLARE_VPP_MODULE_OBJECT_OPS(vpp, listener);
