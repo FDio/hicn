@@ -63,4 +63,9 @@ int hicnlight_subscription_serialize_list(const hc_object_t *object,
   return -1;
 }
 
+int hicnlight_subscription_serialize_set(const hc_object_t *object,
+                                         uint8_t *packet) {
+  return -1;
+}
+
 DECLARE_MODULE_OBJECT_OPS(hicnlight, subscription);

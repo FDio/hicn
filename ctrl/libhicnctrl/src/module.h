@@ -44,6 +44,10 @@ typedef struct {
 
 /* Underscore'd functions take a hc_object_t as a parameter */
 
+static int vpp_nop(hc_sock_t *sock, hc_object_t *object, hc_data_t *data) {
+  return -1;
+}
+
 #define HC_MODULE_OBJECT_OPS(PREFIX, NAME)                  \
   (hc_module_object_ops_t) {                                \
     .parse = _##PREFIX##_##NAME##_parse,                    \
@@ -53,11 +57,13 @@ typedef struct {
             [ACTION_CREATE] = NULL,                         \
             [ACTION_DELETE] = NULL,                         \
             [ACTION_LIST] = NULL,                           \
+            [ACTION_SET] = NULL,                            \
         },                                                  \
     .serialize = {                                          \
       [ACTION_CREATE] = PREFIX##_##NAME##_serialize_create, \
       [ACTION_DELETE] = PREFIX##_##NAME##_serialize_delete, \
       [ACTION_LIST] = PREFIX##_##NAME##_serialize_list,     \
+      [ACTION_SET] = PREFIX##_##NAME##_serialize_set,       \
     }                                                       \
   }
 
@@ -70,11 +76,13 @@ typedef struct {
               [ACTION_CREATE] = NULL,                           \
               [ACTION_DELETE] = NULL,                           \
               [ACTION_LIST] = NULL,                             \
+              [ACTION_SET] = NULL,                              \
           },                                                    \
       .serialize = {                                            \
           [ACTION_CREATE] = PREFIX##_##NAME##_serialize_create, \
           [ACTION_DELETE] = PREFIX##_##NAME##_serialize_delete, \
           [ACTION_LIST] = PREFIX##_##NAME##_serialize_list,     \
+          [ACTION_SET] = PREFIX##_##NAME##_serialize_set,       \
       }};
 
 #define DECLARE_VPP_MODULE_OBJECT_OPS(PREFIX, NAME)             \
@@ -84,12 +92,14 @@ typedef struct {
               [ACTION_CREATE] = PREFIX##_##NAME##_create,       \
               [ACTION_DELETE] = PREFIX##_##NAME##_delete,       \
               [ACTION_LIST] = PREFIX##_##NAME##_list,           \
+              [ACTION_SET] = vpp_nop,                           \
           },                                                    \
       .serialize =                                              \
           {                                                     \
               [ACTION_CREATE] = NULL,                           \
               [ACTION_DELETE] = NULL,                           \
               [ACTION_LIST] = NULL,                             \
+              [ACTION_SET] = NULL,                              \
           },                                                    \
   };
 
