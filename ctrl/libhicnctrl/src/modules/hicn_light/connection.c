@@ -95,22 +95,22 @@ static int hicnlight_connection_parse(const uint8_t *buffer, size_t size,
   }
 
   if (!IS_VALID_ADDRESS(item->local_address)) {
-    ERROR("[hc_connection_parse] Invalid address received");
+    ERROR("[hc_connection_parse] Invalid local address received");
     return -1;
   }
 
   if (!IS_VALID_PORT(ntohs(item->local_port))) {
-    ERROR("[hc_connection_parse] Invalid port received");
+    ERROR("[hc_connection_parse] Invalid local port received");
     return -1;
   }
 
   if (!IS_VALID_ADDRESS(item->remote_address)) {
-    ERROR("[hc_connection_parse] Invalid address received");
+    ERROR("[hc_connection_parse] Invalid remote address received");
     return -1;
   }
 
   if (!IS_VALID_PORT(ntohs(item->remote_port))) {
-    ERROR("[hc_connection_parse] Invalid port received");
+    ERROR("[hc_connection_parse] Invalid remote port received");
     return -1;
   }
 

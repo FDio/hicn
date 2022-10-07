@@ -919,9 +919,8 @@ NEXT:
       if (hc_connection_to_local_listener(&object->connection,
                                           &listener.listener) < 0) {
         ERROR(
-            "[hicnlight_prepare_connection_create] Could not convert face "
-            "to "
-            "local listener.");
+            "[hicnlight_prepare_connection_create] Could not "
+            "convert connection to local listener.");
         return -1;
       }
       hc_request_set_state(current_request,
