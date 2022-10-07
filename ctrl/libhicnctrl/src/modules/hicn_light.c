@@ -791,8 +791,7 @@ static ssize_t hicnlight_prepare_connection_create(hc_sock_t *sock,
 
 NEXT:
   state = hc_request_get_state(current_request);
-  DEBUG("hicnlight_prepare_connection_create > %s",
-        hc_request_state_str(state));
+  INFO("hicnlight_prepare_connection_create > %s", hc_request_state_str(state));
 
   switch (state) {
     case REQUEST_STATE_INIT:

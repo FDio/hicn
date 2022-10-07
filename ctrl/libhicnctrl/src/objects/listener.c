@@ -135,8 +135,10 @@ int hc_listener_cmp(const hc_listener_t *l1, const hc_listener_t *l2) {
   rc = INT_CMP(l1->family, l2->family);
   if (rc != 0) return rc;
 
-  rc = strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN);
-  if (rc != 0) return rc;
+  if (!isempty(l1->interface_name) && !isempty(l2->interface_name)) {
+    rc = strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN);
+    if (rc != 0) return rc;
+  }
 
   rc = hicn_ip_address_cmp(&l1->local_addr, &l2->local_addr);
   if (rc != 0) return rc;
