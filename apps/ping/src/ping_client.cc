@@ -58,7 +58,7 @@ class Configuration {
   bool jump_ = false;
   uint32_t jump_freq_ = 0;
   uint32_t jump_size_ = 0;
-  hicn_packet_format_t packet_format_ = HICN_PACKET_FORMAT_IPV6_TCP;
+  hicn_packet_format_t packet_format_ = HICN_PACKET_FORMAT_DEFAULT;
 
   Configuration() = default;
 };

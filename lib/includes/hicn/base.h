@@ -137,6 +137,10 @@ int hicn_packet_format_snprintf (char *s, size_t size,
 #define HICN_PACKET_FORMAT_NONE                                               \
   HICN_PACKET_FORMAT (IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE)
 
+/* Default packet format */
+
+#define HICN_PACKET_FORMAT_DEFAULT HICN_PACKET_FORMAT_IPV6_TCP
+
 /**
  * @brief Return the hICN format with an additional AH header
  * @param [in] format - hICN packet format

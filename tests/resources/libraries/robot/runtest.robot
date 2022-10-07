@@ -24,7 +24,15 @@ Run Test
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
+    ELSE IF             '${TESTID}' == 'requin-new'
+    Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
+    Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
+    Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
     ELSE IF             '${TESTID}' == 'latency'
+    Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
+    Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
+    Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
+    ELSE IF             '${TESTID}' == 'latency-new'
     Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
@@ -32,10 +40,10 @@ Run Test
     Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
     Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
     Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
-    ELSE IF             '${TESTID}' == 'latency-new'
-    Should Be True      ${min_max_avg}[0] <= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] > ${EXPECTED_MIN})"
-    Should Be True      ${min_max_avg}[1] <= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] > ${EXPECTED_MAX})"
-    Should Be True      ${min_max_avg}[2] <= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] > ${EXPECTED_AVG})"
+    ELSE IF             '${TESTID}' == 'cbr-new'
+    Should Be True      ${min_max_avg}[0] >= ${EXPECTED_MIN}     msg="Min does not match (${min_max_avg}[0] < ${EXPECTED_MIN})"
+    Should Be True      ${min_max_avg}[1] >= ${EXPECTED_MAX}     msg="Max does not match (${min_max_avg}[1] < ${EXPECTED_MAX})"
+    Should Be True      ${min_max_avg}[2] >= ${EXPECTED_AVG}     msg="Avg does not match (${min_max_avg}[2] < ${EXPECTED_AVG})"
     ELSE
     Fail                "Provided Test ID does not exist"
     END
@@ -75,7 +83,27 @@ Run Throughput Test Raaqm
     [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
     Run Test           ${TEST_SETUP}                                                       requin                     ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
 
+Run Throughput Test Raaqm New
+    [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
+    ...                Arguments:
+    ...                ${TEST_SETUP} The setup of the test.
+    ...                ${EXPECTED_MIN} The expected min throughput
+    ...                ${EXPECTED_MAX} The expected max throughput
+    ...                ${EXPECTED_AVG} The expected avg throughput
+    [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
+    Run Test           ${TEST_SETUP}                                                       requin                     ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+
 Run Throughput Test CBR
+    [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
+    ...                Arguments:
+    ...                ${TEST_SETUP} The setup of the test.
+    ...                ${EXPECTED_MIN} The expected min throughput
+    ...                ${EXPECTED_MAX} The expected max throughput
+    ...                ${EXPECTED_AVG} The expected avg throughput
+    [Arguments]        ${TEST_SETUP}=${NONE}                                               ${EXPECTED_MIN}=${NONE}    ${EXPECTED_MAX}=${NONE}    ${EXPECTED_AVG}=${NONE}
+    Run Test           ${TEST_SETUP}                                                       cbr                        ${EXPECTED_MIN}            ${EXPECTED_MAX}            ${EXPECTED_AVG}
+
+Run Throughput Test CBR New
     [Documentation]    Run hiperf on the ${TEST_SETUP} topology and measure throughput.
     ...                Arguments:
     ...                ${TEST_SETUP} The setup of the test.

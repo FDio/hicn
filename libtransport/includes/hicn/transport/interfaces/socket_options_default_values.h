@@ -34,13 +34,8 @@ namespace interface {
 namespace default_values {
 
 // Packet format
-// #define NEW_PACKET_FORMAT
 static constexpr hicn_packet_format_t packet_format =
-#ifdef NEW_PACKET_FORMAT
-    HICN_PACKET_FORMAT_NEW;
-#else
-    HICN_PACKET_FORMAT_IPV6_TCP;
-#endif
+    HICN_PACKET_FORMAT_DEFAULT;
 
 // Parameters
 static const uint32_t interest_lifetime = 1001;  // milliseconds

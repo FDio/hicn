@@ -19,6 +19,15 @@
 
 namespace hiperf {
 
+static std::unordered_map<std::string, hicn_packet_format_t> const
+    packet_format_map = {{"ipv4_tcp", HICN_PACKET_FORMAT_IPV4_TCP},
+                         {"ipv6_tcp", HICN_PACKET_FORMAT_IPV6_TCP},
+                         {"new", HICN_PACKET_FORMAT_NEW}};
+
+#define TO_LOWER(s)                             \
+  std::transform(s.begin(), s.end(), s.begin(), \
+                 [](unsigned char c) { return std::tolower(c); });
+
 void usage() {
   LoggerInfo() << "HIPERF - Instrumentation tool for performing active network"
                   "measurements with hICN";
@@ -174,6 +183,8 @@ void usage() {
                << "Print the stats report <nb_iterations> times and exit.\n"
                << "\t\t\t\t\tThis option limits the duration of the run to "
                   "<nb_iterations> * <stats_interval> milliseconds.";
+  LoggerInfo() << "-w <packet_format> Packet format (without signature, "
+                  "defaults to IPV6_TCP)";
 }
 
 int main(int argc, char *argv[]) {
@@ -208,7 +219,7 @@ int main(int argc, char *argv[]) {
   while (
       (opt = getopt(argc, argv,
                     "A:B:CDE:F:G:HIJ:K:L:M:NP:RST:U:W:X:ab:c:d:e:f:g:hi:j:k:lm:"
-                    "n:op:qrs:tu:vwxy:z:")) != -1) {
+                    "n:op:qrs:tu:vw:xy:z:")) != -1) {
     switch (opt) {
       // Common
       case 'D': {
@@ -270,8 +281,13 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 'w': {
-        client_configuration.packet_format_ = HICN_PACKET_FORMAT_IPV6_UDP;
-        server_configuration.packet_format_ = HICN_PACKET_FORMAT_IPV6_UDP;
+        std::string packet_format_s = std::string(optarg);
+        TO_LOWER(packet_format_s);
+        auto it = packet_format_map.find(std::string(optarg));
+        if (it == packet_format_map.end())
+          throw std::runtime_error("Bad packet format");
+        client_configuration.packet_format_ = it->second;
+        server_configuration.packet_format_ = it->second;
         break;
       }
       case 'k': {
