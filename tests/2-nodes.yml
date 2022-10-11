@@ -6,10 +6,7 @@ services:
       dockerfile: ${DOCKERFILE}
       args:
         - BASE_IMAGE
-    privileged: true
-    stdin_open: true
     hostname: client
-    tty: true
     working_dir: /workspace
     networks:
       - kernel
@@ -23,10 +20,7 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
-    privileged: true
-    stdin_open: true
     hostname: server
-    tty: true
     working_dir: /workspace
     networks:
       - kernel

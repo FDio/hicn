@@ -20,11 +20,11 @@ services:
         add route conn0 b002::/64 1
         EOF
 
-        rm -f /tmp/lite_client.log
+        rm -f ${FORWARDER_LOG_PATH}
 
         sudo hicn-light-daemon \
           --daemon \
-          --log-file /tmp/lite_client.log \
+          --log-file ${FORWARDER_LOG_PATH} \
           --config /tmp/hicn-light.conf
 
         tail -f /dev/null
@@ -49,11 +49,11 @@ services:
         add route conn0 b002::/64 1
         EOF
 
-        rm -f /tmp/lite_server.log
+        rm -f ${FORWARDER_LOG_PATH}
 
         sudo hicn-light-daemon \
           --daemon \
-          --log-file /tmp/lite_server.log \
+          --log-file ${FORWARDER_LOG_PATH} \
           --config /tmp/hicn-light.conf --capacity 0
 
         sleep 4
