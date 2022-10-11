@@ -33,7 +33,7 @@ services:
         unix {
             startup-config /etc/vpp/client-up.txt
             cli-listen /run/vpp/cli.sock
-            log /var/log/vpp/vpp.log
+            log ${FORWARDER_LOG_PATH}
         }
         EOF
 
@@ -95,7 +95,7 @@ services:
         unix {
             startup-config /etc/vpp/server-up.txt
             cli-listen /run/vpp/cli.sock
-            log /var/log/vpp/vpp.log
+            log ${FORWARDER_LOG_PATH}
         }
         EOF
 
