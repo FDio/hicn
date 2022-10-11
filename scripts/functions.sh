@@ -113,6 +113,25 @@ function download_artifacts() {
   echo "GERRIT_* environment is not set. Image will be rebuilt from scratch" >&2
   return 1
 }
+function download_yq() {
+  local arch=$(arch)
+  architecture=""
+
+  if [[ "${arch}" == "x86_64" ]]; then
+    architecture="amd64"
+  elif [[ "${arch}" == "aarch64" ]]; then
+    architecture="arm64"
+  else
+    echo "yq download: architecture not supported." >&2
+    exit 1
+  fi
+
+  curl -sOL https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_linux_${architecture}
+  chmod +x ./yq_linux_${architecture}
+  echo "./yq_linux_${architecture}"
+
+  return 0
+}
 
 # Run functional tests
 function functional_test() {
@@ -129,7 +148,19 @@ function functional_test() {
   fi
 
   # Run functional tests
-  pushd ${SCRIPT_PATH}/../tests
+  pushd "${SCRIPT_PATH}/../tests"
+    # If selinux, let's run the tests with a privileged container to bypass
+    # the checks, which cost also in performance
+    if command -v selinuxenabled; then
+      if selinuxenabled; then
+        # We need to run containers with privileged flag. Let's modify the docker-compose files
+        YQ=$(download_yq)
+
+        ${YQ} '.services.client.privileged = true' ./2-nodes.yml
+        ${YQ} '.services.server.privileged = true' ./2-nodes.yml
+      fi
+    fi
+
     BUILD_SOFTWARE=${build_sw} DOCKERFILE=${dockerfile_path} bash ./run-functional.sh
   popd
 
