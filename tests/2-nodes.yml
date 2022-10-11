@@ -6,13 +6,11 @@ services:
       dockerfile: ${DOCKERFILE}
       args:
         - BASE_IMAGE
-    privileged: true
-    stdin_open: true
     hostname: client
-    tty: true
     working_dir: /workspace
     networks:
-      - kernel
+      p2p-link:
+        ipv4_address: 192.168.1.1
     volumes:
       - ..:/workspace:z
     entrypoint: [/bin/bash, -x, -c]
@@ -23,13 +21,11 @@ services:
     build:
       context: ..
       dockerfile: ${DOCKERFILE}
-    privileged: true
-    stdin_open: true
     hostname: server
-    tty: true
     working_dir: /workspace
     networks:
-      - kernel
+      p2p-link:
+        ipv4_address: 192.168.1.2
     volumes:
       - ..:/workspace:z
     entrypoint: [/bin/bash, -x, -c]
@@ -37,5 +33,9 @@ services:
       - tail -f /dev/null
 
 networks:
-  kernel:
+  p2p-link:
     driver: bridge
+    ipam:
+     config:
+       - subnet: 192.168.1.0/24
+         gateway: 192.168.1.254

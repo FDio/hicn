@@ -7,7 +7,6 @@ services:
       args:
         - BASE_IMAGE
     image: hicn-base
-    privileged: true
     container_name: forwarder
     working_dir: /workspace
     volumes:
