@@ -128,8 +128,14 @@ function functional_test() {
     local dockerfile_path="Dockerfile.dev"
   fi
 
+  # If running on centos, set selinux to permissive mode in order to
+  # be able to use devices
+  if [[ "${NAME}" == "CentOS Linux" ]]; then
+    echo 0 | sudo tee /sys/fs/selinux/enforce
+  fi
+
   # Run functional tests
-  pushd ${SCRIPT_PATH}/../tests
+  pushd "${SCRIPT_PATH}/../tests"
     BUILD_SOFTWARE=${build_sw} DOCKERFILE=${dockerfile_path} bash ./run-functional.sh
   popd
 
