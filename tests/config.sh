@@ -34,7 +34,7 @@ POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   }"'
 
 HIPERF_CMD_RAAQM="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
-HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER} -w new"
+HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER_NEW} -w new"
 HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_CBR_NEW="${HIPERF_CMD_RAAQM_NEW} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
@@ -78,13 +78,13 @@ declare -A tests=(
   ["vpp-memif-replication-rtc"]="${HIPERF_CMD_MEMIF_RTC} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-requin"]="${HIPERF_CMD_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-requin-new"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-requin-new-paket-format"]="${HIPERF_CMD_RAAQM_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-requin"]="${HIPERF_CMD_MEMIF_RAAQM} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
 
   ["hicn-light-cbr"]="${HIPERF_CMD_CBR} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
-  ["hicn-light-cbr-new"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
+  ["hicn-light-cbr-new-paket-format"]="${HIPERF_CMD_CBR_NEW} 2>&1 | tee >(>&2 cat) |  ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-bridge-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
   ["vpp-memif-replication-cbr"]="${HIPERF_CMD_MEMIF_CBR} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_RAAQM_RTC}"
@@ -93,7 +93,7 @@ declare -A tests=(
   ["vpp-bridge-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
   ["vpp-memif-replication-latency"]="${PING_CMD_MEMIF} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
-  ["hicn-light-latency-new"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
+  ["hicn-light-latency-new-paket-format"]="${PING_CMD_NEW} 2>&1 | tee >(>&2 cat) | ${POSTPROCESS_COMMAND_PING}"
 )
 
 declare -A link_model=(
@@ -125,27 +125,31 @@ function conf_exists() {
 
 # test-name client/server link-model
 function setchannel() {
-  if ! conf_exists "${1}"; then
+  topology=${1}
+  configuration=${2}
+  service=${3}
+  device=${4}
+
+  if ! conf_exists "${configuration}"; then
     error "Error: topology does not exist."
   fi
 
-  if ! test_exists "${1}"; then
-    error "Error: test does not exist."
-  fi
-  docker exec "${1}-${2}" bash -c "/workspace/tests/config.sh link set br0\
-                                                          ${link_model[${3}]}"
+  DOCKER_COMMAND="docker-compose -f "${topology}".yml -f "${topology}-${configuration}".yml exec -T"
+  ${DOCKER_COMMAND} "${service}" bash -c "/workspace/tests/config.sh link set ${device} ${link_model[${3}]}"
 }
 # test-name client/server link-model
 function changechannel() {
-  if ! conf_exists "${1}"; then
+  topology=${1}
+  configuration=${2}
+  service=${3}
+  device=${4}
+
+  if ! conf_exists "${configuration}"; then
     error "Error: topology does not exist."
   fi
 
-  if ! test_exists "${1}"; then
-    error "Error: test does not exist."
-  fi
-  docker exec "${1}-${2}" bash -c "/workspace/tests/config.sh link change br0\
-                                                          ${link_model[${3}]}"
+  DOCKER_COMMAND="docker-compose -f "${topology}".yml -f "${topology}-${configuration}".yml exec -T"
+  ${DOCKER_COMMAND} "${service}" bash -c "/workspace/tests/config.sh link change ${device} ${link_model[${3}]}"
 }
 
 # channel set/change dev rate delay jitter lossrate
@@ -170,6 +174,7 @@ function channel() {
     echo "set or change"
   fi
 }
+
 function error() {
   echo >&2 "${@}"
   return 1
@@ -204,11 +209,15 @@ function setup() {
   docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml up --remove-orphans --force-recreate -d
 
   sleep 10
+
+  # Check logs
+  docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml logs
 }
 
 function start() {
-  conf=${1}
-  test=${2}
+  topology=${1}
+  conf=${2}
+  test=${3}
 
   if ! conf_exists "${conf}"; then
     error "Error: configuration does not exist."
@@ -220,7 +229,18 @@ function start() {
     error "Error: test does not exist."
   fi
 
-  docker exec "${1}"-client bash -c "/workspace/tests/config.sh runtest ${tests[${TESTNAME}]}"
+  DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${conf}.yml exec -T"
+
+  ${DOCKER_COMMAND} client bash -x /workspace/tests/config.sh runtest "${tests[${TESTNAME}]}"
+
+  # Print also forwader log
+  echo "Forwarder Log - CLIENT"
+  ${DOCKER_COMMAND} client cat "${FORWARDER_LOG_PATH}"
+
+  echo
+
+  echo "Forwarder Log - SERVER"
+  ${DOCKER_COMMAND} server cat "${FORWARDER_LOG_PATH}"
 }
 
 function stop() {
@@ -272,10 +292,13 @@ COST=1
 #---------------------------------------------------------------
 # Helpers
 #---------------------------------------------------------------
+
+DOCKER_COMMAND="docker-compose -f 1-node.yaml exec -T client"
+
 function exec_command() {
   command=$1
 
-  output=$(docker exec forwarder hicn-light-control $command 2>&1)
+  output=$(${DOCKER_COMMAND} hicn-light-control "$command" 2>&1)
   echo "$output"
 }
 
@@ -475,27 +498,27 @@ function ctrl() {
 # Test ping
 ################################################################
 function test_ping_manifest() {
-  docker exec forwarder bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
   sleep 1
 
   # 2 interests w/ 3 suffixes each (1 in header + 2 in manifest)
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-client -m 6 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 single interest
-  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-client -m 7 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 interest w/ 2 suffixes
-  docker exec forwarder bash -c 'hicn-ping-client -m 8 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
+  ${DOCKER_COMMAND} forwarder bash -c 'hicn-ping-client -m 8 -a 2 intmanifest 2>&1 | grep "Sent" >>/tmp/ping_client.log'
   sleep 1
 
   # 2 interests w/ 3 suffixes each + 1 single interest,
   # using random prefix/suffix generation
-  docker exec forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest -b RANDOM 2>&1 | grep "Sent" >>/tmp/ping_client.log'
+  ${DOCKER_COMMAND} forwarder bash -c 'hicn-ping-client -m 7 -a 2 intmanifest -b RANDOM 2>&1 | grep "Sent" >>/tmp/ping_client.log'
 
   # No 'failed' expected
-  ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
+  ping_server_logs=$(${DOCKER_COMMAND} cat /tmp/ping_server.log)
   if [[ $(echo $ping_server_logs | grep failed | wc -l) -ne 0 ]]; then
     echo "******** Server logs (ping) ********"
     echo "$ping_server_logs"
@@ -503,7 +526,7 @@ function test_ping_manifest() {
   fi
 
   # No 'Timeouts: 0' expected
-  ping_client_logs=$(docker exec forwarder cat /tmp/ping_client.log)
+  ping_client_logs=$(${DOCKER_COMMAND} cat /tmp/ping_client.log)
   if [[ $(echo $ping_client_logs | grep -v "Timeouts: 0" | wc -l) -ne 0 ]]; then
     echo "******** Client logs (ping) ********"
     echo "$ping_client_logs"
@@ -512,14 +535,14 @@ function test_ping_manifest() {
 }
 
 function test_ping_wrong_signature() {
-  docker exec forwarder bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-server -a intmanifest >/tmp/ping_server.log 2>&1 &'
   sleep 1
 
   # Signature mismatch ('intmamifest' on server vs 'wrong_sign' on client)
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 -a 2 wrong_sig'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-client -m 6 -a 2 wrong_sig'
 
   # 'failed' expected
-  ping_server_logs=$(docker exec forwarder cat /tmp/ping_server.log)
+  ping_server_logs=$(${DOCKER_COMMAND} cat /tmp/ping_server.log)
   if [[ $(echo $ping_server_logs | grep "failed" | wc -l) -eq 0 ]]; then
     echo "******** Server logs (signature fail) ********"
     echo "$ping_server_logs"
@@ -529,10 +552,10 @@ function test_ping_wrong_signature() {
 
 function test_ping_no_server() {
   # Server not started to check for ping client timeout
-  docker exec forwarder bash -c 'hicn-ping-client -m 6 2>&1 | grep "Sent" >/tmp/ping_client.log'
+  ${DOCKER_COMMAND} bash -c 'hicn-ping-client -m 6 2>&1 | grep "Sent" >/tmp/ping_client.log'
 
   # 'Timeouts: 6' expected
-  ping_client_logs=$(docker exec forwarder cat /tmp/ping_client.log)
+  ping_client_logs=$(${DOCKER_COMMAND} cat /tmp/ping_client.log)
   if [[ $(echo $ping_client_logs | grep "Timeouts: 6" | wc -l) -eq 0 ]]; then
     echo "******** Client logs (timeout) ********"
     echo "$ping_client_logs"
@@ -576,20 +599,20 @@ while (("${#}")); do
   'setchannel')
     shift
     setchannel "$@"
-    shift 4
+    shift 5
     ;;
   'changechannel')
     shift
     changechannel "$@"
-    shift 4
+    shift 5
     ;;
   'setup')
     setup "${2}" "${3}"
     shift 3
     ;;
   'start')
-    start "${2}" "${3}"
-    shift 3
+    start "${2}" "${3}" "${4}"
+    shift 4
     ;;
   'stop')
     stop "${2}" "${3}"
