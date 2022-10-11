@@ -29,6 +29,12 @@ int nexthops_disable(nexthops_t *nexthops, off_t offset) {
   return 0;
 }
 
+int nexthops_disable_all(nexthops_t *nexthops) {
+  nexthops->flags = ~0;
+  nexthops->cur_elts = 0;
+  return 0;
+}
+
 void nexthops_reset(nexthops_t *nexthops) {
   nexthops->flags = 0;
   nexthops->cur_elts = nexthops->num_elts;

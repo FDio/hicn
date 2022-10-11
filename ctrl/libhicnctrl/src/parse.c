@@ -382,6 +382,7 @@ const char * cmds[] = {
         "set strategy b001::/16 low_latency",
         "set strategy b001::/16 replication",
         "set strategy b001::/16 bestpath",
+        "set strategy b001::/16 local_remote",
         "set wldr <on|off> <connection_id>", // on-off vs unset
         "cache clear",
         "cache store on/off", // set/unset
