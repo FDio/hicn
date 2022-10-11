@@ -18,6 +18,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/best_path.h
   ${CMAKE_CURRENT_SOURCE_DIR}/local_prefixes.h
   ${CMAKE_CURRENT_SOURCE_DIR}/probe_generator.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/local_remote.h
 )
 
 list(APPEND SOURCE_FILES
@@ -27,6 +28,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/best_path.c
   ${CMAKE_CURRENT_SOURCE_DIR}/local_prefixes.c
   ${CMAKE_CURRENT_SOURCE_DIR}/probe_generator.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/local_remote.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

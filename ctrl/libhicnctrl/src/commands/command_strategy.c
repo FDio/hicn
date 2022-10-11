@@ -15,7 +15,7 @@
     .name = "strategy",                                                        \
     .help =                                                                    \
         "Strategy type (e.g. 'random', 'loadbalancer', 'low_latency', "        \
-        "'replication', 'bestpath').",                                         \
+        "'replication', 'bestpath', local_remote).",                           \
     .type = TYPE_ENUM(strategy_type), .offset = offsetof(hc_strategy_t, type), \
   }
 

@@ -94,6 +94,7 @@ typedef struct nexthops_s {
   } while (0)
 
 int nexthops_disable(nexthops_t *nexthops, off_t offset);
+int nexthops_disable_all(nexthops_t *nexthops);
 
 #define nexthops_disable_if(NH, i, condition) \
   do {                                        \
