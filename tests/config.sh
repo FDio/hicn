@@ -170,6 +170,7 @@ function channel() {
     echo "set or change"
   fi
 }
+
 function error() {
   echo >&2 "${@}"
   return 1
@@ -204,6 +205,9 @@ function setup() {
   docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml up --remove-orphans --force-recreate -d
 
   sleep 10
+
+  # Check logs
+  docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml logs
 }
 
 function start() {
@@ -220,7 +224,16 @@ function start() {
     error "Error: test does not exist."
   fi
 
-  docker exec "${1}"-client bash -c "/workspace/tests/config.sh runtest ${tests[${TESTNAME}]}"
+  docker exec "${1}"-client -- bash /workspace/tests/config.sh runtest "${tests[${TESTNAME}]}"
+
+  # Print also forwader log
+  echo "Forwarder Log - CLIENT"
+  docker exec "${1}"-client -- cat "${FORWARDER_LOG_PATH}"
+
+  echo
+
+  echo "Forwarder Log - SERVER"
+  docker exec "${1}"-server -- cat "${FORWARDER_LOG_PATH}"
 }
 
 function stop() {
