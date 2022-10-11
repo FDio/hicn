@@ -2,6 +2,8 @@ version: "3"
 services:
   client:
     container_name: ${TEST_VPP_BRIDGE}-client
+    cap_add:
+      - NET_ADMIN
     command:
       - |
         if [ -d /workspace/build-dev ]; then
@@ -9,9 +11,10 @@ services:
         fi
 
         sudo ip link add br0 type bridge
-        sudo ip link set eth0 master br0
-        sudo ip link set eth0 up
         sudo ip link set br0 up
+        sudo ip link set eth0 master br0
+        sudo ip addr del 192.168.1.1/24 dev eth0
+
         sudo mkdir -p /var/log/vpp
         sudo tee /etc/vpp/startup.conf <<EOF
         cpu { main-core 1 }
@@ -32,7 +35,7 @@ services:
         unix {
             startup-config /etc/vpp/client-up.txt
             cli-listen /run/vpp/cli.sock
-            log /var/log/vpp/vpp.log
+            log ${FORWARDER_LOG_PATH}
         }
         EOF
 
@@ -59,9 +62,10 @@ services:
         fi
 
         sudo ip link add br0 type bridge
-        sudo ip link set eth0 master br0
-        sudo ip link set eth0 up
         sudo ip link set br0 up
+        sudo ip link set eth0 master br0
+        sudo ip addr del 192.168.1.2/24 dev eth0
+
         sudo mkdir -p /var/log/vpp
         sudo tee /etc/vpp/startup.conf <<EOF
         cpu { main-core 2 }
@@ -81,7 +85,7 @@ services:
         unix {
             startup-config /etc/vpp/server-up.txt
             cli-listen /run/vpp/cli.sock
-            log /var/log/vpp/vpp.log
+            log ${FORWARDER_LOG_PATH}
         }
         EOF
         sudo tee /etc/vpp/server-up.txt <<EOF
