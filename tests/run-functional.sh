@@ -27,7 +27,7 @@ for t in functional-tests/*; do
 
   robot --NoStatusRC \
     --outputdir report_"${test}" \
-    -P ${PWD} functional-tests/"${test}"
+    functional-tests/"${test}"
 
   REPORTS+=(report_"${test}"/output.xml)
 done

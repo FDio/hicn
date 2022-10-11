@@ -30,9 +30,9 @@ down:
 
 functional-ctrl:
 	sleep 1  # Wait for the forwarder to be ready
-	bash config.sh ctrl listeners
-	bash config.sh ctrl connections
-	bash config.sh ctrl routes
+	bash -x config.sh ctrl listeners
+	bash -x config.sh ctrl connections
+	bash -x config.sh ctrl routes
 
 functional-ping-manifest:
 	bash config.sh ping manifest
