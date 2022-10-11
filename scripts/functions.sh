@@ -114,6 +114,10 @@ function download_artifacts() {
   return 1
 }
 
+function is_selinuxenabled() {
+  sudo selinuxenabled && return 1 || return 0
+}
+
 # Run functional tests
 function functional_test() {
   echo "*******************************************************************"
@@ -129,8 +133,16 @@ function functional_test() {
   fi
 
   # Run functional tests
-  pushd ${SCRIPT_PATH}/../tests
-    BUILD_SOFTWARE=${build_sw} DOCKERFILE=${dockerfile_path} bash ./run-functional.sh
+  pushd "${SCRIPT_PATH}/../tests"
+    # If selinux, let's run the tests with a privileged container to bypass
+    # the checks, which cost also in performance
+    if is_selinuxenabled; then
+        local privileged=false
+    else
+        local privileged=true
+    fi
+
+    BUILD_SOFTWARE=${build_sw} DOCKERFILE=${dockerfile_path} TEST_PRIVILEGED=${privileged} bash ./run-functional.sh
   popd
 
   echo "*******************************************************************"
