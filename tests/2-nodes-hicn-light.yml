@@ -8,23 +8,18 @@ services:
           sudo ninja -C /workspace/build-dev install
         fi
 
-        sudo ip link add br0 type bridge
-        sudo ip addr add 192.168.1.1/24 dev br0
-        sudo ip link set eth0 master br0
-        sudo ip link set eth0 up
-        sudo ip link set br0 up
-        sudo ip route add 192.168.1.2 via 192.168.1.1 dev br0
+        sudo ip addr add 192.168.1.1/24 brd + dev eth0
         tee -a /tmp/hicn-light.conf <<EOF
-        add listener udp local0 192.168.1.1 9199 br0
+        add listener udp local0 192.168.1.1 9199 eth0
         add connection udp conn0 192.168.1.1 9199 192.168.1.2 9199
         add route conn0 b002::/64 1
         EOF
 
-        rm -f /tmp/lite_client.log
+        rm -f ${FORWARDER_LOG_PATH}
 
         sudo hicn-light-daemon \
           --daemon \
-          --log-file /tmp/lite_client.log \
+          --log-file ${FORWARDER_LOG_PATH} \
           --config /tmp/hicn-light.conf
 
         tail -f /dev/null
@@ -37,23 +32,18 @@ services:
           sudo ninja -C /workspace/build-dev install
         fi
 
-        sudo ip link add br0 type bridge
-        sudo ip addr add 192.168.1.2/24 dev br0
-        sudo ip link set eth0 master br0
-        sudo ip link set eth0 up
-        sudo ip link set br0 up
+        sudo ip addr add 192.168.1.2/24 dev eth0
 
         tee -a /tmp/hicn-light.conf <<EOF
-        add listener udp local0 192.168.1.2 9199 br0
+        add listener udp local0 192.168.1.2 9199 eth0
         add connection udp conn0 192.168.1.2 9199 192.168.1.1 9199
-        add route conn0 b002::/64 1
         EOF
 
-        rm -f /tmp/lite_server.log
+        rm -f ${FORWARDER_LOG_PATH}
 
         sudo hicn-light-daemon \
           --daemon \
-          --log-file /tmp/lite_server.log \
+          --log-file ${FORWARDER_LOG_PATH} \
           --config /tmp/hicn-light.conf --capacity 0
 
         sleep 4
