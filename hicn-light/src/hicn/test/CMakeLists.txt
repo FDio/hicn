@@ -17,6 +17,7 @@ list(APPEND TESTS_SRC
   test-strategy-random.cc
   test-strategy-replication.cc
   test-strategy-best-path.cc
+  test-strategy-local-remote.cc
   test-subscription.cc
   test-local_prefixes.cc
   test-probe_generator.cc

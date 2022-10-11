@@ -25,12 +25,14 @@ extern const strategy_ops_t strategy_random;
 extern const strategy_ops_t strategy_replication;
 extern const strategy_ops_t strategy_bestpath;
 extern const strategy_ops_t strategy_low_latency;
+extern const strategy_ops_t strategy_local_remote;
 
 const strategy_ops_t *const strategy_vft[] = {
     [STRATEGY_TYPE_LOADBALANCER] = &strategy_load_balancer,
     [STRATEGY_TYPE_RANDOM] = &strategy_random,
     [STRATEGY_TYPE_REPLICATION] = &strategy_replication,
     [STRATEGY_TYPE_BESTPATH] = &strategy_bestpath,
+    [STRATEGY_TYPE_LOCAL_REMOTE] = &strategy_local_remote,
 #if 0
   [STRATEGY_TYPE_LOW_LATENCY] = &strategy_low_latency,
 #endif
