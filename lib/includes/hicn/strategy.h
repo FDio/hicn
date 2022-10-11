@@ -29,6 +29,7 @@
   _ (RANDOM)                                                                  \
   _ (REPLICATION)                                                             \
   _ (BESTPATH)                                                                \
+  _ (LOCAL_REMOTE)                                                            \
   _ (N)
 
 typedef enum
