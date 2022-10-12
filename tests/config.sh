@@ -170,6 +170,7 @@ function channel() {
     echo "set or change"
   fi
 }
+
 function error() {
   echo >&2 "${@}"
   return 1
