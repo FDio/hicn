@@ -72,14 +72,14 @@ static inline address_t ADDRESS4(in_addr_t in_addr, int port) {
           {
               .sin_family = AF_INET,
               .sin_port = htons(port),
-              .sin_addr = {.s_addr = htonl(in_addr)},
+              .sin_addr = {.s_addr = in_addr},
           },
   };
 
   return address;
 }
 
-#define ADDRESS4_LOCALHOST(port) ADDRESS4(INADDR_LOOPBACK, (port))
+#define ADDRESS4_LOCALHOST(port) ADDRESS4(htonl(INADDR_LOOPBACK), (port))
 
 /**
  * @brief Helper function to avoid macro expansion in c++ tests. Wrapper around
