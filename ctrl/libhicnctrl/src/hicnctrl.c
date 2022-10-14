@@ -221,7 +221,7 @@ int parse_options(int argc, char *argv[], hc_command_t *command,
   command->action = ACTION_CREATE;
   int opt;
 
-  while ((opt = getopt(argc, argv, "cCdfFlLrRsShz:")) != -1) {
+  while ((opt = getopt(argc, argv, "cCdDfFlLrRsShz:")) != -1) {
     switch (opt) {
       case 'z':
         *forwarder = forwarder_type_from_str(optarg);
@@ -259,6 +259,9 @@ int parse_options(int argc, char *argv[], hc_command_t *command,
         break;
       case 'S':
         set_command(ACTION_LIST, OBJECT_TYPE_STRATEGY);
+        break;
+      case 'D':
+        log_conf.log_level = LOG_DEBUG;
         break;
       default: /* "h" */
         usage(argv[0]);
@@ -323,7 +326,9 @@ int main(int argc, char *argv[]) {
   hc_command_t command = {0};
   char buf[MAXSZ_HC_OBJECT];
 
-  forwarder_type_t forwarder = FORWARDER_TYPE_VPP;
+  log_conf.log_level = LOG_INFO;
+
+  forwarder_type_t forwarder = FORWARDER_TYPE_HICNLIGHT;
 
   if (parse_options(argc, argv, &command, &forwarder) < 0)
     die(OPTIONS, "Bad arguments");

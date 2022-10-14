@@ -341,6 +341,8 @@ function test_listeners() {
   echo -n "List listeners: "
   command="list listener"
   output=$(exec_command "${command}")
+  echo -n $command
+  echo $output
 
   if [[ "${output}" =~ "udp0 inet4://${ADDRESS}:9695" &&
     "${output}" =~ "udp1 inet4://127.0.0.1:12345" &&
@@ -474,6 +476,14 @@ function test_routes() {
   echo -n "Remove non-existing route using ID: "
   command="remove route 5 $PREFIX"
   assert_cmd_failure "${command}"
+
+  echo -n "Add route and face without interface"
+  command="add route $PREFIX $COST udp $ADDRESS 9695 127.0.0.1 9695 $INTERFACE"
+  assert_cmd_success "${command}"
+
+  echo -n "Add route and face without interface"
+  command="add route $PREFIX $COST udp $ADDRESS 9695 127.0.0.1 9695"
+  assert_cmd_success "${command}"
 }
 
 declare -A ctrl_tests=(

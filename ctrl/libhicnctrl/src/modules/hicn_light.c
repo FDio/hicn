@@ -394,7 +394,10 @@ static ssize_t hicnlight_prepare_generic(hc_sock_t *sock, hc_request_t *request,
   /* Dispatch to subrequest if any */
   hc_request_t *current_request = hc_request_get_current(request);
 
-  _ASSERT(!hc_request_get_data(current_request));
+  /* We discard any result from the child request */
+  hc_request_reset_data(current_request);
+
+  DEBUG("[hicnlight_prepare_generic]");
 
   hc_action_t action = hc_request_get_action(current_request);
   hc_object_type_t object_type = hc_request_get_object_type(current_request);
@@ -695,8 +698,8 @@ static ssize_t hicnlight_prepare_face_list(hc_sock_t *sock,
       }
       hc_data_set_complete(face_data);
 
-      hc_request_reset_data(request);
-      hc_request_set_data(request, face_data);
+      hc_request_reset_data(current_request);
+      hc_request_set_data(current_request, face_data);
 
       /* FACE/LIST could be part of FACE/GET */
       break;
@@ -750,7 +753,7 @@ static ssize_t hicnlight_prepare_face(hc_sock_t *sock, hc_request_t *request,
                                       uint8_t **buffer) {
   hc_request_t *current_request = hc_request_get_current(request);
   hc_action_t action = hc_request_get_action(current_request);
-  hc_object_type_t object_type = hc_request_get_object_type(request);
+  hc_object_type_t object_type = hc_request_get_object_type(current_request);
 
   _ASSERT(object_type == OBJECT_TYPE_FACE);
 
@@ -1027,7 +1030,6 @@ NEXT:
     case REQUEST_STATE_ROUTE_CREATE_FACE_CREATE:
       hc_request_set_state(current_request,
                            REQUEST_STATE_ROUTE_CREATE_FACE_CHECK);
-      INFO(">>>>>>subrequest create face");
       return hicnlight_prepare_subrequest(
           sock, request, ACTION_CREATE, OBJECT_TYPE_FACE,
           (hc_object_t *)&object->route.face, buffer);

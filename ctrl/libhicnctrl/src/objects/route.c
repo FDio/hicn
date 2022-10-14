@@ -83,7 +83,7 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
   }
 
   if (hc_route_has_face(route)) {
-    if (!hc_face_validate(&route->face, allow_partial)) {
+    if (hc_face_validate(&route->face, allow_partial) < 0) {
       ERROR("[hc_route_validate] Invalid face");
       return -1;
     }
