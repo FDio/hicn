@@ -72,7 +72,7 @@ static inline address_t ADDRESS4(in_addr_t in_addr, int port) {
           {
               .sin_family = AF_INET,
               .sin_port = htons(port),
-              .sin_addr = {.s_addr = htonl(in_addr)},
+              .sin_addr = {.s_addr = in_addr},
           },
   };
 
