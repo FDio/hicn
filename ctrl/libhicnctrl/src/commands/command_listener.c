@@ -90,7 +90,16 @@ static const command_parser_t command_listener_create4 = {
 COMMAND_REGISTER(command_listener_create4);
 #endif
 
-static const command_parser_t command_listener_create6 = {
+static const command_parser_t command_listener_create4 = {
+    .action = ACTION_CREATE,
+    .object_type = OBJECT_TYPE_LISTENER,
+    .nparams = 4,
+    .parameters = {protocol_tcp_udp, symbolic, local_address, local_port},
+    .post_hook = (parser_hook_t)on_listener_create,
+};
+COMMAND_REGISTER(command_listener_create4);
+
+static const command_parser_t command_listener_create5 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_LISTENER,
     .nparams = 5,
@@ -98,7 +107,7 @@ static const command_parser_t command_listener_create6 = {
                    interface},
     .post_hook = (parser_hook_t)on_listener_create,
 };
-COMMAND_REGISTER(command_listener_create6);
+COMMAND_REGISTER(command_listener_create5);
 
 static const command_parser_t command_listener_list = {
     .action = ACTION_LIST,

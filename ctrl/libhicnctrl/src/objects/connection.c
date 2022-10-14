@@ -45,7 +45,9 @@ int hc_connection_validate(const hc_connection_t *connection,
                            bool allow_partial) {
   int has_id = 0;
   int has_name = 0;
+#if 0
   int has_interface_name = 0;
+#endif
   int has_netdevice_type = 0;
   int has_type = 0;
   int has_family = 0;
@@ -72,6 +74,7 @@ int hc_connection_validate(const hc_connection_t *connection,
     has_name = 1;
   }
 
+#if 0
   if (!isempty(connection->interface_name)) {
     if (!IS_VALID_INTERFACE_NAME(connection->interface_name)) {
       ERROR("[hc_connection_validate] Invalid interface_name specified");
@@ -79,6 +82,7 @@ int hc_connection_validate(const hc_connection_t *connection,
     }
     has_interface_name = 1;
   }
+#endif
 
   if (connection->type != FACE_TYPE_UNDEFINED) {
     if (!IS_VALID_TYPE(connection->type)) {
@@ -128,10 +132,11 @@ int hc_connection_validate(const hc_connection_t *connection,
     has_remote_port = 1;
   }
 
+  /* Interface name is optional */
   int has_key = has_id || has_name;
-  int has_mandatory_attributes = has_interface_name && has_type && has_family &&
-                                 has_local_addr && has_local_port &&
-                                 has_remote_addr && has_remote_port;
+  int has_mandatory_attributes = has_type && has_family && has_local_addr &&
+                                 has_local_port && has_remote_addr &&
+                                 has_remote_port;
   int has_optional_attributes =
       has_netdevice_type && has_admin_state && has_state;
   has_optional_attributes = has_optional_attributes && has_priority && has_tags;
@@ -169,8 +174,10 @@ int hc_connection_cmp(const hc_connection_t *c1, const hc_connection_t *c2) {
   rc = INT_CMP(c1->family, c2->family);
   if (rc != 0) return rc;
 
-  rc = strncmp(c1->interface_name, c2->interface_name, INTERFACE_LEN);
-  if (rc != 0) return rc;
+  if (!isempty(c1->interface_name) && !isempty(c2->interface_name)) {
+    rc = strncmp(c1->interface_name, c2->interface_name, INTERFACE_LEN);
+    if (rc != 0) return rc;
+  }
 
   rc = hicn_ip_address_cmp(&c1->local_addr, &c2->local_addr);
   if (rc != 0) return rc;

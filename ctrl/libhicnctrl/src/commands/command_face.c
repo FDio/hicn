@@ -43,11 +43,11 @@
     .offset = offsetof(hc_face_t, remote_port),    \
   }
 
-#define interface                                                           \
-  {                                                                         \
-    .name = "interface", .help = "Interface on which to bind",              \
-    .type = TYPE_INTERFACE_NAME,                                            \
-    .offset = offsetof(hc_face_t, netdevice) + offsetof(netdevice_t, name), \
+#define interface                                              \
+  {                                                            \
+    .name = "interface", .help = "Interface on which to bind", \
+    .type = TYPE_INTERFACE_NAME,                               \
+    .offset = offsetof(hc_face_t, netdevice.name),             \
   }
 
 #define symbolic_or_id                                                \
@@ -64,6 +64,7 @@ int on_face_create(hc_face_t* face) {
   return 0;
 }
 
+#if 0
 static command_parser_t command_face_create3 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_FACE,
@@ -73,7 +74,6 @@ static command_parser_t command_face_create3 = {
 };
 COMMAND_REGISTER(command_face_create3);
 
-#if 0
 static const command_parser_t command_face_create4 = {
     .action = ACTION_CREATE,
     .object = OBJECT_TYPE_FACE,
@@ -84,6 +84,24 @@ static const command_parser_t command_face_create4 = {
 };
 COMMAND_REGISTER(command_face_create4);
 #endif
+
+static const command_parser_t command_face_create3 = {
+    .action = ACTION_CREATE,
+    .object_type = OBJECT_TYPE_FACE,
+    .nparams = 3,
+    .parameters = {type_tcp_udp, remote_address, remote_port},
+    .post_hook = (parser_hook_t)on_face_create,
+};
+COMMAND_REGISTER(command_face_create3);
+
+static const command_parser_t command_face_create4 = {
+    .action = ACTION_CREATE,
+    .object_type = OBJECT_TYPE_FACE,
+    .nparams = 4,
+    .parameters = {type_tcp_udp, remote_address, remote_port, interface},
+    .post_hook = (parser_hook_t)on_face_create,
+};
+COMMAND_REGISTER(command_face_create4);
 
 static const command_parser_t command_face_create5 = {
     .action = ACTION_CREATE,

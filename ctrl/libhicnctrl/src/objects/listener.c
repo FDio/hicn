@@ -42,7 +42,9 @@ int hc_listener_validate(const hc_listener_t *listener, bool allow_partial) {
 
   int has_id = 0;
   int has_name = 0;
+#if 0
   int has_interface_name = 0;
+#endif
   int has_type = 0;
   int has_family = 0;
   int has_local_addr = 0;
@@ -62,6 +64,7 @@ int hc_listener_validate(const hc_listener_t *listener, bool allow_partial) {
     has_name = 1;
   }
 
+#if 0
   if (!isempty(listener->interface_name)) {
     if (!IS_VALID_INTERFACE_NAME(listener->interface_name)) {
       ERROR("[hc_listener_validate] Invalid interface_name specified");
@@ -69,6 +72,7 @@ int hc_listener_validate(const hc_listener_t *listener, bool allow_partial) {
     }
     has_interface_name = 1;
   }
+#endif
 
   if (listener->type != FACE_TYPE_UNDEFINED) {
     if (!IS_VALID_TYPE(listener->type)) {
@@ -112,9 +116,8 @@ int hc_listener_validate(const hc_listener_t *listener, bool allow_partial) {
     else
       return -1;
   } else {
-    /* name is optional */
-    if (has_id && has_interface_name && has_type && has_family &&
-        has_local_addr && has_local_port)
+    /* name and interface are optional */
+    if (has_id && has_type && has_family && has_local_addr && has_local_port)
       return 0;
     return -1;
   }
@@ -146,7 +149,7 @@ int hc_listener_cmp(const hc_listener_t *l1, const hc_listener_t *l2) {
   rc = INT_CMP(l1->local_port, l2->local_port);
   if (rc != 0) return rc;
 
-  return rc;
+  return 0;
 }
 
 int _hc_listener_cmp(const hc_object_t *object1, const hc_object_t *object2) {
