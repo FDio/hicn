@@ -189,29 +189,8 @@ unsigned listener_create_connection(listener_t *listener,
   assert(listener_has_valid_type(listener));
   assert(pair);
 
-  connection_table_t *table =
-      forwarder_get_connection_table(listener->forwarder);
-  connection_t *connection =
-      connection_table_allocate(table, pair, connection_name);
-  unsigned connection_id =
-      (unsigned int)connection_table_get_connection_id(table, connection);
-
-  /*
-   * We create a connected connection with its own fd, instead of returning
-   * the fd of the listener. This will allow to avoid specifying the
-   * destination address when sending packets, and will increase performance
-   * by avoiding a FIB lookup for each packet.
-   */
-#ifdef USE_CONNECTED_SOCKETS
-  int fd = listener_get_socket(listener, address_pair_get_local(pair),
-                               address_pair_get_remote(pair),
-                               listener->interface_name);
-#else
-  int fd = 0;  // means listener->fd;
-#endif
-  bool local = address_is_local(address_pair_get_local(pair));
-
-  face_type_t connection_type;
+  /* initialized so that gcc-9 does not complain */
+  face_type_t connection_type = FACE_TYPE_UNDEFINED;
   switch (listener->type) {
     case FACE_TYPE_UDP_LISTENER:
       connection_type = FACE_TYPE_UDP;
@@ -219,10 +198,37 @@ unsigned listener_create_connection(listener_t *listener,
     case FACE_TYPE_TCP_LISTENER:
       connection_type = FACE_TYPE_TCP;
       break;
-    default:
-      connection_table_remove_by_id(table, connection_id);
+    case FACE_TYPE_HICN:
+    case FACE_TYPE_HICN_LISTENER:
+    case FACE_TYPE_UDP:
+    case FACE_TYPE_TCP:
+    case FACE_TYPE_UNDEFINED:
+    case FACE_TYPE_N:
       return CONNECTION_ID_UNDEFINED;
   }
+
+#ifdef USE_CONNECTED_SOCKETS
+  /*
+   * We create a connected connection with its own fd, instead of returning
+   * the fd of the listener. This will allow to avoid specifying the
+   * destination address when sending packets, and will increase performance
+   * by avoiding a FIB lookup for each packet.
+   */
+  int fd = listener_get_socket(listener, address_pair_get_local(pair),
+                               address_pair_get_remote(pair),
+                               listener->interface_name);
+  if (fd < 0) return CONNECTION_ID_UNDEFINED;
+#else
+  int fd = 0;  // means listener->fd;
+#endif
+  bool local = address_is_local(address_pair_get_local(pair));
+
+  connection_table_t *table =
+      forwarder_get_connection_table(listener->forwarder);
+  connection_t *connection =
+      connection_table_allocate(table, pair, connection_name);
+  unsigned connection_id =
+      (unsigned int)connection_table_get_connection_id(table, connection);
 
   int rc = connection_initialize(connection, connection_type, connection_name,
                                  listener->interface_name, fd, pair, local,
