@@ -73,9 +73,9 @@ class StrategyLocalRemoteTest : public ::testing::Test {
 };
 
 TEST_F(StrategyLocalRemoteTest, InputLocalOutputLocal) {
-  address_t listener_addr = ADDRESS4_LOCALHOST(9596);
   address_t prod_addr = ADDRESS4_LOCALHOST(12345);
-  address_t cons_addr = ADDRESS4_LOCALHOST(54321);
+  address_t cons_addr = ADDRESS4_LOCALHOST(12346);
+  address_t listener_addr = ADDRESS4_LOCALHOST(9596);
 
   listener_t* listener = listener_create(FACE_TYPE_UDP_LISTENER, &listener_addr,
                                          "lo", "lo_udp4", fwd_);
@@ -105,15 +105,8 @@ TEST_F(StrategyLocalRemoteTest, InputLocalOutputLocal) {
 }
 
 TEST_F(StrategyLocalRemoteTest, InputRemoteOutputRemote) {
-  const char prod_addr_str[] = "192.168.1.1";
-  const char cons_addr_str[] = "192.168.1.2";
-  in_addr_t prod_addr_int;
-  in_addr_t cons_addr_int;
-  inet_pton(AF_INET, prod_addr_str, &prod_addr_int);
-  inet_pton(AF_INET, cons_addr_str, &cons_addr_int);
-
-  address_t prod_addr = ADDRESS4(prod_addr_int, 12345);
-  address_t cons_addr = ADDRESS4(cons_addr_int, 12345);
+  address_t prod_addr = ADDRESS4_LOCALHOST(12345);
+  address_t cons_addr = ADDRESS4_LOCALHOST(12346);
   address_t listener_addr = ADDRESS4_LOCALHOST(9596);
 
   listener_t* listener = listener_create(FACE_TYPE_UDP_LISTENER, &listener_addr,
@@ -153,12 +146,8 @@ TEST_F(StrategyLocalRemoteTest, InputRemoteOutputRemote) {
 }
 
 TEST_F(StrategyLocalRemoteTest, InputLocalOutputRemote) {
-  const char prod_addr_str[] = "192.168.1.1";
-  in_addr_t prod_addr_int;
-  inet_pton(AF_INET, prod_addr_str, &prod_addr_int);
-
-  address_t prod_addr = ADDRESS4(prod_addr_int, 12345);
-  address_t cons_addr = ADDRESS4_LOCALHOST(12345);
+  address_t prod_addr = ADDRESS4_LOCALHOST(12345);
+  address_t cons_addr = ADDRESS4_LOCALHOST(12346);
   address_t listener_addr = ADDRESS4_LOCALHOST(9596);
 
   listener_t* listener = listener_create(FACE_TYPE_UDP_LISTENER, &listener_addr,
@@ -197,13 +186,9 @@ TEST_F(StrategyLocalRemoteTest, InputLocalOutputRemote) {
 }
 
 TEST_F(StrategyLocalRemoteTest, InputRemoteOutputLocal) {
-  const char cons_addr_str[] = "192.168.1.2";
-  in_addr_t cons_addr_int;
-  inet_pton(AF_INET, cons_addr_str, &cons_addr_int);
-
-  address_t cons_addr = ADDRESS4(cons_addr_int, 12345);
-  address_t prod_addr = ADDRESS4_LOCALHOST(12345);
-  address_t listener_addr = ADDRESS4_LOCALHOST(9596);
+  address_t cons_addr = ADDRESS4_LOCALHOST(12345);
+  address_t prod_addr = ADDRESS4_LOCALHOST(12346);
+  address_t listener_addr = ADDRESS4_LOCALHOST(9695);
 
   listener_t* listener = listener_create(FACE_TYPE_UDP_LISTENER, &listener_addr,
                                          "lo", "lo_udp4", fwd_);
@@ -226,9 +211,11 @@ TEST_F(StrategyLocalRemoteTest, InputRemoteOutputLocal) {
 
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     prod_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = true;
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     cons_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = false;
 
   msgbuf_.connection_id = cons_conn_id;
