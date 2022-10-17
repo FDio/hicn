@@ -131,9 +131,12 @@ TEST_F(StrategyLocalRemoteTest, InputRemoteOutputRemote) {
   // fake two remote connections
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     prod_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = false;
+
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     cons_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = false;
 
   msgbuf_.connection_id = cons_conn_id;
@@ -171,9 +174,11 @@ TEST_F(StrategyLocalRemoteTest, InputLocalOutputRemote) {
 
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     prod_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = false;
   conn = connection_table_get_by_id(forwarder_get_connection_table(fwd_),
                                     cons_conn_id);
+  ASSERT_TRUE(conn != NULL);
   conn->local = true;
 
   msgbuf_.connection_id = cons_conn_id;
