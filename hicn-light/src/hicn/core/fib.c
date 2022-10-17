@@ -380,7 +380,7 @@ fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
   fib_node_t *curr = fib_search(fib, prefix, &search);
 
   if (!curr) return NULL;
-  if (search.match_len != prefix_len) return NULL;
+  if (prefix_len != search.prefix_len) return NULL;
   return curr->is_used ? curr->entry : NULL;
 }
 
@@ -488,7 +488,7 @@ static void fib_node_remove(fib_t *fib, const hicn_prefix_t *prefix) {
 
     case 0:
       _fib_remove(fib, curr, search.parent);
-      if (!search.parent->is_used)
+      if (search.parent && !search.parent->is_used)
         _fib_remove(fib, search.parent, search.gparent);
       break;
   }
