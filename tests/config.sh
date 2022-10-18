@@ -237,12 +237,12 @@ function start() {
 
   # Print also forwader log
   echo "Forwarder Log - CLIENT"
-  ${DOCKER_COMMAND} client cat "${FORWARDER_LOG_PATH}"
+  ${DOCKER_COMMAND} client sudo cat "${FORWARDER_LOG_PATH}"
 
   echo
 
   echo "Forwarder Log - SERVER"
-  ${DOCKER_COMMAND} server cat "${FORWARDER_LOG_PATH}"
+  ${DOCKER_COMMAND} server sudo cat "${FORWARDER_LOG_PATH}"
 }
 
 function stop() {
