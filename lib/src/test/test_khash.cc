@@ -158,11 +158,11 @@ TEST_F (KHashTest, Collisions)
   Key key2 = { .x = 11 };
 
   k = kh_put_test_map (map, &key1, &ret);
-  EXPECT_EQ (ret, 1);
+  ASSERT_EQ (ret, 1);
   kh_val (map, k) = 15u;
 
   k = kh_put_test_map (map, &key2, &ret);
-  EXPECT_EQ (ret, 1);
+  ASSERT_EQ (ret, 1);
   kh_val (map, k) = 27u;
 
   k = kh_get_test_map (map, &key1);
