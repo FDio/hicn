@@ -121,7 +121,7 @@ class LoopTest : public ::testing::Test {
     int client_fd =
         accept(test->connection_socket_, (struct sockaddr *)(&addr), &addr_len);
     if (client_fd == -1) {
-      if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      if (errno != EAGAIN && errno != EWOULDBLOCK) { // NOSONAR
         fprintf(stderr, "accept failed");
       }
 

@@ -614,7 +614,7 @@ void fec_encode(struct fec_parms *code, gf *src[], gf *fec, int index, int sz) {
   int i, k = code->k;
   gf *p;
 
-  if (GF_BITS > 8) sz /= 2;
+  if (GF_BITS > 8) sz /= 2; // NOSONAR
 
   if (index < k)
     memcpy(fec, src[index], sz * sizeof(gf));
@@ -698,7 +698,7 @@ int fec_decode(struct fec_parms *code, gf *pkt[], int index[], int sz) {
   int row, col, k = code->k;
   int i = 0;
 
-  if (GF_BITS > 8) sz /= 2;
+  if (GF_BITS > 8) sz /= 2; // NOSONAR
 
   if (shuffle(pkt, index, k)) /* error if true */
     return 1;
