@@ -181,7 +181,7 @@ void UdpTunnelConnector::writeHandler() {
       while (retval--) {
         output_buffer_.pop_front();
       }
-    } else if (errno != EWOULDBLOCK && errno != EAGAIN) {
+    } else if (errno != EWOULDBLOCK && errno != EAGAIN) { //NOSONAR
       LOG(ERROR) << "Error sending messages: " << strerror(errno);
       sent_callback_(this, make_error_code(core_error::send_failed));
       return;
@@ -222,7 +222,7 @@ void UdpTunnelConnector::readHandler(const std::error_code &ec) {
       int res = recvmmsg(socket_->native_handle(), rx_msgs_ + current_position_,
                          max_burst - current_position_, MSG_DONTWAIT, nullptr);
       if (res < 0) {
-        if (errno == EWOULDBLOCK || errno == EAGAIN) {
+        if (errno == EWOULDBLOCK || errno == EAGAIN) { //NOSONAR
           // Try again later
           return;
         }
