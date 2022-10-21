@@ -49,10 +49,11 @@ class FibTest : public ::testing::Test {
   fib_t *fib;
 };
 
-void _fib_add_prefix(fib_t *fib, const hicn_prefix_t *prefix) {
+fib_entry_t *_fib_add_prefix(fib_t *fib, const hicn_prefix_t *prefix) {
   fib_entry_t *entry =
       fib_entry_create(prefix, STRATEGY_TYPE_UNDEFINED, NULL, NULL);
   fib_add(fib, entry);
+  return entry;
 }
 
 #if 0
@@ -119,6 +120,7 @@ TEST_F(FibTest, FibAddFive) {
   HICN_PREFIX(b002_3, "b002::3/128");
   HICN_PREFIX(inner_b002_2, "b002::2/127");
   HICN_PREFIX(inner_b002_abcd_0, "b002::abcd:0:0:0/127");
+
   const hicn_prefix_t *prefix_array[] = {
       &b002_2,      &inner_b002_2,      &b002_3,     &b002,
       &b002_abcd_0, &inner_b002_abcd_0, &b002_abcd_1};
@@ -134,4 +136,51 @@ TEST_F(FibTest, FibAddFive) {
 
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array, used_array));
+}
+
+TEST_F(FibTest, FibAddRemove) {
+  HICN_PREFIX(b002_64, "b002::/64");
+  HICN_PREFIX(b002_128, "b002::/128");
+
+  const hicn_prefix_t *prefix_array_1[] = {&b002_128};
+  bool used_array_1[] = {true};
+  const hicn_prefix_t *prefix_array_2[] = {};
+  bool used_array_2[] = {};
+  const hicn_prefix_t *prefix_array_3[] = {&b002_64};
+  bool used_array_3[] = {true};
+
+  fib_entry_t *entry = _fib_add_prefix(fib, &b002_128);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array_1, used_array_1));
+
+  fib_remove_entry(fib, entry);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array_2, used_array_2));
+
+  entry = _fib_add_prefix(fib, &b002_64);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array_3, used_array_3));
+}
+
+TEST_F(FibTest, FibAddNested) {
+  HICN_PREFIX(b002_64, "b002::/64");
+  HICN_PREFIX(b002_128, "b002::/128");
+
+  const hicn_prefix_t *prefix_array_1[] = {&b002_128};
+  bool used_array_1[] = {true};
+  const hicn_prefix_t *prefix_array_2[] = {&b002_128, &b002_64};
+  bool used_array_2[] = {true, true};
+
+  _fib_add_prefix(fib, &b002_128);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array_1, used_array_1));
+
+  _fib_add_prefix(fib, &b002_64);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+  EXPECT_TRUE(fib_check_preorder(fib, prefix_array_2, used_array_2));
 }
