@@ -141,10 +141,13 @@ int _hc_face_snprintf(char *s, size_t size, const hc_object_t *object) {
 }
 
 int hc_face_create(hc_sock_t *s, hc_face_t *face) {
+  int rc;
   hc_object_t object;
   memset(&object, 0, sizeof(hc_object_t));
   object.face = *face;
-  return hc_execute(s, ACTION_CREATE, OBJECT_TYPE_FACE, &object, NULL);
+  rc = hc_execute(s, ACTION_CREATE, OBJECT_TYPE_FACE, &object, NULL);
+  face->id = object.face.id;
+  return rc;
 }
 
 int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_data_t **pdata) {
