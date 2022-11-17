@@ -63,14 +63,16 @@ bool CryptoHash::operator==(const CryptoHash &other) const {
 }
 
 void CryptoHash::computeDigest(const uint8_t *buffer, size_t len) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(digest_type_);
-
-  if (hash_evp == nullptr) {
+  const EVP_MD *hash_md = CryptoHash::getMD(digest_type_);
+  if (hash_md == nullptr) {
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  EVP_Digest(buffer, len, digest_->writableData(),
-             (unsigned int *)&digest_size_, (*hash_evp)(), nullptr);
+  if (EVP_Digest(buffer, len, digest_->writableData(),
+                 reinterpret_cast<unsigned int *>(&digest_size_), hash_md,
+                 nullptr) != 1) {
+    throw errors::RuntimeException("Digest computation failed.");
+  };
 }
 
 void CryptoHash::computeDigest(const std::vector<uint8_t> &buffer) {
@@ -78,33 +80,12 @@ void CryptoHash::computeDigest(const std::vector<uint8_t> &buffer) {
 }
 
 void CryptoHash::computeDigest(const utils::MemBuf *buffer) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(digest_type_);
-
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
+  if (buffer->isChained()) {
+    throw errors::RuntimeException(
+        "Digest of chained membuf is not supported.");
   }
 
-  EVP_MD_CTX *mcdtx = EVP_MD_CTX_new();
-  const utils::MemBuf *p = buffer;
-
-  if (EVP_DigestInit_ex(mcdtx, (*hash_evp)(), nullptr) == 0) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  do {
-    if (EVP_DigestUpdate(mcdtx, p->data(), p->length()) != 1) {
-      throw errors::RuntimeException("Digest update failed");
-    }
-
-    p = p->next();
-  } while (p != buffer);
-
-  if (EVP_DigestFinal_ex(mcdtx, digest_->writableData(),
-                         (unsigned int *)&digest_size_) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
-
-  EVP_MD_CTX_free(mcdtx);
+  computeDigest(buffer->data(), buffer->length());
 }
 
 const utils::MemBuf::Ptr &CryptoHash::getDigest() const { return digest_; }
@@ -159,41 +140,33 @@ void CryptoHash::reset() {
   digest_->setLength(0);
 }
 
-CryptoHashEVP CryptoHash::getEVP(CryptoHashType hash_type) {
+const EVP_MD *CryptoHash::getMD(CryptoHashType hash_type) {
   switch (hash_type) {
     case CryptoHashType::SHA256:
-      return &EVP_sha256;
+      return EVP_sha256();
     case CryptoHashType::SHA512:
-      return &EVP_sha512;
+      return EVP_sha512();
     case CryptoHashType::BLAKE2S256:
-      return &EVP_blake2s256;
+      return EVP_blake2s256();
     case CryptoHashType::BLAKE2B512:
-      return &EVP_blake2b512;
+      return EVP_blake2b512();
     default:
       return nullptr;
   }
 }
 
 size_t CryptoHash::getSize(CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
-    return 0;
-  }
-
-  return EVP_MD_size((*hash_evp)());
+  const EVP_MD *hash_md = CryptoHash::getMD(hash_type);
+  return hash_md == nullptr ? 0 : EVP_MD_size(hash_md);
 }
 
 bool CryptoHash::compareDigest(const uint8_t *digest1, const uint8_t *digest2,
                                CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
-    return false;
-  }
-
-  return !static_cast<bool>(
-      memcmp(digest1, digest2, CryptoHash::getSize(hash_type)));
+  const EVP_MD *hash_md = CryptoHash::getMD(hash_type);
+  return hash_md == nullptr
+             ? false
+             : !static_cast<bool>(
+                   memcmp(digest1, digest2, CryptoHash::getSize(hash_type)));
 }
 
 }  // namespace auth

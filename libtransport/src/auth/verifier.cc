@@ -42,9 +42,8 @@ bool Verifier::verifyPacket(PacketPtr packet) {
     throw errors::MalformedAHPacketException();
   }
 
-  // Get crypto suite, hash type, signature length
+  // Get crypto suite
   CryptoSuite suite = packet->getValidationAlgorithm();
-  CryptoHashType hash_type = getHashType(suite);
 
   // Copy IP+TCP / ICMP header before zeroing them
   u8 header_copy[HICN_HDRLEN_MAX];
@@ -69,8 +68,8 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   packet->resetForHash();
 
   // Check signatures
-  bool valid_packet = verifyBuffer(static_cast<utils::MemBuf *>(packet),
-                                   signature_raw, hash_type);
+  bool valid_packet =
+      verifyBuffer(static_cast<utils::MemBuf *>(packet), signature_raw, suite);
 
   // Restore header
   packet->loadHeader(header_copy, header_len);
@@ -183,15 +182,21 @@ void Verifier::callVerificationFailedCallback(Suffix suffix,
 // ---------------------------------------------------------
 bool VoidVerifier::verifyPacket(PacketPtr packet) { return true; }
 
+bool VoidVerifier::verifyBuffer(const uint8_t *buffer, std::size_t len,
+                                const utils::MemBuf::Ptr &signature,
+                                CryptoSuite suite) {
+  return true;
+}
+
 bool VoidVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
                                 const utils::MemBuf::Ptr &signature,
-                                CryptoHashType hash_type) {
+                                CryptoSuite suite) {
   return true;
 }
 
 bool VoidVerifier::verifyBuffer(const utils::MemBuf *buffer,
                                 const utils::MemBuf::Ptr &signature,
-                                CryptoHashType hash_type) {
+                                CryptoSuite suite) {
   return true;
 }
 
@@ -250,65 +255,40 @@ void AsymmetricVerifier::useCertificate(std::shared_ptr<X509> cert) {
       std::shared_ptr<EVP_PKEY>(X509_get_pubkey(cert.get()), ::EVP_PKEY_free);
 }
 
+bool AsymmetricVerifier::verifyBuffer(const uint8_t *buffer, std::size_t len,
+                                      const utils::MemBuf::Ptr &signature,
+                                      CryptoSuite suite) {
+  const EVP_MD *hash_md = getMD(suite);
+
+  std::shared_ptr<EVP_MD_CTX> md_ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+  if (md_ctx == nullptr) {
+    throw errors::RuntimeException("Signature context allocation failed");
+  }
+
+  if (EVP_DigestVerifyInit(md_ctx.get(), nullptr, hash_md, nullptr,
+                           key_.get()) != 1) {
+    throw errors::RuntimeException("Signature initialization failed");
+  }
+
+  return EVP_DigestVerify(md_ctx.get(), signature->data(), signature->length(),
+                          buffer, len) == 1;
+};
+
 bool AsymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
                                       const utils::MemBuf::Ptr &signature,
-                                      CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
-  }
-
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
-
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
-  }
-
-  if (EVP_DigestVerifyInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                           key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  if (EVP_DigestVerifyUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
-    throw errors::RuntimeException("Digest update failed");
-  }
-
-  return EVP_DigestVerifyFinal(mdctx.get(), signature->data(),
-                               signature->length()) == 1;
+                                      CryptoSuite suite) {
+  return verifyBuffer(buffer.data(), buffer.size(), signature, suite);
 }
 
 bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
                                       const utils::MemBuf::Ptr &signature,
-                                      CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
+                                      CryptoSuite suite) {
+  if (buffer->isChained()) {
+    throw errors::RuntimeException(
+        "Signature of chained membuf is not supported.");
   }
 
-  const utils::MemBuf *p = buffer;
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
-
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
-  }
-
-  if (EVP_DigestVerifyInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                           key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  do {
-    if (EVP_DigestVerifyUpdate(mdctx.get(), p->data(), p->length()) != 1) {
-      throw errors::RuntimeException("Digest update failed");
-    }
-
-    p = p->next();
-  } while (p != buffer);
-
-  return EVP_DigestVerifyFinal(mdctx.get(), signature->data(),
-                               signature->length()) == 1;
+  return verifyBuffer(buffer->data(), buffer->length(), signature, suite);
 }
 
 // ---------------------------------------------------------
@@ -327,83 +307,63 @@ void SymmetricVerifier::setPassphrase(const std::string &passphrase) {
       EVP_PKEY_free);
 }
 
-bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
+bool SymmetricVerifier::verifyBuffer(const uint8_t *buffer, std::size_t len,
                                      const utils::MemBuf::Ptr &signature,
-                                     CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
+                                     CryptoSuite suite) {
+  const EVP_MD *hash_md = getMD(suite);
+  if (hash_md == nullptr) {
     throw errors::RuntimeException("Unknown hash type");
   }
 
   const utils::MemBuf::Ptr &signature_bis =
       core::PacketManager<>::getInstance().getMemBuf();
-  signature_bis->append(signature->length());
   size_t signature_bis_len;
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
+  std::shared_ptr<EVP_MD_CTX> md_ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+  if (md_ctx == nullptr) {
+    throw errors::RuntimeException("Signature context allocation failed");
   }
 
-  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                         key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
+  if (EVP_DigestSignInit(md_ctx.get(), nullptr, hash_md, nullptr, key_.get()) !=
+      1) {
+    throw errors::RuntimeException("Signature initialization failed");
   }
 
-  if (EVP_DigestSignUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
-    throw errors::RuntimeException("Digest update failed");
-  }
+  if (EVP_DigestSign(md_ctx.get(), nullptr, &signature_bis_len, buffer, len) !=
+      1) {
+    throw errors::RuntimeException("Signature length computation failed");
+  };
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_bis->writableData(),
-                          &signature_bis_len) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
+  DCHECK(signature_bis_len <= signature_bis->tailroom());
+  signature_bis->append(signature_bis_len);
+
+  if (EVP_DigestSign(md_ctx.get(), signature_bis->writableData(),
+                     &signature_bis_len, buffer, len) != 1) {
+    throw errors::RuntimeException("Signature computation failed");
+  };
+
+  DCHECK(signature_bis_len <= signature_bis->tailroom());
+  signature_bis->setLength(signature_bis_len);
 
   return signature->length() == signature_bis_len &&
          *signature == *signature_bis;
 }
 
+bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
+                                     const utils::MemBuf::Ptr &signature,
+                                     CryptoSuite suite) {
+  return verifyBuffer(buffer.data(), buffer.size(), signature, suite);
+}
+
 bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
                                      const utils::MemBuf::Ptr &signature,
-                                     CryptoHashType hash_type) {
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
-
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
+                                     CryptoSuite suite) {
+  if (buffer->isChained()) {
+    throw errors::RuntimeException(
+        "Signature of chained membuf is not supported.");
   }
 
-  const utils::MemBuf *p = buffer;
-  const utils::MemBuf::Ptr &signature_bis =
-      core::PacketManager<>::getInstance().getMemBuf();
-  signature_bis->append(signature->length());
-  size_t signature_bis_len;
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
-
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
-  }
-
-  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                         key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  do {
-    if (EVP_DigestSignUpdate(mdctx.get(), p->data(), p->length()) != 1) {
-      throw errors::RuntimeException("Digest update failed");
-    }
-
-    p = p->next();
-  } while (p != buffer);
-
-  if (EVP_DigestSignFinal(mdctx.get(), signature_bis->writableData(),
-                          &signature_bis_len) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
-
-  return signature->length() == signature_bis_len &&
-         *signature == *signature_bis;
+  return verifyBuffer(buffer->data(), buffer->length(), signature, suite);
 }
 
 }  // namespace auth

@@ -42,6 +42,7 @@ class Signer {
 
   // Sign a packet.
   virtual void signPacket(PacketPtr packet);
+  virtual void signBuffer(const uint8_t *buffer, std::size_t len);
   virtual void signBuffer(const std::vector<uint8_t> &buffer);
   virtual void signBuffer(const utils::MemBuf *buffer);
 
@@ -82,6 +83,7 @@ class VoidSigner : public Signer {
   VoidSigner() = default;
 
   void signPacket(PacketPtr packet) override;
+  void signBuffer(const uint8_t *buffer, std::size_t len) override;
   void signBuffer(const std::vector<uint8_t> &buffer) override;
   void signBuffer(const utils::MemBuf *buffer) override;
 };

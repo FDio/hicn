@@ -86,87 +86,47 @@ void Signer::signPacket(PacketPtr packet) {
   }
 }
 
-void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
-  DCHECK(key_ != nullptr);
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
+void Signer::signBuffer(const uint8_t *buffer, std::size_t len) {
+  const EVP_MD *hash_md = getMD(suite_);
 
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
+  std::shared_ptr<EVP_MD_CTX> md_ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+  if (md_ctx == nullptr) {
+    throw errors::RuntimeException("Signature context allocation failed");
   }
 
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
-
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
+  if (EVP_DigestSignInit(md_ctx.get(), nullptr, hash_md, nullptr, key_.get()) !=
+      1) {
+    throw errors::RuntimeException("Signature initialization failed");
   }
 
-  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                         key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  if (EVP_DigestSignUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
-    throw errors::RuntimeException("Digest update failed");
-  }
-
-  if (EVP_DigestSignFinal(mdctx.get(), nullptr, &signature_len_) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
+  if (EVP_DigestSign(md_ctx.get(), nullptr, &signature_len_, buffer, len) !=
+      1) {
+    throw errors::RuntimeException("Signature length computation failed");
+  };
 
   DCHECK(signature_len_ <= signature_->tailroom());
   signature_->setLength(signature_len_);
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_->writableData(),
-                          &signature_len_) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
+  if (EVP_DigestSign(md_ctx.get(), signature_->writableData(), &signature_len_,
+                     buffer, len) != 1) {
+    throw errors::RuntimeException("Signature computation failed");
+  };
 
   DCHECK(signature_len_ <= signature_->tailroom());
   signature_->setLength(signature_len_);
 }
 
+void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
+  signBuffer(buffer.data(), buffer.size());
+}
+
 void Signer::signBuffer(const utils::MemBuf *buffer) {
-  DCHECK(key_ != nullptr);
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
-
-  if (hash_evp == nullptr) {
-    throw errors::RuntimeException("Unknown hash type");
+  if (buffer->isChained()) {
+    throw errors::RuntimeException(
+        "Signature of chained membuf is not supported.");
   }
 
-  const utils::MemBuf *p = buffer;
-  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
-
-  if (mdctx == nullptr) {
-    throw errors::RuntimeException("Digest context allocation failed");
-  }
-
-  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
-                         key_.get()) != 1) {
-    throw errors::RuntimeException("Digest initialization failed");
-  }
-
-  do {
-    if (EVP_DigestSignUpdate(mdctx.get(), p->data(), p->length()) != 1) {
-      throw errors::RuntimeException("Digest update failed");
-    }
-
-    p = p->next();
-  } while (p != buffer);
-
-  if (EVP_DigestSignFinal(mdctx.get(), nullptr, &signature_len_) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
-
-  DCHECK(signature_len_ <= signature_->tailroom());
-  signature_->setLength(signature_len_);
-
-  if (EVP_DigestSignFinal(mdctx.get(), signature_->writableData(),
-                          &signature_len_) != 1) {
-    throw errors::RuntimeException("Digest computation failed");
-  }
-
-  DCHECK(signature_len_ <= signature_->tailroom());
-  signature_->setLength(signature_len_);
+  signBuffer(buffer->data(), buffer->length());
 }
 
 const utils::MemBuf::Ptr &Signer::getSignature() const { return signature_; }
@@ -207,6 +167,8 @@ void Signer::display() {
 // Void Signer
 // ---------------------------------------------------------
 void VoidSigner::signPacket(PacketPtr packet) {}
+
+void VoidSigner::signBuffer(const uint8_t *buffer, std::size_t len) {}
 
 void VoidSigner::signBuffer(const std::vector<uint8_t> &buffer) {}
 
@@ -258,20 +220,12 @@ void AsymmetricSigner::setKey(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
 
   signature_len_ = EVP_PKEY_size(key_.get());
   DCHECK(signature_len_ <= signature_->tailroom());
-
   signature_->setLength(signature_len_);
 
-  size_t enc_pbk_len = i2d_PublicKey(pub_key.get(), nullptr);
-  DCHECK(enc_pbk_len >= 0);
-
-  uint8_t *enc_pbkey_raw = nullptr;
-  i2d_PublicKey(pub_key.get(), &enc_pbkey_raw);
-  DCHECK(enc_pbkey_raw != nullptr);
-
+  // Key ID is not supported yet.
+  uint8_t id[8] = {0};
   key_id_ = CryptoHash(getHashType());
-  key_id_.computeDigest(enc_pbkey_raw, enc_pbk_len);
-
-  OPENSSL_free(enc_pbkey_raw);
+  key_id_.computeDigest(id, 8);
 }
 
 size_t AsymmetricSigner::getSignatureFieldSize() const {
@@ -296,18 +250,20 @@ SymmetricSigner::SymmetricSigner(CryptoSuite suite,
                                    (const unsigned char *)passphrase.c_str(),
                                    passphrase.size()),
       EVP_PKEY_free);
-  key_id_ = CryptoHash(getHashType());
 
-  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
-
-  if (hash_evp == nullptr) {
+  const EVP_MD *hash_md = getMD(suite_);
+  if (hash_md == nullptr) {
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  signature_len_ = EVP_MD_size((*hash_evp)());
+  signature_len_ = EVP_MD_size(hash_md);
   DCHECK(signature_len_ <= signature_->tailroom());
   signature_->setLength(signature_len_);
-  key_id_.computeDigest((uint8_t *)passphrase.c_str(), passphrase.size());
+
+  // Key ID is not supported yet.
+  uint8_t id[8] = {0};
+  key_id_ = CryptoHash(getHashType());
+  key_id_.computeDigest(id, 8);
 }
 
 }  // namespace auth

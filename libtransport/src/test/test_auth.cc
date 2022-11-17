@@ -122,7 +122,7 @@ TEST_F(AuthTest, AsymmetricBufferRSA) {
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoSuite::RSA_SHA256);
   EXPECT_EQ(res, true);
 }
 
@@ -160,7 +160,7 @@ TEST_F(AuthTest, AsymmetricBufferDSA) {
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoSuite::RSA_SHA256);
   EXPECT_EQ(res, true);
 }
 
@@ -235,7 +235,7 @@ TEST_F(AuthTest, AsymmetricBufferECDSA) {
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoSuite::RSA_SHA256);
   EXPECT_EQ(res, true);
 }  // namespace auth
 
@@ -290,7 +290,7 @@ TEST_F(AuthTest, HMACbuffer) {
   signer->signBuffer(buffer);
   utils::MemBuf::Ptr sig = signer->getSignature();
   SymmetricVerifier hmac(PASSPHRASE);
-  bool res = hmac.verifyBuffer(buffer, sig, CryptoHashType::SHA256);
+  bool res = hmac.verifyBuffer(buffer, sig, CryptoSuite::RSA_SHA256);
   EXPECT_EQ(res, true);
 }
 

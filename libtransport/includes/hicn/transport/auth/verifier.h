@@ -54,12 +54,15 @@ class Verifier {
 
   // Verify a single packet or buffer.
   virtual bool verifyPacket(PacketPtr packet);
+  virtual bool verifyBuffer(const uint8_t *buffer, std::size_t len,
+                            const utils::MemBuf::Ptr &signature,
+                            CryptoSuite suite) = 0;
   virtual bool verifyBuffer(const std::vector<uint8_t> &buffer,
                             const utils::MemBuf::Ptr &signature,
-                            CryptoHashType hash_type) = 0;
+                            CryptoSuite suite) = 0;
   virtual bool verifyBuffer(const utils::MemBuf *buffer,
                             const utils::MemBuf::Ptr &signature,
-                            CryptoHashType hash_type) = 0;
+                            CryptoSuite suite) = 0;
 
   // Verify a batch of packets. Return a mapping from packet suffixes to their
   // VerificationPolicy.
@@ -110,12 +113,15 @@ class VoidVerifier : public Verifier {
   // and always returns true.
  public:
   bool verifyPacket(PacketPtr packet) override;
+  bool verifyBuffer(const uint8_t *buffer, std::size_t len,
+                    const utils::MemBuf::Ptr &signature,
+                    CryptoSuite suite) override;
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
 
   PolicyMap verifyPackets(const std::vector<PacketPtr> &packets) override;
 
@@ -143,12 +149,15 @@ class AsymmetricVerifier : public Verifier {
   void useCertificate(const std::string &cert_path);
   void useCertificate(std::shared_ptr<X509> cert);
 
+  bool verifyBuffer(const uint8_t *buffer, std::size_t len,
+                    const utils::MemBuf::Ptr &signature,
+                    CryptoSuite suite) override;
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
 
  private:
   std::shared_ptr<EVP_PKEY> key_;
@@ -166,12 +175,15 @@ class SymmetricVerifier : public Verifier {
   // Create and set a symmetric key from a passphrase.
   void setPassphrase(const std::string &passphrase);
 
+  bool verifyBuffer(const uint8_t *buffer, std::size_t len,
+                    const utils::MemBuf::Ptr &signature,
+                    CryptoSuite suite) override;
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
                     const utils::MemBuf::Ptr &signature,
-                    CryptoHashType hash_type) override;
+                    CryptoSuite suite) override;
 
  protected:
   std::shared_ptr<EVP_PKEY> key_;

@@ -27,8 +27,6 @@ extern "C" {
 namespace transport {
 namespace auth {
 
-typedef const EVP_MD *(*CryptoHashEVP)(void);
-
 enum class CryptoHashType : uint8_t {
   UNKNOWN,
   SHA256,
@@ -57,8 +55,6 @@ class CryptoHash {
   // Compute the hash of given buffer
   void computeDigest(const uint8_t *buffer, std::size_t len);
   void computeDigest(const std::vector<uint8_t> &buffer);
-
-  // Compute the hash of given membuf
   void computeDigest(const utils::MemBuf *buffer);
 
   // Return the computed hash
@@ -82,8 +78,8 @@ class CryptoHash {
   // Reset hash
   void reset();
 
-  // Return OpenSSL EVP function associated to a given hash type
-  static CryptoHashEVP getEVP(CryptoHashType hash_type);
+  // Return the OpenSSL EVP_MD pointer associated to a given hash type
+  static const EVP_MD *getMD(CryptoHashType hash_type);
 
   // Return hash size
   static std::size_t getSize(CryptoHashType hash_type);

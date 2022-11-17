@@ -20,6 +20,10 @@ namespace auth {
 
 CryptoSuite getSuite(int nid) {
   switch (nid) {
+    case NID_ED25519:
+      return CryptoSuite::ED25519;
+    case NID_ED448:
+      return CryptoSuite::ED448;
     case NID_ecdsa_with_SHA256:
       return CryptoSuite::ECDSA_SHA256;
     case NID_ecdsa_with_SHA512:
@@ -43,6 +47,10 @@ CryptoSuite getSuite(int nid) {
 
 std::string getStringSuite(CryptoSuite suite) {
   switch (suite) {
+    case CryptoSuite::ED25519:
+      return "ED25519";
+    case CryptoSuite::ED448:
+      return "ED448";
     case CryptoSuite::ECDSA_BLAKE2B512:
       return "ECDSA_BLAKE2B512";
     case CryptoSuite::ECDSA_BLAKE2S256:
@@ -82,28 +90,40 @@ std::string getStringSuite(CryptoSuite suite) {
 
 CryptoHashType getHashType(CryptoSuite suite) {
   switch (suite) {
-    case CryptoSuite::ECDSA_BLAKE2B512:
-    case CryptoSuite::RSA_BLAKE2B512:
-    case CryptoSuite::HMAC_BLAKE2B512:
     case CryptoSuite::DSA_BLAKE2B512:
+    case CryptoSuite::ECDSA_BLAKE2B512:
+    case CryptoSuite::HMAC_BLAKE2B512:
+    case CryptoSuite::RSA_BLAKE2B512:
       return CryptoHashType::BLAKE2B512;
-    case CryptoSuite::ECDSA_BLAKE2S256:
-    case CryptoSuite::RSA_BLAKE2S256:
-    case CryptoSuite::HMAC_BLAKE2S256:
     case CryptoSuite::DSA_BLAKE2S256:
+    case CryptoSuite::ECDSA_BLAKE2S256:
+    case CryptoSuite::HMAC_BLAKE2S256:
+    case CryptoSuite::RSA_BLAKE2S256:
       return CryptoHashType::BLAKE2S256;
-    case CryptoSuite::ECDSA_SHA256:
-    case CryptoSuite::RSA_SHA256:
-    case CryptoSuite::HMAC_SHA256:
     case CryptoSuite::DSA_SHA256:
+    case CryptoSuite::ECDSA_SHA256:
+    case CryptoSuite::ED25519:
+    case CryptoSuite::ED448:
+    case CryptoSuite::HMAC_SHA256:
+    case CryptoSuite::RSA_SHA256:
       return CryptoHashType::SHA256;
-    case CryptoSuite::ECDSA_SHA512:
-    case CryptoSuite::RSA_SHA512:
-    case CryptoSuite::HMAC_SHA512:
     case CryptoSuite::DSA_SHA512:
+    case CryptoSuite::ECDSA_SHA512:
+    case CryptoSuite::HMAC_SHA512:
+    case CryptoSuite::RSA_SHA512:
       return CryptoHashType::SHA512;
     default:
       return CryptoHashType::UNKNOWN;
+  }
+}
+
+const EVP_MD *getMD(CryptoSuite suite) {
+  switch (suite) {
+    case CryptoSuite::ED25519:
+    case CryptoSuite::ED448:
+      return nullptr;
+    default:
+      return CryptoHash::getMD(getHashType(suite));
   }
 }
 
