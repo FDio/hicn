@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/io_module.h>
 #include <hicn/transport/core/prefix.h>
+#include <libconfig.h++>
 
 extern "C" {
 #include <hicn/ctrl/hicn-light.h>
@@ -30,6 +31,8 @@ class UdpTunnelConnector;
 
 class HicnForwarderModule : public IoModule {
   static constexpr std::uint16_t interface_mtu = 1500;
+  static inline char default_hicnlight_url[] = "hicn://127.0.0.1:9695";
+  static inline char hicnlight_configuration_section[] = "hicnlight";
 
  public:
 #if 0
@@ -95,11 +98,16 @@ class HicnForwarderModule : public IoModule {
       std::unique_ptr<sockaddr> &&addr, uint32_t prefix_len,
       std::string strategy);
 
+  void parseForwarderConfiguration(const libconfig::Setting &io_config,
+                                   std::error_code &ec);
+
  private:
   std::shared_ptr<UdpTunnelConnector> connector_;
-
   /* Sequence number used for sending control messages */
   uint32_t seq_;
+
+  // Url of the forwarder
+  std::string forwarder_url_;
 };
 
 extern "C" IoModule *create_module(void);
