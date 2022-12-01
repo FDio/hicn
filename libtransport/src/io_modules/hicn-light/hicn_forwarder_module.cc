@@ -13,7 +13,9 @@
  * limitations under the License.
  */
 
+#include <core/global_configuration.h>
 #include <core/udp_connector.h>
+#include <hicn/transport/utils/uri.h>
 #include <io_modules/hicn-light/hicn_forwarder_module.h>
 
 extern "C" {
@@ -25,14 +27,42 @@ namespace transport {
 namespace core {
 
 HicnForwarderModule::HicnForwarderModule()
-    : IoModule(), connector_(nullptr), seq_(0) {}
+    : IoModule(),
+      connector_(nullptr),
+      seq_(0),
+      forwarder_url_(default_hicnlight_url) {
+  using namespace std::placeholders;
+  GlobalConfiguration::getInstance().registerConfigurationParser(
+      hicnlight_configuration_section,
+      std::bind(&HicnForwarderModule::parseForwarderConfiguration, this, _1,
+                _2));
+}
 
 HicnForwarderModule::~HicnForwarderModule() {}
 
 void HicnForwarderModule::connect(bool is_consumer) {
-  connector_->connect("localhost", 9695);
-  connector_->setRole(is_consumer ? Connector::Role::CONSUMER
-                                  : Connector::Role::PRODUCER);
+  if (connector_.state() == Connector::State::CLOSED) {
+    // Parse forwarder URI
+    utils::Uri uri;
+    uri.parse(forwarder_url_);
+
+    // Safechecks
+    CHECK(uri.getProtocol() == "hicn")
+        << "The protocol of the forwarder url should be hicn";
+    auto port_min = (1 << 10);
+    auto port_max = (1 << 16);
+
+    auto port = std::stoul(uri.getPort());
+
+    CHECK(port > port_min && port < port_max)
+        << "The port should be between " << port_min << " and " << port_max;
+
+    VLOG(1) << "Connecting to " << uri.getLocator() << ":" << uri.getPort();
+
+    connector_->connect(uri.getLocator(), port);
+    connector_->setRole(is_consumer ? Connector::Role::CONSUMER
+                                    : Connector::Role::PRODUCER);
+  }
 }
 
 bool HicnForwarderModule::isConnected() { return connector_->isConnected(); }
@@ -41,6 +71,18 @@ void HicnForwarderModule::send(Packet &packet) {
   IoModule::send(packet);
   packet.setChecksum();
   connector_->send(packet);
+}
+
+void HicnForwarderModule::parseForwarderConfiguration(
+    const libconfig::Setting &forwarder_config, std::error_code &ec) {
+  using namespace libconfig;
+
+  // forwarder url hicn://127.0.0.1:12345
+  if (forwarder_config.exists("forwarder_url")) {
+    // Get number of threads
+    forwarder_config.lookupValue("forwarder_url", forwarder_url_);
+    VLOG(1) << "Forwarder URL from config file: " << forwarder_url_;
+  }
 }
 
 void HicnForwarderModule::send(const utils::MemBuf::Ptr &packet) {
