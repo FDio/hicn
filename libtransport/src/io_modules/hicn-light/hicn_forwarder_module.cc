@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include <core/global_configuration.h>
 #include <core/udp_connector.h>
 #include <hicn/transport/utils/uri.h>
 #include <io_modules/hicn-light/hicn_forwarder_module.h>
@@ -26,17 +25,11 @@ namespace transport {
 
 namespace core {
 
+HicnForwarderModule::ForwarderUrlInitializer
+    HicnForwarderModule::forwarder_url_initializer_;
+
 HicnForwarderModule::HicnForwarderModule()
-    : IoModule(),
-      connector_(nullptr),
-      seq_(0),
-      forwarder_url_(default_hicnlight_url) {
-  using namespace std::placeholders;
-  GlobalConfiguration::getInstance().registerConfigurationParser(
-      hicnlight_configuration_section,
-      std::bind(&HicnForwarderModule::parseForwarderConfiguration, this, _1,
-                _2));
-}
+    : IoModule(), connector_(nullptr), seq_(0) {}
 
 HicnForwarderModule::~HicnForwarderModule() {}
 
@@ -44,7 +37,7 @@ void HicnForwarderModule::connect(bool is_consumer) {
   if (!connector_->isConnected()) {
     // Parse forwarder URI
     utils::Uri uri;
-    uri.parse(forwarder_url_);
+    uri.parse(forwarder_url_initializer_.getForwarderUrl());
 
     // Safechecks
     CHECK(uri.getProtocol() == "hicn")
@@ -71,18 +64,6 @@ void HicnForwarderModule::send(Packet &packet) {
   IoModule::send(packet);
   packet.setChecksum();
   connector_->send(packet);
-}
-
-void HicnForwarderModule::parseForwarderConfiguration(
-    const libconfig::Setting &forwarder_config, std::error_code &ec) {
-  using namespace libconfig;
-
-  // forwarder url hicn://127.0.0.1:12345
-  if (forwarder_config.exists("forwarder_url")) {
-    // Get number of threads
-    forwarder_config.lookupValue("forwarder_url", forwarder_url_);
-    VLOG(1) << "Forwarder URL from config file: " << forwarder_url_;
-  }
 }
 
 void HicnForwarderModule::send(const utils::MemBuf::Ptr &packet) {
