@@ -118,8 +118,13 @@ static const struct in6_addr loopback_addr = IN6ADDR_LOOPBACK_INIT;
  * \return 0 if parsing succeeded, a negative error value otherwise.
  */
 static int hicnlight_parse_url(const char *url, struct sockaddr *sa) {
-  /* FIXME URL parsing is currently not implemented */
-  _ASSERT(!url);
+  char ip[100];
+  char protocol[100];
+  int port = PORT;
+  if(url) {
+     int ret =sscanf(url, "%99[^:]://%99[^:]:%99d[^/]", protocol, ip, &port);
+     if(ret == EOF) return -1;
+  }
 
 #ifdef __linux__
   srand(time(NULL) ^ getpid() ^ gettid());
@@ -137,15 +142,25 @@ static int hicnlight_parse_url(const char *url, struct sockaddr *sa) {
     case AF_INET: {
       struct sockaddr_in *sai = (struct sockaddr_in *)sa;
       sai->sin_family = AF_INET;
-      sai->sin_port = htons(PORT);
-      sai->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+      sai->sin_port = htons(port);
+      if(url) {
+        int ret = inet_pton(AF_INET, ip, &(sai->sin_addr.s_addr));
+        if (ret != 1) return -1;
+      } else {
+        sai->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+      }
       break;
     }
     case AF_INET6: {
       struct sockaddr_in6 *sai6 = (struct sockaddr_in6 *)sa;
       sai6->sin6_family = AF_INET6;
-      sai6->sin6_port = htons(PORT);
-      sai6->sin6_addr = loopback_addr;
+      sai6->sin6_port = htons(port);
+      if(url) {
+        int ret = inet_pton(AF_INET6, ip, &(sai6->sin6_addr));
+        if (ret != 1) return -1;
+      } else {
+        sai6->sin6_addr = loopback_addr;
+      }
       break;
     }
     default:
