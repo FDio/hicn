@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <core/global_configuration.h>
 #include <hicn/transport/core/io_module.h>
 #include <hicn/transport/core/prefix.h>
 
@@ -32,8 +33,6 @@ class UdpTunnelConnector;
 
 class HicnForwarderModule : public IoModule {
   static constexpr std::uint16_t interface_mtu = 1500;
-  static inline char default_hicnlight_url[] = "hicn://127.0.0.1:9695";
-  static inline char hicnlight_configuration_section[] = "hicnlight";
 
  public:
 #if 0
@@ -99,16 +98,49 @@ class HicnForwarderModule : public IoModule {
       std::unique_ptr<sockaddr> &&addr, uint32_t prefix_len,
       std::string strategy);
 
-  void parseForwarderConfiguration(const libconfig::Setting &io_config,
-                                   std::error_code &ec);
+  static void parseForwarderConfiguration(const libconfig::Setting &io_config,
+                                          std::error_code &ec);
+  static std::string initForwarderUrl();
 
  private:
   std::shared_ptr<UdpTunnelConnector> connector_;
   /* Sequence number used for sending control messages */
   uint32_t seq_;
 
-  // Url of the forwarder
-  std::string forwarder_url_;
+  class ForwarderUrlInitializer {
+    static inline char default_hicnlight_url[] = "hicn://127.0.0.1:9695";
+    static inline char hicnlight_configuration_section[] = "hicnlight";
+
+   public:
+    ForwarderUrlInitializer()
+        : forwarder_url_(ForwarderUrlInitializer::default_hicnlight_url) {
+      using namespace std::placeholders;
+      GlobalConfiguration::getInstance().registerConfigurationParser(
+          ForwarderUrlInitializer::hicnlight_configuration_section,
+          std::bind(&ForwarderUrlInitializer::parseForwarderConfiguration, this,
+                    _1, _2));
+    }
+
+    std::string getForwarderUrl() { return forwarder_url_; }
+
+   private:
+    void parseForwarderConfiguration(const libconfig::Setting &forwarder_config,
+                                     std::error_code &ec) {
+      using namespace libconfig;
+
+      // forwarder url hicn://127.0.0.1:12345
+      if (forwarder_config.exists("forwarder_url")) {
+        // Get number of threads
+        forwarder_config.lookupValue("forwarder_url", forwarder_url_);
+        VLOG(1) << "Forwarder URL from config file: " << forwarder_url_;
+      }
+    }
+
+    // Url of the forwarder
+    std::string forwarder_url_;
+  };
+
+  static ForwarderUrlInitializer forwarder_url_initializer_;
 };
 
 extern "C" IoModule *create_module(void);
