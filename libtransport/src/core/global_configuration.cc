@@ -68,6 +68,7 @@ void GlobalConfiguration::parseConfiguration(const std::string& path) {
   // variable comes first.
   std::unique_lock<std::mutex> lck(cp_mtx_);
   if (const char* env_c = std::getenv(GlobalConfiguration::conf_file)) {
+    conf_file_path_ = env_c;
     parseTransportConfig(env_c);
   } else if (!path.empty()) {
     conf_file_path_ = path;
