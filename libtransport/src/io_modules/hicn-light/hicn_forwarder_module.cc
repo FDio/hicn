@@ -42,10 +42,10 @@ void HicnForwarderModule::connect(bool is_consumer) {
     // Safechecks
     CHECK(uri.getProtocol() == "hicn")
         << "The protocol of the forwarder url should be hicn";
-    auto port_min = (1 << 10);
-    auto port_max = (1 << 16);
+    uint16_t port_min = (1 << 10);
+    uint16_t port_max = (1 << 16) - 1;
 
-    auto port = std::stoul(uri.getPort());
+    uint16_t port = std::stoul(uri.getPort());
 
     CHECK(port > port_min && port < port_max)
         << "The port should be between " << port_min << " and " << port_max;
