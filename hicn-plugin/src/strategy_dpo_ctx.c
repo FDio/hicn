@@ -21,7 +21,7 @@ hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
 void
 hicn_strategy_init_dpo_ctx_pool ()
 {
-  // pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
+  pool_alloc (hicn_strategy_dpo_ctx_pool, 256);
 }
 
 void

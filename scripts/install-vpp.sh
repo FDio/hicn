@@ -19,7 +19,7 @@ set -euxo pipefail
 # Install defined VPP version
 ################################################################
 
-VPP_VERSION=2202
+VPP_VERSION=2210
 
 if [[ -z ${VERSION_PATH-} ]]; then
   echo >&2 "No version path provided. Using version ${VPP_VERSION}"
