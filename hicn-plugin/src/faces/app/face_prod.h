@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -95,6 +95,11 @@ int hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 *requested_size);
  * @return String with the formatted face
  */
 u8 *format_hicn_face_prod (u8 *s, va_list *args);
+
+/**
+ * @brief Init the producer face module
+ */
+void hicn_face_prod_init ();
 
 #endif /* _FACE_PROD_H_ */
 

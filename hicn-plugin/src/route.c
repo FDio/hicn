@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -273,7 +273,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 			    fib_entry->proto);
 	  ADD_FACE (nh);
 	  HICN_DEBUG ("Added new HICN face: %d because of route prefix %U",
-		      face_id, format_ip_prefix, &_fib_entry->fe_prefix);
+		      face_id, format_fib_prefix, &_fib_entry->fe_prefix);
 	}
       else if (dpo->dpoi_type == dpo_type_udp_ip4 ||
 	       dpo->dpoi_type == dpo_type_udp_ip6)
@@ -405,11 +405,10 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
     {
       HICN_DEBUG (
 	"No route found for %U. Creating DPO and tracking fib prefix.",
-	format_ip_prefix, prefix);
+	format_fib_prefix, prefix);
       dpo_id_t dpo = DPO_INVALID;
-      index_t dpo_idx;
-      default_dpo.hicn_dpo_create (prefix->fp_proto, 0, NEXT_HOP_INVALID,
-				   &dpo_idx);
+      index_t dpo_idx = ~0;
+      default_dpo.hicn_dpo_create (prefix->fp_proto, 0, 0, &dpo_idx);
       HICN_DEBUG ("Created new DPO_MW_CTX_T: %d.", dpo_idx);
 
       /* the value we got when we registered */
@@ -419,13 +418,13 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
        */
       dpo_set (&dpo, default_dpo.hicn_dpo_get_type (),
 	       (ip46_address_is_ip4 (&prefix->fp_addr) ? DPO_PROTO_IP4 :
-							       DPO_PROTO_IP6),
+							 DPO_PROTO_IP6),
 	       dpo_idx);
       HICN_DEBUG (
 	"dpo_set called with parameters: type=%d, proto=%s, index=%d",
 	default_dpo.hicn_dpo_get_type (),
 	ip46_address_is_ip4 (&prefix->fp_addr) ? "DPO_PROTO_IP4" :
-						       "DPO_PROTO_IP6",
+						 "DPO_PROTO_IP6",
 	dpo_idx);
 
       hicn_dpo_ctx_t *fib_entry = hicn_strategy_dpo_ctx_get (dpo_idx);
@@ -534,8 +533,8 @@ hicn_route_disable (fib_prefix_t *prefix)
 
   if (fib_hicn_entry_index == FIB_NODE_INDEX_INVALID)
     {
-      HICN_ERROR ("Route %U not found", format_ip_prefix, prefix);
-      return HICN_ERROR_ROUTE_NOT_FOUND;
+      HICN_ERROR ("Route %U not found", format_fib_prefix, prefix);
+      ret = HICN_ERROR_ROUTE_NOT_FOUND;
     }
   else
     {
@@ -605,7 +604,7 @@ hicn_route_disable (fib_prefix_t *prefix)
       HICN_DEBUG (
 	"Calling fib_entry_untrack and fib_table_entry_special_remove "
 	"for route %U.",
-	format_ip_prefix, prefix);
+	format_fib_prefix, prefix);
 
       fib_entry_untrack (hicn_fib_entry->fib_entry_index,
 			 hicn_fib_entry->fib_sibling);
@@ -746,7 +745,7 @@ set_table_interface_add_del (vnet_main_t *vnm, u32 sw_if_index, u32 is_add)
     }
 
   return rv ? clib_error_return (0, "unable to add hicn table to interface") :
-		    0;
+	      0;
 }
 
 VNET_SW_INTERFACE_ADD_DEL_FUNCTION_PRIO (set_table_interface_add_del,
