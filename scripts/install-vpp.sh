@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2022 Cisco and/or its affiliates.
+# Copyright (c) 2022-2023 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -19,7 +19,7 @@ set -euxo pipefail
 # Install defined VPP version
 ################################################################
 
-VPP_VERSION=2202
+VPP_VERSION=2210
 
 if [[ -z ${VERSION_PATH-} ]]; then
   echo >&2 "No version path provided. Using version ${VPP_VERSION}"

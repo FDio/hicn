@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,7 @@
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
 #include <vnet/interface_funcs.h>
+#include <vppinfra/pool.h>
 
 #include "face_prod.h"
 #include "address_mgr.h"
@@ -24,6 +25,7 @@
 #include "../../route.h"
 #include "../../cache_policies/cs_lru.h"
 
+#define INITIAL_POOL_SIZE 16
 hicn_face_prod_state_t *face_state_vec;
 
 /* used to check if an interface is already in the vector */
@@ -32,9 +34,6 @@ u32 *face_state_pool;
 static int
 hicn_app_state_create (u32 swif, index_t adj_index, fib_prefix_t *prefix)
 {
-  /* Make sure that the pool is not empty */
-  pool_validate_index (face_state_pool, 0);
-
   u32 *swif_app;
   u8 found = 0;
 
@@ -74,9 +73,6 @@ hicn_app_state_create (u32 swif, index_t adj_index, fib_prefix_t *prefix)
 static int
 hicn_app_state_del (u32 swif)
 {
-  /* Make sure that the pool is not empty */
-  pool_validate_index (face_state_pool, 0);
-
   u32 *temp;
   u32 *swif_app = NULL;
   u8 found = 0;
@@ -355,6 +351,13 @@ format_hicn_face_prod (u8 *s, va_list *args)
   s = format (s, " (producer)");
 
   return s;
+}
+
+void
+hicn_face_prod_init ()
+{
+  /* Make sure that the pool is not empty */
+  pool_alloc (face_state_pool, INITIAL_POOL_SIZE);
 }
 
 VNET_FEATURE_INIT (hicn_prod_app_input_ip6, static) = {

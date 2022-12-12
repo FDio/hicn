@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -157,7 +157,8 @@ void VPPForwarderModule::connect(bool is_consumer) {
   vapi_error_e ret = vapi_connect_safe(&sock_, 0);
 
   while (ret != VAPI_OK && retry > 0) {
-    LOG(ERROR) << "Error connecting to VPP through vapi. Retrying..";
+    LOG(ERROR) << "Error connecting to VPP through vapi (error:  " << ret
+               << "). Retrying..";
     --retry;
     ret = vapi_connect_safe(&sock_, 0);
   }
@@ -255,7 +256,6 @@ void VPPForwarderModule::closeConnection() {
         LOG(ERROR) << "Error deleting memif with sw idx " << sw_if_index_;
       }
     }
-
     vapi_disconnect_safe();
     VPPForwarderModule::sock_ = nullptr;
   }
