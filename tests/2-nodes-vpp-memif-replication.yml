@@ -3,6 +3,7 @@ services:
   client:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-client
     networks: []
+    privileged: true
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z
@@ -18,22 +19,15 @@ services:
         buffers { buffers-per-numa 600000 }
         plugins {
             path /hicn-root/lib/vpp_plugins:/usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
-            plugin default { disable }
-            plugin acl_plugin.so { enable }
-            plugin nat_plugin.so { enable }
-            plugin dhcp_plugin.so { enable }
-            plugin dpdk_plugin.so { enable }
-            plugin dns_plugin.so { enable }
-            plugin ping_plugin.so { enable }
-            plugin memif_plugin.so { enable }
-            plugin nsim_plugin.so { enable }
-            plugin hicn_plugin.so { enable }
+            plugin default { enable }
         }
-
         unix {
             startup-config /etc/vpp/client-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
+        }
+        api-trace {
+          on
         }
         EOF
 
@@ -55,6 +49,8 @@ services:
 
         sudo rm /memif/memif1.sock
 
+        sleep 2
+
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
 
@@ -65,6 +61,7 @@ services:
   server:
     container_name: ${TEST_VPP_MEMIF_REPLICATION}-server
     networks: []
+    privileged: true
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z
@@ -81,21 +78,15 @@ services:
 
         plugins {
             path /hicn-root/lib/vpp_plugins:/usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
-            plugin default { disable }
-            plugin acl_plugin.so { enable }
-            plugin nat_plugin.so { enable }
-            plugin dhcp_plugin.so { enable }
-            plugin dpdk_plugin.so { enable }
-            plugin dns_plugin.so { enable }
-            plugin ping_plugin.so { enable }
-            plugin memif_plugin.so { enable }
-            plugin nsim_plugin.so { enable }
-            plugin hicn_plugin.so { enable }
+            plugin default { enable }
         }
         unix {
             startup-config /etc/vpp/server-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
+        }
+        api-trace {
+          on
         }
         EOF
 
@@ -112,6 +103,8 @@ services:
         set int ip addr memif1/1 2002::2/64
         set ip neighbor memif1/1 2002::1 aa:bb:bb:bb:ee:01 static
         EOF
+
+        sleep 4
 
         sudo vpp -c /etc/vpp/startup.conf
         sleep 10

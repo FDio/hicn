@@ -2,8 +2,7 @@ version: "3"
 services:
   client:
     container_name: ${TEST_VPP_BRIDGE}-client
-    cap_add:
-      - NET_ADMIN
+    privileged: true
     devices:
       - /dev/net/tun:/dev/net/tun
       - /dev/vhost-net:/dev/vhost-net
@@ -22,23 +21,17 @@ services:
         cpu { main-core 1 }
         plugins {
             path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
-            plugin default { disable }
-            plugin acl_plugin.so { enable }
-            plugin nat_plugin.so { enable }
-            plugin dhcp_plugin.so { enable }
-            plugin dpdk_plugin.so { enable }
-            plugin dns_plugin.so { enable }
-            plugin ping_plugin.so { enable }
-            plugin memif_plugin.so { enable }
-            plugin nsim_plugin.so { enable }
-            plugin hicn_plugin.so { enable }
+            plugin default { enable }
         }
-
         unix {
             startup-config /etc/vpp/client-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
         }
+        api-trace {
+          on
+        }
+
         EOF
 
         sudo tee /etc/vpp/client-up.txt <<EOF
@@ -49,6 +42,8 @@ services:
         ip route add b002::1/64 via ${TOPOLOGY_2_NODES_IP6_ADDRESS_SERVER} tap0
         EOF
 
+        sleep 4
+
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
         sudo vppctl hicn enable b002::1/64
@@ -57,8 +52,7 @@ services:
 
   server:
     container_name: ${TEST_VPP_BRIDGE}-server
-    cap_add:
-      - NET_ADMIN
+    privileged: true
     devices:
       - /dev/net/tun:/dev/net/tun
       - /dev/vhost-net:/dev/vhost-net
@@ -77,21 +71,15 @@ services:
         cpu { main-core 2 }
         plugins {
             path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
-            plugin default { disable }
-            plugin acl_plugin.so { enable }
-            plugin nat_plugin.so { enable }
-            plugin dhcp_plugin.so { enable }
-            plugin dpdk_plugin.so { enable }
-            plugin dns_plugin.so { enable }
-            plugin ping_plugin.so { enable }
-            plugin memif_plugin.so { enable }
-            plugin nsim_plugin.so { enable }
-            plugin hicn_plugin.so { enable }
+            plugin default { enable }
         }
         unix {
             startup-config /etc/vpp/server-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
+        }
+        api-trace {
+          on
         }
         EOF
 
@@ -101,6 +89,8 @@ services:
         set int ip addr tap0 ${TOPOLOGY_2_NODES_IP_ADDRESS_SERVER}/24
         set int ip addr tap0 ${TOPOLOGY_2_NODES_IP6_ADDRESS_SERVER}/64
         EOF
+
+        sleep 2
 
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
