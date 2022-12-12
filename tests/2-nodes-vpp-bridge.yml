@@ -33,12 +33,15 @@ services:
             plugin nsim_plugin.so { enable }
             plugin hicn_plugin.so { enable }
         }
-
         unix {
             startup-config /etc/vpp/client-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
         }
+        api-trace {
+          on
+        }
+
         EOF
 
         sudo tee /etc/vpp/client-up.txt <<EOF
@@ -92,6 +95,9 @@ services:
             startup-config /etc/vpp/server-up.txt
             cli-listen /run/vpp/cli.sock
             log ${FORWARDER_LOG_PATH}
+        }
+        api-trace {
+          on
         }
         EOF
 
