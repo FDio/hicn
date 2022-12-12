@@ -3,6 +3,7 @@ services:
   client:
     container_name: ${TEST_VPP_MEMIF}-client
     networks: []
+    privileged: true
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z
@@ -60,6 +61,7 @@ services:
   server:
     container_name: ${TEST_VPP_MEMIF}-server
     networks: []
+    privileged: true
     volumes:
       - /tmp/memif:/memif:z
       - ..:/workspace:z

@@ -273,7 +273,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 			    fib_entry->proto);
 	  ADD_FACE (nh);
 	  HICN_DEBUG ("Added new HICN face: %d because of route prefix %U",
-		      face_id, format_ip_prefix, &_fib_entry->fe_prefix);
+		      face_id, format_fib_prefix, &_fib_entry->fe_prefix);
 	}
       else if (dpo->dpoi_type == dpo_type_udp_ip4 ||
 	       dpo->dpoi_type == dpo_type_udp_ip6)
@@ -405,9 +405,9 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
     {
       HICN_DEBUG (
 	"No route found for %U. Creating DPO and tracking fib prefix.",
-	format_ip_prefix, prefix);
+	format_fib_prefix, prefix);
       dpo_id_t dpo = DPO_INVALID;
-      index_t dpo_idx;
+      index_t dpo_idx = ~0;
       default_dpo.hicn_dpo_create (prefix->fp_proto, 0, NEXT_HOP_INVALID,
 				   &dpo_idx);
       HICN_DEBUG ("Created new DPO_MW_CTX_T: %d.", dpo_idx);
@@ -534,8 +534,8 @@ hicn_route_disable (fib_prefix_t *prefix)
 
   if (fib_hicn_entry_index == FIB_NODE_INDEX_INVALID)
     {
-      HICN_ERROR ("Route %U not found", format_ip_prefix, prefix);
-      return HICN_ERROR_ROUTE_NOT_FOUND;
+      HICN_ERROR ("Route %U not found", format_fib_prefix, prefix);
+      ret = HICN_ERROR_ROUTE_NOT_FOUND;
     }
   else
     {
@@ -605,7 +605,7 @@ hicn_route_disable (fib_prefix_t *prefix)
       HICN_DEBUG (
 	"Calling fib_entry_untrack and fib_table_entry_special_remove "
 	"for route %U.",
-	format_ip_prefix, prefix);
+	format_fib_prefix, prefix);
 
       fib_entry_untrack (hicn_fib_entry->fib_entry_index,
 			 hicn_fib_entry->fib_sibling);
