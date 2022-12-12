@@ -58,4 +58,4 @@ set (CMAKE_C_STANDARD 11)
 ##############################################################
 add_subdirectory(includes/vpp_plugins/hicn)
 add_subdirectory(src)
-add_subdirectory(vapi)
+add_subdirectory(libvapi-safe)
