@@ -99,6 +99,7 @@ init_dpo_ctx (hicn_dpo_ctx_t *dpo_ctx, const hicn_face_id_t *next_hop,
 	      int nh_len, dpo_type_t dpo_type, dpo_proto_t proto)
 {
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
+  int i = 0;
 
   dpo_ctx->entry_count = 0;
   dpo_ctx->locks = 0;
@@ -110,13 +111,13 @@ init_dpo_ctx (hicn_dpo_ctx_t *dpo_ctx, const hicn_face_id_t *next_hop,
 
   dpo_ctx->proto = (fib_protocol_t) proto;
 
-  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
+  for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
     {
       dpo_ctx->next_hops[i] = next_hop[i];
       dpo_ctx->entry_count++;
     }
 
-  for (int i = nh_len; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
+  for (; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
       dpo_ctx->next_hops[i] = invalid;
     }
