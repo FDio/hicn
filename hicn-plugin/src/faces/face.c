@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,6 +15,7 @@
 #include <vnet/fib/fib_entry_track.h>
 
 #include "face.h"
+#include "app/face_prod.h"
 #include "../hicn.h"
 #include "../params.h"
 #include "../error.h"
@@ -60,14 +61,14 @@ face_show (u8 *s, int face_id, u32 indent)
 mhash_t hicn_face_hashtb;
 
 const static char *const hicn_face6_nodes[] = {
-  "hicn6-face-output",	// this is the name you give your node in
-			// VLIB_REGISTER_NODE
+  "hicn6-face-output", // this is the name you give your node in
+		       // VLIB_REGISTER_NODE
   NULL,
 };
 
 const static char *const hicn_face4_nodes[] = {
-  "hicn4-face-output",	// this is the name you give your node in
-			// VLIB_REGISTER_NODE
+  "hicn4-face-output", // this is the name you give your node in
+		       // VLIB_REGISTER_NODE
   NULL,
 };
 
@@ -151,7 +152,6 @@ static const fib_node_vft_t hicn_face_fib_node_vft = {
 void
 hicn_face_module_init (vlib_main_t *vm)
 {
-  pool_validate (hicn_dpoi_face_pool);
   pool_alloc (hicn_dpoi_face_pool, 1024);
   counters = vec_new (vlib_combined_counter_main_t,
 		      HICN_PARAM_FACES_MAX * HICN_N_COUNTER);
@@ -171,6 +171,11 @@ hicn_face_module_init (vlib_main_t *vm)
    */
   hicn_face_fib_node_type =
     fib_node_register_new_type ("hicn_face_fib_node", &hicn_face_fib_node_vft);
+
+  /*
+   * Init producer face module
+   */
+  hicn_face_prod_init ();
 }
 
 u8 *

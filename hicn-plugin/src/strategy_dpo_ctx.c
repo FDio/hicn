@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,7 +21,8 @@ hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
 void
 hicn_strategy_init_dpo_ctx_pool ()
 {
-  // pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
+  pool_alloc_aligned (hicn_strategy_dpo_ctx_pool, 256,
+		      2 * CLIB_CACHE_LINE_BYTES);
 }
 
 void
