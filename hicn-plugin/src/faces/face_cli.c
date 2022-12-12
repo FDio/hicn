@@ -82,12 +82,12 @@ hicn_face_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 		      HICN_FACE_CTRX_STRING[i]);
 
 	  if (n)
-	    _vec_len (n) = 0;
+	    vec_set_len (n, 0);
 	  n = format (n, "packets");
 	  s = format (s, "%U%-16v%16Ld", format_white_space,
 		      30 - strlen (HICN_FACE_CTRX_STRING[i]), n, v.packets);
 
-	  _vec_len (n) = 0;
+	  vec_set_len (n, 0);
 	  n = format (n, "bytes");
 	  s = format (s, "\n%U%-16v%16Ld\n", format_white_space, indent + 30,
 		      n, v.bytes);
@@ -120,13 +120,13 @@ hicn_face_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 				      HICN_FACE_CTRX_STRING[i]);
 
 			  if (n)
-			    _vec_len (n) = 0;
+			    vec_set_len (n, 0);
 			  n = format (n, "packets");
 			  s = format (s, "%U%-16v%16Ld", format_white_space,
 				      30 - strlen (HICN_FACE_CTRX_STRING[i]),
 				      n, v.packets);
 
-			  _vec_len (n) = 0;
+			  vec_set_len (n, 0);
 			  n = format (n, "bytes");
 			  s =
 			    format (s, "\n%U%-16v%16Ld\n", format_white_space,
@@ -158,13 +158,13 @@ hicn_face_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 				  HICN_FACE_CTRX_STRING[i]);
 
 		      if (n)
-			_vec_len (n) = 0;
+			vec_set_len (n, 0);
 		      n = format (n, "packets");
 		      s = format (s, "%U%-16v%16Ld", format_white_space,
 				  30 - strlen (HICN_FACE_CTRX_STRING[i]), n,
 				  v.packets);
 
-		      _vec_len (n) = 0;
+		      vec_set_len (n, 0);
 		      n = format (n, "bytes");
 		      s = format (s, "\n%U%-16v%16Ld\n", format_white_space,
 				  indent + 30, n, v.bytes);
