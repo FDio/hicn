@@ -15,6 +15,7 @@
 #include <vnet/fib/fib_entry_track.h>
 
 #include "face.h"
+#include "app/face_prod.h"
 #include "../hicn.h"
 #include "../params.h"
 #include "../error.h"
@@ -60,14 +61,14 @@ face_show (u8 *s, int face_id, u32 indent)
 mhash_t hicn_face_hashtb;
 
 const static char *const hicn_face6_nodes[] = {
-  "hicn6-face-output",	// this is the name you give your node in
-			// VLIB_REGISTER_NODE
+  "hicn6-face-output", // this is the name you give your node in
+		       // VLIB_REGISTER_NODE
   NULL,
 };
 
 const static char *const hicn_face4_nodes[] = {
-  "hicn4-face-output",	// this is the name you give your node in
-			// VLIB_REGISTER_NODE
+  "hicn4-face-output", // this is the name you give your node in
+		       // VLIB_REGISTER_NODE
   NULL,
 };
 
@@ -171,6 +172,11 @@ hicn_face_module_init (vlib_main_t *vm)
    */
   hicn_face_fib_node_type =
     fib_node_register_new_type ("hicn_face_fib_node", &hicn_face_fib_node_vft);
+
+  /*
+   * Init producer face module
+   */
+  hicn_face_prod_init ();
 }
 
 u8 *
