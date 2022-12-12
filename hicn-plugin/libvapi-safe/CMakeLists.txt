@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022 Cisco and/or its affiliates.
+# Copyright (c) 2021-2023 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -21,9 +21,17 @@ set(SAFE_VAPI_LIBRARIES ${SAFE_VAPI_SHARED} CACHE INTERNAL "" FORCE)
 
 
 ##############################################################
+# C/CXX Standard
+##############################################################
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
+
+
+##############################################################
 # Dependencies and third party libs
 ##############################################################
 find_package(Vpp ${VPP_DEFAULT_VERSION} EXACT REQUIRED)
+find_package(Asio ${ASIO_DEFAULT_VERSION} REQUIRED)
 
 
 ##############################################################
@@ -34,7 +42,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(HicnPlugin ${CURRENT_VERSION} EXACT REQUIRED)
 else()
   list(APPEND DEPENDENCIES
-    ${HICNPLUGIN}
+    ${HICNPLUGIN_SHARED}
   )
 endif()
 
@@ -47,7 +55,7 @@ list(APPEND HEADER_FILES
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/vapi_safe.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/vapi_safe.cc
 )
 
 
@@ -82,6 +90,14 @@ list (APPEND INCLUDE_DIRS
 
 
 ##############################################################
+# Compiler definitions
+##############################################################
+list(APPEND COMPILER_DEFINITIONS
+  PUBLIC "-DASIO_STANDALONE"
+)
+
+
+##############################################################
 # Build library
 ##############################################################
 build_library(${SAFE_VAPI}
@@ -92,8 +108,8 @@ build_library(${SAFE_VAPI}
   COMPONENT ${HICN_PLUGIN}
   INCLUDE_DIRS ${INCLUDE_DIRS}
   HEADER_ROOT_DIR ""
-  DEFINITIONS PUBLIC ${COMPILER_DEFINITIONS}
-  DEPENDS ${HICNPLUGIN}.shared
+  DEFINITIONS PRIVATE ${COMPILER_DEFINITIONS}
+  DEPENDS ${DEPENDENCIES}
   VERSION ${CURRENT_VERSION}
   EXPORT_NAME "libsafevapi"
   COMPILE_OPTIONS ${COMPILER_OPTIONS}
