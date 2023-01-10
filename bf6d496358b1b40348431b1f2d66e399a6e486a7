@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "3593143d_aead6c81",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 10
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2023-01-10T11:48:24Z",
+      "side": 1,
+      "message": "build_success-hicn-ubuntu2004-x86_64",
+      "revId": "bf6d496358b1b40348431b1f2d66e399a6e486a7",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    }
+  ]
+}
