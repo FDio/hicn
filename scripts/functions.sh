@@ -86,14 +86,15 @@ function setup_extras() {
 function download_artifacts() {
   if [[ -n ${GERRIT_HOST:-} ]] &&
     [[ -n ${GERRIT_CHANGE_NUMBER:-} ]] &&
-    [[ -n ${GERRIT_PATCHSET_NUMBER:-} ]]; then
+    [[ -n ${GERRIT_PATCHSET_NUMBER:-} ]] &&
+    [[ -n ${STREAM:-} ]]; then
 
     # Retrieve the Jenkins URL of the build relative to this PATCHSET
     JENKINS_URLS=$(
       curl -s "https://${GERRIT_HOST}/r/changes/${GERRIT_CHANGE_NUMBER}/detail" |
         tail -n +2 | jq '.messages[].message?' |
         grep -E "Patch Set ${GERRIT_PATCHSET_NUMBER}:.*hicn-verify-build.*build_success-hicn-ubuntu2004-$(uname -m)" |
-        grep -Eo "https?://jenkins.fd.io/job/hicn-verify-build-hicn-ubuntu2004-$(uname -m)[^ ]+"
+        grep -Eo "https?://jenkins.fd.io/job/hicn-verify-build-${STREAM}-ubuntu2004-$(uname -m)[^ ]+"
     )
 
     # Transform string to array and get last
