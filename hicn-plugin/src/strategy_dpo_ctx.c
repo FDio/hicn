@@ -104,7 +104,8 @@ hicn_strategy_dpo_ctx_get (index_t index)
 }
 
 hicn_dpo_ctx_t *
-hicn_strategy_dpo_ctx_alloc ()
+hicn_strategy_dpo_ctx_alloc
+ ()
 {
   HICN_DEBUG ("Allocating new DPO CTX");
   hicn_dpo_ctx_t *dpo_ctx;

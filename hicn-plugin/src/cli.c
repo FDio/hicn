@@ -67,8 +67,8 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t *vm,
 		   get_error_string (ret));
 
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, get_error_string (ret));
+	   0 :
+	   clib_error_return (0, get_error_string (ret));
 }
 
 /*
@@ -105,8 +105,8 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t *vm,
     node_ctl_params.pit_max_lifetime_sec, node_ctl_params.cs_max_size, ~0);
 
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, get_error_string (ret));
+	   0 :
+	   clib_error_return (0, get_error_string (ret));
 }
 
 #define DFLTD_RANGE_OK(val, min, max)                                         \
@@ -203,8 +203,8 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t *vm,
 			 "compilation time for better performances\n");
 
   return (rv == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, "%s '%U'", get_error_string (rv),
+	   0 :
+	   clib_error_return (0, "%s '%U'", get_error_string (rv),
 			      format_unformat_error, line_input);
 }
 
@@ -328,8 +328,8 @@ hicn_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
     }
 done:
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, "%s\n", get_error_string (ret));
+	   0 :
+	   clib_error_return (0, "%s\n", get_error_string (ret));
 }
 
 /*
@@ -344,9 +344,7 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 
   int rv = HICN_ERROR_NONE;
   int addpfx = -1;
-  ip46_address_t address;
   u32 strategy_id;
-  u32 plen = 0;
   fib_prefix_t prefix;
 
   /* Get a line of input. */
@@ -362,8 +360,7 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 	  addpfx = 2;
 	}
       else if (addpfx != -1 &&
-	       unformat (line_input, "prefix %U/%d", unformat_ip46_address,
-			 &address, IP46_TYPE_ANY, &plen))
+	       unformat (line_input, "prefix %U", unformat_ip_prefix, &prefix))
 	{
 	  ;
 	}
@@ -376,8 +373,6 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 	}
     }
 
-  fib_prefix_from_ip46_addr (&address, &prefix);
-  prefix.fp_len = plen;
   /* Check parse */
   if (hicn_dpo_strategy_id_is_valid (strategy_id) ==
       HICN_ERROR_DPO_MGR_ID_NOT_VALID)
@@ -388,8 +383,8 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 
   rv = hicn_route_set_strategy (&prefix, strategy_id);
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
 done:
 
   return (cl_err);
@@ -706,8 +701,8 @@ hicn_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 done:
 
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 
@@ -751,8 +746,8 @@ hicn_disable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
 done:
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 

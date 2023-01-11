@@ -211,7 +211,8 @@ fib_epm_lookup (ip46_address_t *addr, u8 plen)
   const dpo_id_t *load_balance_dpo_id;
 
   /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (addr, &fib_pfx);
+  fib_protocol_t proto = fib_ip_proto (!ip46_address_is_ip4 (addr));
+  fib_prefix_from_ip46_addr (proto, addr, &fib_pfx);
   fib_pfx.fp_len = plen;
 
   /* Check if the route already exist in the fib : EPM */

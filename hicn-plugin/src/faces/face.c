@@ -287,7 +287,8 @@ hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo)
 
 	  if (!ip46_address_is_zero (nh))
 	    {
-	      fib_prefix_from_ip46_addr (nh, &prefix);
+	      fib_prefix_from_ip46_addr (
+		fib_ip_proto (!ip46_address_is_ip4 (nh)), nh, &prefix);
 
 	      u32 fib_index = fib_table_find (prefix.fp_proto, HICN_FIB_TABLE);
 
