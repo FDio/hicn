@@ -1,0 +1,7 @@
+Code-Review+2: Mauro Sardara <msardara@cisco.com>
+Verified+1: fd.io JJB <jobbuilder@projectrotterdam.info>
+Submitted-by: Mauro Sardara <msardara@cisco.com>
+Submitted-at: Thu, 12 Jan 2023 15:22:39 +0000
+Reviewed-on: https://gerrit.fd.io/r/c/hicn/+/37805
+Project: hicn
+Branch: refs/heads/stable/2210
