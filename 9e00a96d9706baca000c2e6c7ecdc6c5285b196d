@@ -33,6 +33,23 @@
       "message": "build_success-2210-ubuntu2004-x86_64\n",
       "revId": "9e00a96d9706baca000c2e6c7ecdc6c5285b196d",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "2a09a5ee_d01650e3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2023-01-12T14:58:15Z",
+      "side": 1,
+      "message": "recheck",
+      "revId": "9e00a96d9706baca000c2e6c7ecdc6c5285b196d",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
   ]
 }
