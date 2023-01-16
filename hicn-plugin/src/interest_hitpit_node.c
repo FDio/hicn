@@ -155,7 +155,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		    {
 		      // Retransmission
 		      strategy_vft0->hicn_select_next_hop (
-			dpo_ctx_id0, outfaces, &outfaces_len);
+			dpo_ctx_id0, hicnb0->face_id, outfaces, &outfaces_len);
 
 		      // Prepare the packet for the forwarding
 		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
