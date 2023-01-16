@@ -68,6 +68,7 @@
  *
  */
 
+#include <hicn/core/forwarder.h>
 #include "packet_cache.h"
 
 const char *_pkt_cache_verdict_str[] = {
@@ -565,6 +566,49 @@ bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
   // in the PIT entry (i.e. it is a retransmission)
   unsigned connection_id = msgbuf_get_connection_id(msgbuf);
   bool is_aggregated = !pit_entry_ingress_contains(pit_entry, connection_id);
+
+  // If the strategy to use for this packet is STRATEGY_TYPE_LOCAL_REMOTE we may
+  // want to forward the packet even if it should be aggregated. This is useful
+  // when a local consumer socket and a remote one are asking for the same
+  // content. If the interest coming from the remote socket is received before
+  // the one from the local socket, the second interest is aggregated in the PIT
+  // and no interest is satisfied (IRIS app).
+  // Forward the interest if: 1) the strategy in the fib_entry stored in the pit
+  // entry is STRATEGY_TYPE_LOCAL_REMOTE 2) the ingress connection of the
+  // interest if a local connection 3) the ingress list of pit entry has no
+  // other local ingress connection if all these conditions are satisfied, send
+  // the interest. if is_aggregated = false avoid the check (it will be useless)
+
+  if (is_aggregated) {
+    fib_entry_t *fib_entry = pit_entry_get_fib_entry(pit_entry);
+    if (fib_entry &&
+        (fib_entry_strategy_type(fib_entry) == STRATEGY_TYPE_LOCAL_REMOTE)) {
+      // the strategy is STRATEGY_TYPE_LOCAL_REMOTE, check the input face
+      connection_table_t *table =
+          forwarder_get_connection_table(fib_entry->forwarder);
+      if (table) {
+        connection_t *msg_conn =
+            connection_table_get_by_id(table, connection_id);
+        if (msg_conn && connection_is_local(msg_conn)) {
+          // The face is local, check that no other input face is local. With
+          // this check only the first local consumer is able to send
+          // the interest, while the other interests will be aggregated
+          // (however this is quite inefficient)
+          nexthops_t *ingressIdSet = pit_entry_get_ingress(pit_entry);
+          bool in_local_connextion_exists = false;
+          nexthops_enumerate(ingressIdSet, i, nexthop, {
+            connection_t *in_conn = connection_table_get_by_id(table, nexthop);
+            if (in_conn && connection_is_local(in_conn)) {
+              in_local_connextion_exists = true;
+              break;
+            }
+          });
+          if (!in_local_connextion_exists) is_aggregated = false;
+        }
+      }
+    }
+  }
+
   if (is_aggregated) pit_entry_ingress_add(pit_entry, connection_id);
 
   WITH_DEBUG({
