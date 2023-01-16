@@ -23,9 +23,10 @@
 /* It does not require to exend the hicn_dpo */
 void hicn_receive_data_rp (index_t dpo_idx, int nh_idx);
 void hicn_add_interest_rp (index_t dpo_idx);
+int hicn_send_after_aggregation_rp (index_t dpo_idx, hicn_face_id_t in_face);
 void hicn_on_interest_timeout_rp (index_t dpo_idx);
-u32 hicn_select_next_hop_rp (index_t dpo_idx, hicn_face_id_t *outfaces,
-			     u16 *len);
+u32 hicn_select_next_hop_rp (index_t dpo_idx, hicn_face_id_t in_face,
+			     hicn_face_id_t *outfaces, u16 *len);
 u8 *hicn_strategy_format_trace_rp (u8 *s, hicn_strategy_trace_t *t);
 u8 *hicn_strategy_format_rp (u8 *s, va_list *ap);
 
@@ -50,7 +51,8 @@ hicn_rp_strategy_get_vft (void)
 /* DPO should be give in input as it containes all the information to calculate
  * the next hops*/
 u32
-hicn_select_next_hop_rp (index_t dpo_idx, hicn_face_id_t *outfaces, u16 *len)
+hicn_select_next_hop_rp (index_t dpo_idx, hicn_face_id_t in_face,
+			 hicn_face_id_t *outfaces, u16 *len)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
@@ -75,6 +77,12 @@ void
 hicn_add_interest_rp (index_t dpo_ctx_idx)
 {
   /* Nothing to do */
+}
+
+int
+hicn_send_after_aggregation_rp (index_t dpo_idx, hicn_face_id_t in_face)
+{
+  return false;
 }
 
 void
