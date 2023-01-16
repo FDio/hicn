@@ -23,7 +23,7 @@
 #define foreach_face_flag                                                     \
   _ (0, FACE, "face")                                                         \
   _ (1, IFACE, "iface")                                                       \
-  _ (2, APPFACE_PROD, "face is consumer face")                                \
+  _ (2, APPFACE_PROD, "face is producer face")                                \
   _ (3, APPFACE_CONS, "face is consumer face")                                \
   _ (4, DELETED, "face is deleted")                                           \
   _ (5, UDP, "face is udp")
