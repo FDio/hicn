@@ -692,6 +692,28 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
   return ret;
 }
 
+/**
+ * @brief Retrieve, or create if it doesn't exist, a face from the ip6 local
+ * address and returns its dpo. This method adds a lock on the face state.
+ *
+ * @param dpo: Result of the lookup
+ * @param hicnb_flags: Flags that indicate whether the face is an application
+ * face or not
+ * @param nat_addr: Ip v6 remote address of the face
+ * @param sw_if: software interface id of the face
+ * @param node_index: vlib edge index to use in the packet processing
+ */
+always_inline int
+hicn_face_is_local (hicn_face_id_t face_id)
+{
+  hicn_face_t *face;
+  face = hicn_dpoi_get_from_idx (face_id);
+  ASSERT (face != NULL);
+
+  return face->flags & HICN_FACE_FLAGS_APPFACE_PROD ||
+	 face->flags & HICN_FACE_FLAGS_APPFACE_CONS;
+}
+
 #endif // __HICN_FACE_H__
 
 /*
