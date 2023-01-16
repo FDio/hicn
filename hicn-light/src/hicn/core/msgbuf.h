@@ -37,7 +37,10 @@ typedef struct {
   unsigned connection_id;  // ingress
   Ticks recv_ts;           // timestamp
   unsigned refs;           // refcount
-  unsigned path_label;     // XXX what is this ?
+  unsigned path_label;     // original path label of the received message. used
+                           // as a base for the path label computation when the
+                           // same data packet needs to be forwarded on multiple
+                           // face.
 
   // XXX Cache storage
   union {
