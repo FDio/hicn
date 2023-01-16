@@ -59,7 +59,7 @@ typedef struct hicn_dpo_vft_s
     hicn_face_id_t nh,
     index_t dpo_idx); /**< Add a next hop to the hICN dpo context */
   int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
-  u8 *(*hicn_dpo_format) (u8 *s, int, ...);
+  u8 *(*hicn_dpo_format) (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent);
   /**< Format an hICN dpo*/
 } hicn_dpo_vft_t;
 
@@ -188,6 +188,11 @@ int hicn_strategy_get_all_available (void);
  * the ctor.
  */
 void hicn_dpo_register (const hicn_dpo_vft_t *hicn_dpo);
+
+/**
+ * @brief Format strategy DPO.
+ */
+u8 *hicn_strategy_dpo_format (u8 *s, va_list *ap);
 
 #endif /* // __HICN_STRATEGY_DPO_MANAGER_H__ */
 
