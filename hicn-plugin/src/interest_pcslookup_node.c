@@ -389,9 +389,9 @@ hicn_interest_manifest_pcslookup_node_inline (vlib_main_t *vm,
 	      strategy->hicn_add_interest (hicnb0->dpo_ctx_id);
 
 	      // Check we have at least one next hop for the packet
-	      ret = strategy->hicn_select_next_hop (hicnb0->dpo_ctx_id,
-						    outfaces, &outfaces_len);
-	      if (ret == HICN_ERROR_NONE)
+	      ret = strategy->hicn_select_next_hop (
+		hicnb0->dpo_ctx_id, hicnb0->face_id, outfaces, &outfaces_len);
+	      if (ret == HICN_ERROR_NONE && outfaces_len > 0)
 		{
 		  next0 = hicn_buffer_is_v6 (b0) ?
 				  HICN_INTEREST_MANIFEST_PCSLOOKUP_NEXT_FACE6 :

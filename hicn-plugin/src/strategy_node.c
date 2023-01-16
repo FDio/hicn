@@ -145,8 +145,8 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  strategy->hicn_add_interest (hicnb0->dpo_ctx_id);
 
 	  // Check we have at least one next hop for the packet
-	  ret = strategy->hicn_select_next_hop (hicnb0->dpo_ctx_id, outfaces,
-						&outfaces_len);
+	  ret = strategy->hicn_select_next_hop (
+	    hicnb0->dpo_ctx_id, hicnb0->face_id, outfaces, &outfaces_len);
 
 	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE || outfaces_len == 0))
 	    {
@@ -224,11 +224,12 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		    {
 		      hicn_strategy_trace_t *t =
 			vlib_add_trace (vm, node, local_b0, sizeof (*t));
-		      t->pkt_type = HICN_PACKET_TYPE_DATA;
+		      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 		      t->sw_if_index =
 			vnet_buffer (local_b0)->sw_if_index[VLIB_RX];
 		      t->next_index = next0;
 		      t->dpo_type = hicnb0->vft_id;
+		      t->out_face = outfaces[nh];
 		    }
 
 		  /*
