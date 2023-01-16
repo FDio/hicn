@@ -20,6 +20,7 @@
 #include "strategies/dpo_mw.h"
 #include "strategies/dpo_rr.h"
 #include "strategies/dpo_rp.h"
+#include "strategies/dpo_lr.h"
 #include "strategy.h"
 #include "faces/face.h"
 
@@ -93,6 +94,20 @@ hicn_dpo_get_strategy_vft_from_id (u8 vfts_id)
   return hicn_strategy_vfts[strategies_id[vfts_id]];
 }
 
+u8 *
+hicn_strategy_dpo_format (u8 *s, va_list *ap)
+{
+  index_t index = va_arg (*ap, index_t);
+  hicn_dpo_ctx_t *dpo_ctx = NULL;
+  u32 indent = va_arg (*ap, u32);
+
+  dpo_ctx = hicn_strategy_dpo_ctx_get (index);
+  if (dpo_ctx == NULL)
+    return s;
+  
+  return hicn_dpo_vfts[dpo_ctx->dpo_type]->hicn_dpo_format(s, dpo_ctx, indent);
+}
+
 void
 hicn_dpos_init (void)
 {
@@ -100,15 +115,9 @@ hicn_dpos_init (void)
   hicn_dpo_strategy_mw_module_init ();
   hicn_dpo_strategy_rr_module_init ();
   hicn_dpo_strategy_rp_module_init ();
+  hicn_dpo_strategy_lr_module_init ();
 
-  default_dpo.hicn_dpo_is_type = &hicn_dpo_is_type_strategy_mw;
-  default_dpo.hicn_dpo_get_type = &hicn_dpo_strategy_mw_get_type;
-  default_dpo.hicn_dpo_module_init = &hicn_dpo_strategy_mw_module_init;
-  default_dpo.hicn_dpo_create = &hicn_strategy_mw_ctx_create;
-  default_dpo.hicn_dpo_update_type = &hicn_strategy_mw_update_ctx_type;
-  default_dpo.hicn_dpo_add_update_nh = &hicn_strategy_mw_ctx_add_nh;
-  default_dpo.hicn_dpo_del_nh = &hicn_strategy_mw_ctx_del_nh;
-  default_dpo.hicn_dpo_format = &hicn_strategy_mw_format_ctx;
+  default_dpo = *hicn_dpo_vfts[hicn_dpo_strategy_mw_get_type()];
 }
 
 u8 *

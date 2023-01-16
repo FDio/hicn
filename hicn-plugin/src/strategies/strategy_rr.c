@@ -24,8 +24,8 @@
 void hicn_receive_data_rr (index_t dpo_idx, int nh_idx);
 void hicn_add_interest_rr (index_t dpo_idx);
 void hicn_on_interest_timeout_rr (index_t dpo_idx);
-u32 hicn_select_next_hop_rr (index_t dpo_idx, hicn_face_id_t *outfaces,
-			     u16 *len);
+u32 hicn_select_next_hop_rr (index_t dpo_idx, hicn_face_id_t in_face,
+			     hicn_face_id_t *outfaces, u16 *len);
 u8 *hicn_strategy_format_trace_rr (u8 *s, hicn_strategy_trace_t *t);
 u8 *hicn_strategy_format_rr (u8 *s, va_list *ap);
 
@@ -50,7 +50,8 @@ hicn_rr_strategy_get_vft (void)
 /* DPO should be give in input as it containes all the information to calculate
  * the next hops*/
 u32
-hicn_select_next_hop_rr (index_t dpo_idx, hicn_face_id_t *outfaces, u16 *len)
+hicn_select_next_hop_rr (index_t dpo_idx, hicn_face_id_t in_face,
+			 hicn_face_id_t *outfaces, u16 *len)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
