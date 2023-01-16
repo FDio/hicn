@@ -22,9 +22,10 @@
 /* It does not require to exend the hicn_dpo */
 void hicn_receive_data_mw (index_t dpo_idx, int nh_idx);
 void hicn_add_interest_mw (index_t dpo_idx);
+int hicn_send_after_aggregation_mw (index_t dpo_idx, hicn_face_id_t in_face);
 void hicn_on_interest_timeout_mw (index_t dpo_idx);
-u32 hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t *outfaces,
-			     u16 *len);
+u32 hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t in_face,
+			     hicn_face_id_t *outfaces, u16 *len);
 u32 get_strategy_node_index_mw (void);
 u8 *hicn_strategy_format_trace_mw (u8 *s, hicn_strategy_trace_t *t);
 u8 *hicn_strategy_format_mw (u8 *s, va_list *ap);
@@ -32,6 +33,7 @@ u8 *hicn_strategy_format_mw (u8 *s, va_list *ap);
 static hicn_strategy_vft_t hicn_strategy_mw_vft = {
   .hicn_receive_data = &hicn_receive_data_mw,
   .hicn_add_interest = &hicn_add_interest_mw,
+  .hicn_send_after_aggregation = &hicn_send_after_aggregation_mw,
   .hicn_on_interest_timeout = &hicn_on_interest_timeout_mw,
   .hicn_select_next_hop = &hicn_select_next_hop_mw,
   .hicn_format_strategy_trace = hicn_strategy_format_trace_mw,
@@ -50,7 +52,8 @@ hicn_mw_strategy_get_vft (void)
 /* DPO should be give in input as it containes all the information to calculate
  * the next hops*/
 u32
-hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t *outfaces, u16 *len)
+hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t in_face,
+			 hicn_face_id_t *outfaces, u16 *len)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
@@ -82,6 +85,12 @@ hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t *outfaces, u16 *len)
 void
 hicn_add_interest_mw (index_t dpo_ctx_idx)
 {
+}
+
+int
+hicn_send_after_aggregation_mw (index_t dpo_idx, hicn_face_id_t in_face)
+{
+  return false;
 }
 
 void

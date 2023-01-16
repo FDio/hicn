@@ -31,7 +31,13 @@ static const hicn_dpo_vft_t hicn_dpo_mw_vft = {
   .hicn_dpo_update_type = &hicn_strategy_mw_update_ctx_type,
   .hicn_dpo_add_update_nh = &hicn_strategy_mw_ctx_add_nh,
   .hicn_dpo_del_nh = &hicn_strategy_mw_ctx_del_nh,
-  .hicn_dpo_format = &hicn_strategy_mw_format_ctx
+  .hicn_dpo_format = &hicn_dpo_strategy_mw_format
+};
+
+const static dpo_vft_t dpo_strategy_mw_ctx_vft = {
+  .dv_lock = &hicn_strategy_dpo_ctx_lock,
+  .dv_unlock = &hicn_strategy_dpo_ctx_unlock,
+  .dv_format = &hicn_strategy_dpo_format
 };
 
 int
@@ -60,27 +66,10 @@ hicn_dpo_strategy_mw_get_type (void)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 u8 *
-hicn_strategy_mw_format_ctx (u8 *s, int n, ...)
+hicn_dpo_strategy_mw_format (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent)
 {
-  va_list args;
-  va_start (args, n);
-  s = format_hicn_strategy_mw_ctx (s, &args);
-  return s;
-}
-
-u8 *
-format_hicn_strategy_mw_ctx (u8 *s, va_list *ap)
-{
-  int i = 0;
-  index_t index = va_arg (*ap, index_t);
-  hicn_dpo_ctx_t *dpo_ctx = NULL;
   hicn_strategy_mw_ctx_t *mw_dpo_ctx = NULL;
-  u32 indent = va_arg (*ap, u32);
-  ;
-
-  dpo_ctx = hicn_strategy_dpo_ctx_get (index);
-  if (dpo_ctx == NULL)
-    return s;
+  int i = 0;
 
   mw_dpo_ctx = (hicn_strategy_mw_ctx_t *) dpo_ctx->data;
 

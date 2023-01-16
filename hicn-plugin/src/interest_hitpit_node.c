@@ -61,7 +61,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   const hicn_strategy_vft_t *strategy_vft0;
   const hicn_dpo_vft_t *dpo_vft0;
   u8 dpo_ctx_id0;
-  u8 found = 0;
+  u8 forward = 0;
   hicn_face_id_t outfaces[MAX_OUT_FACES];
   u32 clones[MAX_OUT_FACES];
   u16 outfaces_len;
@@ -147,15 +147,37 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		}
 	      else
 		{
-		  // Distinguish between aggregation or retransmission
-		  found =
+		  // Distinguish between aggregation, retransmission and
+		  // additionally check if the strategy mandates to always send
+		  // the interest
+
+		  // Retransmission
+		  forward =
 		    hicn_pcs_entry_pit_search (pcs_entry, hicnb0->face_id);
 
-		  if (found && hicnb0->payload_type != HPT_MANIFEST)
+		  // Strategy mandates to force send after aggregation
+		  if (!forward && strategy_vft0->hicn_send_after_aggregation (
+				    dpo_ctx_id0, hicnb0->face_id))
 		    {
-		      // Retransmission
+		      forward = true;
+		      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
+		    }
+
+		  if (forward && hicnb0->payload_type != HPT_MANIFEST)
+		    {
+		      // Send interest
 		      strategy_vft0->hicn_select_next_hop (
-			dpo_ctx_id0, outfaces, &outfaces_len);
+			dpo_ctx_id0, hicnb0->face_id, outfaces, &outfaces_len);
+
+		      // If no next hops, drop the packet
+		      if (outfaces_len == 0)
+			{
+			  drop_packet (&next0);
+			  vlib_validate_buffer_enqueue_x1 (
+			    vm, node, next_index, to_next, n_left_to_next, bi0,
+			    next0);
+			  continue;
+			}
 
 		      // Prepare the packet for the forwarding
 		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
@@ -224,7 +246,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		      // Aggregation
 		      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
 
-		      /* Aggregation */
 		      drop_packet (&next0);
 		      stats.interests_aggregated++;
 
