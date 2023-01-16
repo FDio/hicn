@@ -1,0 +1,116 @@
+version: "3"
+version: "3"
+services:
+  client:
+    container_name: ${TEST_VPP_MEMIF}-client
+    networks: []
+    volumes:
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          sudo ninja -C /workspace/build-dev install
+        fi
+
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 1 }
+        buffers { buffers-per-numa 600000 }
+        plugins {
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+
+        unix {
+            startup-config /etc/vpp/client-up.txt
+            cli-listen /run/vpp/cli.sock
+            log ${FORWARDER_LOG_PATH}
+        }
+        EOF
+
+        sudo tee /etc/vpp/client-up.txt <<EOF
+        comment { Creating memif }
+        create memif socket id 1 filename /memif/memif1.sock
+        create interface memif id 0 socket-id 1 mode ip master
+        set int state memif1/0 up
+        comment { Configuring memif }
+        set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP_ADDRESS_CLIENT}/24
+        set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP6_ADDRESS_CLIENT}/64
+        comment { Add route }
+        ip route add ${RAAQM_PRODUCER}/128 via ${TOPOLOGY_2_NODES_IP6_ADDRESS_SERVER} memif1/0
+        EOF
+
+        sudo rm /memif/memif1.sock
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 5
+
+        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
+        sleep 1
+
+        sudo vppctl hicn strategy set 3 prefix ${RAAQM_PRODUCER}/128
+
+        tail -f /dev/null
+
+  server:
+    container_name: ${TEST_VPP_MEMIF}-server
+    networks: []
+    volumes:
+      - /tmp/memif:/memif:z
+      - ..:/workspace:z
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          sudo ninja -C /workspace/build-dev install
+        fi
+
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 2 }
+        buffers { buffers-per-numa 600000 }
+
+        plugins {
+            path /usr/lib/$$(arch)-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+        unix {
+            startup-config /etc/vpp/server-up.txt
+            cli-listen /run/vpp/cli.sock
+            log ${FORWARDER_LOG_PATH}
+        }
+        EOF
+
+        sudo tee /etc/vpp/server-up.txt <<EOF
+        comment { Creating memif }
+        create memif socket id 1 filename /memif/memif1.sock
+        create interface memif id 0 socket-id 1 mode ip slave
+        set int state memif1/0 up
+        comment { Configuring memif }
+        set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP_ADDRESS_SERVER}/24
+        set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP6_ADDRESS_SERVER}/64
+        EOF
+
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 5
+
+        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
+
+        tail -f /dev/null
