@@ -135,7 +135,7 @@ function setchannel() {
     error "Error: topology does not exist."
   fi
 
-  DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${configuration}.yml exec -T"
+  local DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${configuration}.yml exec -T"
   ${DOCKER_COMMAND} "${service}" bash -c "/workspace/tests/config.sh link set ${device} ${link_model[${3}]}"
 }
 
@@ -150,7 +150,7 @@ function changechannel() {
     error "Error: topology does not exist."
   fi
 
-  DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${configuration}.yml exec -T"
+  local DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${configuration}.yml exec -T"
   ${DOCKER_COMMAND} "${service}" bash -c "/workspace/tests/config.sh link change ${device} ${link_model[${3}]}"
 }
 
@@ -231,7 +231,7 @@ function start() {
     error "Error: test does not exist."
   fi
 
-  DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${conf}.yml exec -T"
+  local DOCKER_COMMAND="docker-compose -f ${topology}.yml -f ${topology}-${conf}.yml exec -T"
 
   ${DOCKER_COMMAND} client bash -x /workspace/tests/config.sh runtest "${tests[${TESTNAME}]}"
 
@@ -593,6 +593,49 @@ function ping() {
   ${ping_tests[${type}]}
 }
 
+#---------------------------------------------------------------
+# Tests for local-remote strategy
+#---------------------------------------------------------------
+
+function localremote() {
+  local DOCKER_COMMAND="docker-compose -f 2-nodes.yml -f 2-nodes-vpp-memif-local-remote.yml exec -T"
+
+  ${DOCKER_COMMAND} "client" sudo bash -c "${HIPERF_CMD_MEMIF_CBR}"
+  ${DOCKER_COMMAND} "client" sudo /usr/bin/vppctl hicn face show > /tmp/output
+
+  # Check that producer face has received 0 packets
+  INTEREST_TX="$(cat /tmp/output | grep -A 9 producer | grep "Interest tx" | awk '{print $4}')"
+  INTEREST_TX="${INTEREST_TX%%[[:cntrl:]]}"
+  if [[ ${INTEREST_TX} != "0" ]]; then
+    echo "Received interest on local interface."
+    exit 1
+  fi
+
+  # Check that producer face has sent 0 packets
+  DATA_RX="$(cat /tmp/output | grep -A 9 producer | grep "Data rx" | awk '{print $4}')"
+  DATA_RX="${DATA_RX%%[[:cntrl:]]}"
+  if [[ ${DATA_RX} != "0" ]]; then
+    echo "Received data on local interface."
+    exit 1
+  fi
+
+  # Check that remote face has sent > 0 packets
+  DATA_RX="$(cat /tmp/output | grep -A 9 ${TOPOLOGY_2_NODES_IP6_ADDRESS_CLIENT} | grep "Data rx" | awk '{print $4}')"
+  DATA_RX="${DATA_RX%%[[:cntrl:]]}"
+  if [[ ${DATA_RX} == "0" ]]; then
+    echo "No data received on remote interface."
+    exit 1
+  fi
+
+  # Check that remote face has sent > 0 packets
+  INTEREST_TX="$(cat /tmp/output | grep -A 9 ${TOPOLOGY_2_NODES_IP6_ADDRESS_CLIENT} | grep "Interest tx" | awk '{print $4}')"
+  INTEREST_TX="${INTEREST_TX%%[[:cntrl:]]}"
+  if [[ ${INTEREST_TX} == "0" ]]; then
+    echo "No interest sent on remote interface."
+    exit 1
+  fi
+}
+
 #--------------------------------------------------------------#
 
 while (("${#}")); do
@@ -642,6 +685,10 @@ while (("${#}")); do
     ;;
   'ping')
     ping "${2}"
+    break
+    ;;
+  'localremote')
+    localremote
     break
     ;;
   *)
