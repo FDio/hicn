@@ -44,6 +44,7 @@ typedef struct
   u32 sw_if_index;
   u8 pkt_type;
   dpo_type_t dpo_type;
+  hicn_face_id_t out_face;
 } hicn_strategy_trace_t;
 
 typedef struct hicn_strategy_vft_s
@@ -51,8 +52,9 @@ typedef struct hicn_strategy_vft_s
   void (*hicn_receive_data) (index_t dpo_idx, int nh_idx);
   void (*hicn_on_interest_timeout) (index_t dpo_idx);
   void (*hicn_add_interest) (index_t dpo_idx);
-  u32 (*hicn_select_next_hop) (index_t dpo_idx, hicn_face_id_t *outfaces,
-			       u16 *len);
+  int (*hicn_send_after_aggregation) (index_t dpo_idx, hicn_face_id_t in_face);
+  u32 (*hicn_select_next_hop) (index_t dpo_idx, hicn_face_id_t in_face,
+			       hicn_face_id_t *outfaces, u16 *len);
   u8 *(*hicn_format_strategy_trace) (u8 *, hicn_strategy_trace_t *);
   u8 *(*hicn_format_strategy) (u8 *s, va_list *ap);
   /**< Format an hICN dpo*/

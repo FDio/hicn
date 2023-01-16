@@ -692,6 +692,23 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
   return ret;
 }
 
+/**
+ * @brief Check if a face is an application face
+ *
+ * @param face_id: The id of the face
+ * @return 1 if application face, 0 otherwise
+ */
+always_inline int
+hicn_face_is_local (hicn_face_id_t face_id)
+{
+  hicn_face_t *face;
+  face = hicn_dpoi_get_from_idx (face_id);
+  ASSERT (face != NULL);
+
+  return face->flags & HICN_FACE_FLAGS_APPFACE_PROD ||
+	 face->flags & HICN_FACE_FLAGS_APPFACE_CONS;
+}
+
 #endif // __HICN_FACE_H__
 
 /*
