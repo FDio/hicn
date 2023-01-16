@@ -68,22 +68,6 @@ hicn_strategy_dpo_ctx_unlock (dpo_id_t *dpo)
     }
 }
 
-u8 *
-hicn_strategy_dpo_format_ctx (u8 *s, va_list *ap)
-{
-  index_t index = va_arg (*ap, index_t);
-  hicn_dpo_ctx_t *dpo = NULL;
-  u32 indent = va_arg (*ap, u32);
-
-  dpo = (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (index);
-
-  const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo->dpo_type);
-
-  s = dpo_vft->hicn_dpo_format (s, 2, index, indent);
-
-  return (s);
-}
-
 index_t
 hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t *cd)
 {

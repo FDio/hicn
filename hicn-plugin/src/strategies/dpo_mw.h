@@ -38,17 +38,13 @@ typedef struct hicn_strategy_mw_ctx_s
  * @brief Format the dpo ctx for a human-readable string
  *
  * @param s String to which to append the formatted dpo ctx
- * @param ap List of parameters for the formatting
+ * @param dpo_ctx DPO context
+ * @param indent Indentation
  *
  * @result The string with the formatted dpo ctx
  */
-u8 *format_hicn_strategy_mw_ctx (u8 *s, va_list *ap);
-
-const static dpo_vft_t dpo_strategy_mw_ctx_vft = {
-  .dv_lock = hicn_strategy_dpo_ctx_lock,
-  .dv_unlock = hicn_strategy_dpo_ctx_unlock,
-  .dv_format = format_hicn_strategy_mw_ctx,
-};
+u8 *
+hicn_dpo_strategy_mw_format (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent);
 
 /**
  * @brief Retrieve an hicn_strategy_mw_ctx object
@@ -126,23 +122,6 @@ void hicn_dpo_strategy_mw_module_init (void);
  * @brief Return the dpo type for the Maximum Weight strategy
  */
 dpo_type_t hicn_dpo_strategy_mw_get_type (void);
-
-/**
- * @brief Format the dpo ctx for the strategy Maximum Weight
- *
- * @param s String to append the formatted dpo ctx
- * @param ap List of arguments to format
- */
-u8 *format_hicn_dpo_strategy_mw (u8 *s, va_list *ap);
-
-/**
- * @brief Format the dpo ctx for the strategy Maximum Weight. To
- * call from other functions
- *
- * @param s String to append the formatted dpo ctx
- * @param ... List of arguments to format
- */
-u8 *hicn_strategy_mw_format_ctx (u8 *s, int n, ...);
 
 #endif // __HICN_DPO_MW_H__
 

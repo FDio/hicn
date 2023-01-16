@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,67 +13,63 @@
  * limitations under the License.
  */
 
-#include "dpo_rr.h"
-#include "strategy_rr.h"
+#include "dpo_lr.h"
+#include "strategy_lr.h"
 #include "../strategy_dpo_manager.h"
 #include "../strategy_dpo_ctx.h"
 
 /**
- * @brief DPO type value for the rr_strategy
+ * @brief DPO type value for the lr_strategy
  */
-static dpo_type_t hicn_dpo_type_rr;
+static dpo_type_t hicn_dpo_type_lr;
 
-static const hicn_dpo_vft_t hicn_dpo_rr_vft = {
-  .hicn_dpo_is_type = &hicn_dpo_is_type_strategy_rr,
-  .hicn_dpo_get_type = &hicn_dpo_strategy_rr_get_type,
-  .hicn_dpo_module_init = &hicn_dpo_strategy_rr_module_init,
-  .hicn_dpo_create = &hicn_strategy_rr_ctx_create,
-  .hicn_dpo_update_type = &hicn_strategy_rr_update_ctx_type,
-  .hicn_dpo_add_update_nh = &hicn_strategy_rr_ctx_add_nh,
-  .hicn_dpo_del_nh = &hicn_strategy_rr_ctx_del_nh,
-  .hicn_dpo_format = &hicn_dpo_strategy_rr_format
+static const hicn_dpo_vft_t hicn_dpo_lr_vft = {
+  .hicn_dpo_is_type = &hicn_dpo_is_type_strategy_lr,
+  .hicn_dpo_get_type = &hicn_dpo_strategy_lr_get_type,
+  .hicn_dpo_module_init = &hicn_dpo_strategy_lr_module_init,
+  .hicn_dpo_create = &hicn_strategy_lr_ctx_create,
+  .hicn_dpo_update_type = &hicn_strategy_lr_update_ctx_type,
+  .hicn_dpo_add_update_nh = &hicn_strategy_lr_ctx_add_nh,
+  .hicn_dpo_del_nh = &hicn_strategy_lr_ctx_del_nh,
+  .hicn_dpo_format = &hicn_dpo_strategy_lr_format
 };
 
-const static dpo_vft_t dpo_strategy_rr_ctx_vft = {
+const static dpo_vft_t dpo_strategy_lr_ctx_vft = {
   .dv_lock = hicn_strategy_dpo_ctx_lock,
   .dv_unlock = hicn_strategy_dpo_ctx_unlock,
   .dv_format = hicn_strategy_dpo_format,
 };
 
 int
-hicn_dpo_is_type_strategy_rr (const dpo_id_t *dpo)
+hicn_dpo_is_type_strategy_lr (const dpo_id_t *dpo)
 {
-  return dpo->dpoi_type == hicn_dpo_type_rr;
+  return dpo->dpoi_type == hicn_dpo_type_lr;
 }
 
 void
-hicn_dpo_strategy_rr_module_init (void)
+hicn_dpo_strategy_lr_module_init (void)
 {
   /*
    * Register our type of dpo
    */
-  hicn_dpo_type_rr = hicn_dpo_register_new_type (
-    hicn_nodes_strategy, &hicn_dpo_rr_vft, hicn_rr_strategy_get_vft (),
-    &dpo_strategy_rr_ctx_vft);
+  hicn_dpo_type_lr = hicn_dpo_register_new_type (
+    hicn_nodes_strategy, &hicn_dpo_lr_vft, hicn_lr_strategy_get_vft (),
+    &dpo_strategy_lr_ctx_vft);
 }
 
 dpo_type_t
-hicn_dpo_strategy_rr_get_type (void)
+hicn_dpo_strategy_lr_get_type (void)
 {
-  return hicn_dpo_type_rr;
+  return hicn_dpo_type_lr;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-u8 *hicn_dpo_strategy_rr_format (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent)
+u8 *hicn_dpo_strategy_lr_format (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent)
 {
   int i = 0;
-  hicn_strategy_rr_ctx_t *rr_dpo_ctx = NULL;
 
-  rr_dpo_ctx = (hicn_strategy_rr_ctx_t *) dpo_ctx->data;
-
-  s = format (s, "hicn-rr, next hop Face %d",
-	      dpo_ctx->next_hops[rr_dpo_ctx->current_nhop]);
+  s = format (s, "hicn-lr");
 
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
@@ -94,37 +90,30 @@ u8 *hicn_dpo_strategy_rr_format (u8 *s, hicn_dpo_ctx_t *dpo_ctx, u32 indent)
 }
 
 void
-hicn_strategy_rr_ctx_create (fib_protocol_t proto,
+hicn_strategy_lr_ctx_create (fib_protocol_t proto,
 			     const hicn_face_id_t *next_hop, int nh_len,
 			     index_t *dpo_idx)
 {
-  hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
   hicn_dpo_ctx_t *hicn_strategy_ctx;
 
   /* Allocate a hicn_dpo_ctx on the vpp pool and initialize it */
   hicn_strategy_ctx = hicn_strategy_dpo_ctx_alloc ();
-  hicn_strategy_rr_ctx = (hicn_strategy_rr_ctx_t *) hicn_strategy_ctx->data;
 
   *dpo_idx = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx);
 
-  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_rr,
+  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_lr,
 		(dpo_proto_t) proto);
-
-  hicn_strategy_rr_ctx->current_nhop = 0;
 }
 
 void
-hicn_strategy_rr_update_ctx_type (hicn_dpo_ctx_t *hicn_strategy_ctx)
+hicn_strategy_lr_update_ctx_type (hicn_dpo_ctx_t *hicn_strategy_ctx)
 {
-  hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
-  hicn_strategy_rr_ctx = (hicn_strategy_rr_ctx_t *) hicn_strategy_ctx->data;
-
-  hicn_strategy_ctx->dpo_type = hicn_dpo_type_rr;
-  hicn_strategy_rr_ctx->current_nhop = 0;
+  hicn_strategy_ctx->dpo_type = hicn_dpo_type_lr;
+  // don't care to reset data, it is not used
 }
 
 int
-hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
+hicn_strategy_lr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
   u8 pos = 0;
@@ -140,18 +129,10 @@ hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
 }
 
 int
-hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx)
+hicn_strategy_lr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
   // No need to change the current_nhop. It will be updated at the next
   // selection.
   return hicn_strategy_dpo_ctx_del_nh (face_id, hicn_strategy_dpo_ctx);
 }
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
- */
