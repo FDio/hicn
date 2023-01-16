@@ -65,7 +65,9 @@ set(HICN_PLUGIN_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rp.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_lr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rp.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_lr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
@@ -113,7 +115,9 @@ set(HICN_PLUGIN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rp.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_lr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rp.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_lr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_policy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.h
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
