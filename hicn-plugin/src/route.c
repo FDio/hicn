@@ -296,7 +296,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	      continue;
 	    }
 	  HICN_DEBUG ("Added new UDP face: %d because of route prefix %U",
-		      face_id, format_ip_prefix, &_fib_entry->fe_prefix);
+		      face_id, format_fib_prefix, &_fib_entry->fe_prefix);
 	  udp_tunnel_add_existing (dpo->dpoi_index, proto);
 	}
       else if (dpo_is_pgserver (dpo))
@@ -470,8 +470,8 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
     }
   else
     {
-      HICN_DEBUG ("Found a route for %U. Updating DPO.", format_ip_prefix,
-		  &prefix);
+      HICN_DEBUG ("Found a route for %U. Updating DPO.", format_fib_prefix,
+		  prefix);
       const dpo_id_t *load_balance_dpo_id;
       const dpo_id_t *strategy_dpo_id;
 
