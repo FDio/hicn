@@ -46,18 +46,22 @@ services:
         comment { Configuring memif }
         set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP_ADDRESS_CLIENT}/24
         set int ip addr memif1/0 ${TOPOLOGY_2_NODES_IP6_ADDRESS_CLIENT}/64
+        comment { Add udp encap }
+        udp encap add ${TOPOLOGY_2_NODES_IP_ADDRESS_CLIENT} ${TOPOLOGY_2_NODES_IP_ADDRESS_SERVER} 12345 12345 table-id 10
         comment { Add route }
-        ip route add ${RAAQM_PRODUCER}/128 via ${TOPOLOGY_2_NODES_IP6_ADDRESS_SERVER} memif1/0
+        ip route add ${RAAQM_PRODUCER}/128 via udp-encap 2
         EOF
 
         sudo rm /memif/memif1.sock
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
 
-        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
-        sleep 1
+        # sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
+        # sleep 1
 
-        sudo vppctl hicn strategy set 3 prefix ${RAAQM_PRODUCER}/128
+        sudo vppctl hicn enable ${RAAQM_PRODUCER}/128
+
+        # sudo vppctl hicn strategy set 3 prefix ${RAAQM_PRODUCER}/128
 
         tail -f /dev/null
 
