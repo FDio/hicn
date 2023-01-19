@@ -2,8 +2,8 @@ FROM ubuntu:focal
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /hicn-build
 
-ARG USERNAME=ubuntu
-ARG USER_UID=1000
+ARG USERNAME=msardara
+ARG USER_UID=1001
 ARG USER_GID=${USER_UID}
 
 COPY Makefile versions.cmake ./

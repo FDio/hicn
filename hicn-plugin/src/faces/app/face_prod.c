@@ -263,7 +263,7 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
 	}
 
       u32 fib_index = fib_table_find (prefix->fp_proto, 0);
-      fib_table_entry_path_add2 (fib_index, prefix, FIB_SOURCE_CLI,
+      fib_table_entry_path_add2 (fib_index, prefix, FIB_SOURCE_API,
 				 FIB_ENTRY_FLAG_NONE, rpaths);
 
       HICN_DEBUG ("Calling hicn enable for producer face");
@@ -322,7 +322,7 @@ hicn_face_prod_del (hicn_face_id_t face_id)
 	}
       /* Also remove it from main fib, as we sre the owners of this prefix */
       u32 fib_index = fib_table_find (prefix->fp_proto, 0);
-      fib_table_entry_special_remove (fib_index, prefix, FIB_SOURCE_CLI);
+      fib_table_entry_special_remove (fib_index, prefix, FIB_SOURCE_API);
       ret = hicn_app_state_del (face->sw_if);
       if (ret)
 	{

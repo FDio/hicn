@@ -20,6 +20,7 @@
 #include "../infra.h"
 #include "../cache_policies/cs_lru.h"
 #include "../parser.h"
+#include "iface_node.h"
 
 #include <hicn/error.h>
 #include <hicn/util/ip_address.h>
@@ -126,16 +127,6 @@ typedef struct
   u8 packet_data[60];
 } hicn4_iface_output_trace_t;
 
-typedef enum
-{
-  HICN4_IFACE_OUTPUT_NEXT_DROP,
-  HICN4_IFACE_OUTPUT_NEXT_LOOKUP,
-  HICN4_IFACE_OUTPUT_NEXT_UDP4_ENCAP,
-  HICN4_IFACE_OUTPUT_NEXT_UDP6_ENCAP,
-  HICN4_IFACE_OUTPUT_NEXT_PG,
-  HICN4_IFACE_OUTPUT_N_NEXT,
-} hicn4_iface_output_next_t;
-
 /* Trace context struct */
 typedef struct
 {
@@ -144,16 +135,6 @@ typedef struct
   u8 pkt_type;
   u8 packet_data[60];
 } hicn6_iface_output_trace_t;
-
-typedef enum
-{
-  HICN6_IFACE_OUTPUT_NEXT_DROP,
-  HICN6_IFACE_OUTPUT_NEXT_LOOKUP,
-  HICN6_IFACE_OUTPUT_NEXT_UDP4_ENCAP,
-  HICN6_IFACE_OUTPUT_NEXT_UDP6_ENCAP,
-  HICN6_IFACE_OUTPUT_NEXT_PG,
-  HICN6_IFACE_OUTPUT_N_NEXT,
-} hicn6_iface_output_next_t;
 
 //#define ERROR_OUTPUT_IP4 HICN4_IFACE_OUTPUT_NEXT_ERROR_DROP
 //#define ERROR_OUTPUT_IP6 HICN6_IFACE_OUTPUT_NEXT_ERROR_DROP
@@ -667,7 +648,7 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
   ip0->ttl = 254; // FIXME TTL
 
   vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
-  *next = iface->dpo.dpoi_next_node;
+  *next = iface->iface_next;
 
   hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
 
@@ -706,7 +687,7 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
   ip0->hop_limit = HICN_IP6_HOP_LIMIT;
 
   vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
-  *next = iface->dpo.dpoi_next_node;
+  *next = iface->iface_next;
 
   hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
 
