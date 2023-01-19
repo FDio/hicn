@@ -20,6 +20,8 @@
 #include <vppinfra/error.h>
 #include <vnet/udp/udp_encap.h>
 
+#include "../faces/face.h"
+
 /**
  * @file udp_tunnel.h
  *
@@ -107,6 +109,24 @@ int udp_tunnel_del (fib_protocol_t proto, index_t fib_index,
  * @param proto DPO_PROTO_IP6 or DPO_PROTO_IP4
  */
 void udp_tunnel_add_existing (index_t uei, dpo_proto_t proto);
+
+/**
+ * @brief Check if DPO is UDP encap
+ */
+always_inline int
+dpo_is_udp_encap (const dpo_id_t *dpo)
+{
+  return dpo->dpoi_type == dpo_type_udp_ip4 ||
+	 dpo->dpoi_type == dpo_type_udp_ip6;
+}
+
+always_inline dpo_proto_t
+dpo_udp_encap_get_proto (const dpo_id_t *dpo)
+{
+  return dpo->dpoi_type == dpo_type_udp_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6;
+}
+
+void udp_tunnel_set_face (hicn_face_id_t face_id, int isv4);
 
 /**
  * @brief Init the udp tunnel module
