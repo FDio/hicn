@@ -765,13 +765,13 @@ hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
   // Insert entry into hash table
   int ret = hicn_pcs_insert (pitcs, entry, name);
 
-  // Make sure insertion happened
-  ASSERT (ret == 0);
+  // // Make sure insertion happened
+  // ASSERT (ret == 0);
 
   // Increment the number of PIT entries if insertion happened
-  pitcs->pcs_pit_count++;
+  pitcs->pcs_pit_count += (int) (ret == 0);
 
-  return HICN_ERROR_NONE;
+  return ret;
 }
 
 /************************************************************************

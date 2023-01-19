@@ -815,7 +815,7 @@ void RTCTransportProtocol::onContentObjectReceived(
   }
 
   // From there, the packet is either a FEC, a manifest or a data packet.
-  DLOG_IF(INFO, VLOG_IS_ON(3)) << "Received content " << segment_number;
+  LOG(INFO) << "Received content " << segment_number;
 
   // Do not count timed out packets in stats
   auto tn_it = timeouts_or_nacks_.find(segment_number);
