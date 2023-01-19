@@ -29,7 +29,6 @@
 
 #include "face_flags.h"
 #include "../hicn_buffer_flags.h"
-#include "../udp_tunnels/udp_tunnel.h"
 #include "../hicn_logging.h"
 
 typedef u8 hicn_face_flags_t;
@@ -88,7 +87,7 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   hicn_face_flags_t flags;
 
   /* Align the upcoming fields */
-  u8 align;
+  u8 iface_next;
 
   /* Path label (2B) */
   u16 pl_id;
@@ -482,7 +481,7 @@ hicn_iface_add (const ip46_address_t *nat_address, int sw_if,
   hicn_face_key_t key;
   hicn_face_get_key (nat_address, sw_if, &face->dpo, &key);
 
-  face->dpo.dpoi_next_node = 1;
+  face->iface_next = 1;
 
   face->pl_id = pl_index++;
   face->flags = HICN_FACE_FLAGS_IFACE;
@@ -554,26 +553,7 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 
       face = hicn_dpoi_get_from_idx (idx);
 
-      if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&
-	  adj_index != ADJ_INDEX_INVALID)
-	{
-	  face->dpo.dpoi_type = dpo_type_udp_ip6;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
-	}
-      else if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&
-	       adj_index != ADJ_INDEX_INVALID)
-	{
-	  face->dpo.dpoi_type = dpo_type_udp_ip4;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP4;
-	}
-      else
-	{
-	  face->dpo.dpoi_type = DPO_FIRST;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
-	}
-
-      face->dpo.dpoi_index = adj_index;
-      face->dpo.dpoi_next_node = node_index;
+      face->iface_next = node_index;
 
       /* if (nat_addr->as_u32 == 0) */
       /*   { */
@@ -652,26 +632,7 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 		      adj_index, face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
-
-      if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&
-	  adj_index != ADJ_INDEX_INVALID)
-	{
-	  face->dpo.dpoi_type = dpo_type_udp_ip6;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
-	}
-      else if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&
-	       adj_index != ADJ_INDEX_INVALID)
-	{
-	  face->dpo.dpoi_type = dpo_type_udp_ip4;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP4;
-	}
-      else
-	{
-	  face->dpo.dpoi_type = DPO_FIRST;
-	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
-	}
-      face->dpo.dpoi_index = adj_index;
-      face->dpo.dpoi_next_node = node_index;
+      face->iface_next = node_index;
 
       adj_nbr_walk (face->sw_if, FIB_PROTOCOL_IP6, hicn6_iface_adj_walk_cb,
 		    face);
