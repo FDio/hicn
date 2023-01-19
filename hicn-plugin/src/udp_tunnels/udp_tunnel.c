@@ -17,6 +17,7 @@
 #include <vppinfra/bihash_40_8.h>
 #include <vnet/fib/fib_table.h>
 #include <vnet/udp/udp_local.h>
+#include "../faces/iface_node.h"
 
 #include "../error.h"
 #include "../strategy_dpo_ctx.h"
@@ -178,6 +179,18 @@ udp_tunnel_get_create (const ip46_address_t *src_ip,
 }
 
 void
+udp_tunnel_set_face (hicn_face_id_t face_id, int isv4)
+{
+  hicn_face_t *face = NULL;
+  face = hicn_dpoi_get_from_idx (face_id);
+  ASSERT (face);
+  ASSERT (dpo_is_udp_encap (&face->dpo));
+
+  face->iface_next = isv4 ? HICN4_IFACE_OUTPUT_NEXT_UDP4_ENCAP :
+				  HICN4_IFACE_OUTPUT_NEXT_UDP6_ENCAP;
+}
+
+void
 udp_tunnel_init ()
 {
   clib_bihash_init_40_8 (&udp_tunnels_hashtb, "udp encap table", 2048,
@@ -209,6 +222,8 @@ udp_tunnel_init ()
   udp_encap_contribute_forwarding (uei, DPO_PROTO_IP4, &temp2);
   dpo_type_udp_ip4 = temp2.dpoi_type;
   udp_encap_unlock (uei);
+
+  udp_register_dst_port (vlib_get_main (), 12345, udp4_decap_node.index, 1);
 }
 
 static clib_error_t *
