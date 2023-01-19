@@ -47,6 +47,20 @@ static char *hicn_interest_pcslookup_error_strings[] = {
 
 vlib_node_registration_t hicn_interest_pcslookup_node;
 
+always_inline void
+drop_packet (vlib_main_t *vm, u32 bi0, u32 *n_left_to_next, u32 *next0,
+	     u32 **to_next, u32 *next_index, vlib_node_runtime_t *node)
+{
+  *next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+
+  (*to_next)[0] = bi0;
+  *to_next += 1;
+  *n_left_to_next -= 1;
+
+  vlib_validate_buffer_enqueue_x1 (vm, node, *next_index, *to_next,
+				   *n_left_to_next, bi0, *next0);
+}
+
 /*
  * ICN forwarder node for interests.
  */
@@ -64,6 +78,11 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
   u32 bi0;
   u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
   hicn_pcs_entry_t *pcs_entry = NULL;
+  f64 tnow;
+  int forward;
+  hicn_buffer_t *hicnb0;
+  const hicn_dpo_ctx_t *dpo_ctx;
+  const hicn_strategy_vft_t *strategy;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
 
@@ -74,6 +93,8 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
+
+  tnow = vlib_time_now (vm);
 
   while (n_left_from > 0)
     {
@@ -105,9 +126,11 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
 	  // Update stats
 	  stats.pkts_processed++;
 
+	  hicnb0 = hicn_get_buffer (b0);
+
 	  // Check if the interest is in the PCS already
 	  hicn_name_t name;
-	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name);
+	  hicn_packet_get_name (&hicnb0->pkbuf, &name);
 	  ret = hicn_pcs_lookup_one (rt->pitcs, &name, &pcs_entry);
 
 	  if (ret == HICN_ERROR_NONE)
@@ -124,7 +147,59 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
 	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
 		next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
 	    }
+	  else
+	    {
+	      // No entry in PCS. Let's create one now
+	      pcs_entry = hicn_pcs_entry_pit_get (
+		rt->pitcs, tnow, hicn_buffer_get_lifetime (b0));
 
+	      ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
+
+	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+		{
+		  // Possible aggregate interest - check for retransmission
+		  forward =
+		    hicn_pcs_entry_pit_search (pcs_entry, hicnb0->face_id);
+
+		  // Get the strategy VFT
+		  hicnb0->dpo_ctx_id = vnet_buffer (b0)->ip.adj_index[VLIB_TX];
+		  dpo_ctx = hicn_strategy_dpo_ctx_get (hicnb0->dpo_ctx_id);
+		  hicnb0->vft_id = dpo_ctx->dpo_type;
+		  strategy = hicn_dpo_get_strategy_vft (hicnb0->vft_id);
+		  strategy->hicn_add_interest (hicnb0->dpo_ctx_id);
+
+		  // Strategy may mandate to force send after aggregation
+		  if (!forward && strategy->hicn_send_after_aggregation (
+				    hicnb0->dpo_ctx_id, hicnb0->face_id))
+		    {
+		      forward = true;
+		    }
+
+		  if (!forward)
+		    {
+		      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+		      goto end;
+		    }
+		}
+
+	      // Store internal state
+	      ret = hicn_store_internal_state (
+		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
+		vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
+
+	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+		{
+		  hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
+		  drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
+			       &next_index, node);
+		  continue;
+		}
+
+	      // Add face
+	      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
+	    }
+
+	end:
 	  stats.pkts_interest_count++;
 
 	  // Interest manifest?
