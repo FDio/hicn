@@ -37,6 +37,26 @@
  * one implementing the tunnel encapsulation (udp-encap, mpls, etc).
  */
 
+typedef enum
+{
+  HICN4_IFACE_OUTPUT_NEXT_DROP,
+  HICN4_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN4_IFACE_OUTPUT_NEXT_UDP4_ENCAP,
+  HICN4_IFACE_OUTPUT_NEXT_UDP6_ENCAP,
+  HICN4_IFACE_OUTPUT_NEXT_PG,
+  HICN4_IFACE_OUTPUT_N_NEXT,
+} hicn4_iface_output_next_t;
+
+typedef enum
+{
+  HICN6_IFACE_OUTPUT_NEXT_DROP,
+  HICN6_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN6_IFACE_OUTPUT_NEXT_UDP4_ENCAP,
+  HICN6_IFACE_OUTPUT_NEXT_UDP6_ENCAP,
+  HICN6_IFACE_OUTPUT_NEXT_PG,
+  HICN6_IFACE_OUTPUT_N_NEXT,
+} hicn6_iface_output_next_t;
+
 /**
  * @brief Initialize the ip iface module
  */
