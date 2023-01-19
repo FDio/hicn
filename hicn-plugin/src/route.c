@@ -236,6 +236,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
     {                                                                         \
       /* Careful, this adds a lock on the face if it exists */                \
       hicn_face_add (dpo, nh, sw_if, &face_id);                               \
+      ASSERT (face_id != HICN_FACE_NULL); \
       vec_validate (vec_faces, index);                                        \
       vec_faces[index] = face_id;                                             \
       (index)++;                                                              \
@@ -275,11 +276,9 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	  HICN_DEBUG ("Added new HICN face: %d because of route prefix %U",
 		      face_id, format_fib_prefix, &_fib_entry->fe_prefix);
 	}
-      else if (dpo->dpoi_type == dpo_type_udp_ip4 ||
-	       dpo->dpoi_type == dpo_type_udp_ip6)
+      else if (dpo_is_udp_encap (dpo))
 	{
-	  dpo_proto_t proto =
-	    dpo->dpoi_type == dpo_type_udp_ip4 ? DPO_PROTO_IP4 : DPO_PROTO_IP6;
+	  dpo_proto_t proto = dpo_udp_encap_get_proto (dpo);
 	  ip46_address_t _nh = { 0 };
 	  nh = &_nh;
 	  switch (_fib_entry->fe_prefix.fp_proto)
@@ -290,7 +289,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	      break;
 	    case FIB_PROTOCOL_IP4:
 	      ip46_address_set_ip4 (nh, &localhost4);
-	      ADD_FACE (nh);
+	      ADD_FACE (nh);  
 	      break;
 	    default:
 	      continue;
@@ -298,6 +297,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	  HICN_DEBUG ("Added new UDP face: %d because of route prefix %U",
 		      face_id, format_ip_prefix, &_fib_entry->fe_prefix);
 	  udp_tunnel_add_existing (dpo->dpoi_index, proto);
+	  udp_tunnel_set_face(face_id, proto == DPO_PROTO_IP4);
 	}
       else if (dpo_is_pgserver (dpo))
 	{
