@@ -64,11 +64,25 @@ always_inline void
 drop_packet (vlib_main_t *vm, u32 bi0, u32 *n_left_to_next, u32 *next0,
 	     u32 **to_next, u32 *next_index, vlib_node_runtime_t *node)
 {
+  vlib_buffer_t *b0 = vlib_get_buffer (vm, bi0);
+
   *next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
   (*to_next)[0] = bi0;
   *to_next += 1;
   *n_left_to_next -= 1;
+
+  // Maybe trace
+  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+		     (b0->flags & VLIB_BUFFER_IS_TRACED)))
+    {
+      hicn_strategy_trace_t *t = vlib_add_trace (vm, node, b0, sizeof (*t));
+      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+      t->next_index = *next0;
+      t->dpo_type = hicn_get_buffer (b0)->vft_id;
+      t->out_face = -1;
+    }
 
   vlib_validate_buffer_enqueue_x1 (vm, node, *next_index, *to_next,
 				   *n_left_to_next, bi0, *next0);
@@ -95,10 +109,8 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u32 clones[MAX_OUT_FACES];
   u16 outfaces_len;
   u32 next0;
-  const hicn_dpo_ctx_t *dpo_ctx;
   const hicn_strategy_vft_t *strategy;
   hicn_buffer_t *hicnb0;
-  hicn_pcs_entry_t *pcs_entry = NULL;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -111,7 +123,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
   while (n_left_from > 0)
     {
-
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
@@ -138,11 +149,7 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicnb0 = hicn_get_buffer (b0);
 
 	  // Get the strategy VFT
-	  hicnb0->dpo_ctx_id = vnet_buffer (b0)->ip.adj_index[VLIB_TX];
-	  dpo_ctx = hicn_strategy_dpo_ctx_get (hicnb0->dpo_ctx_id);
-	  hicnb0->vft_id = dpo_ctx->dpo_type;
 	  strategy = hicn_dpo_get_strategy_vft (hicnb0->vft_id);
-	  strategy->hicn_add_interest (hicnb0->dpo_ctx_id);
 
 	  // Check we have at least one next hop for the packet
 	  ret = strategy->hicn_select_next_hop (
@@ -154,38 +161,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 			   &next_index, node);
 	      continue;
 	    }
-
-	  // Create a new PIT entry
-	  pcs_entry = hicn_pcs_entry_pit_get (rt->pitcs, tnow,
-					      hicn_buffer_get_lifetime (b0));
-
-	  // Add entry to PIT table
-	  hicn_name_t name;
-	  hicn_packet_get_name (&hicnb0->pkbuf, &name);
-	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
-
-	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
-	    {
-	      drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
-			   &next_index, node);
-	      continue;
-	    }
-
-	  // Store internal state
-	  ret = hicn_store_internal_state (
-	    b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
-	    vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
-
-	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
-	    {
-	      hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
-	      drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
-			   &next_index, node);
-	      continue;
-	    }
-
-	  // Add face
-	  hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
 
 	  // Set next node
 	  next0 = hicn_buffer_is_v6 (b0) ? HICN_STRATEGY_NEXT_INTEREST_FACE6 :
