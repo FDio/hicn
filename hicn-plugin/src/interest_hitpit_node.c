@@ -119,148 +119,124 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  // Increment packet counter
 	  stats.pkts_processed += 1;
 
-	  // If the entry is expired, remove it no matter of the possible
-	  // cases.
-	  if (tnow > hicn_pcs_entry_get_expire_time (pcs_entry))
+	  // A data packet may have arrived in the time between the pcs
+	  // lookup and now. Check again to make sure the entry is CS or
+	  // PIT
+	  if (hicn_pcs_entry_is_cs (pcs_entry))
 	    {
-	      // Notify strategy
-	      strategy_vft0->hicn_on_interest_timeout (dpo_ctx_id0);
-
-	      // Release lock on entry - this MUST delete the entry
-	      hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
-
-	      stats.pit_expired_count++;
-
-	      // Forward to strategy node
-	      // TODO this can be simplified by checking directly in the
-	      // pcslookup node!
-	      next0 = HICN_INTEREST_HITPIT_NEXT_STRATEGY;
+	      next0 = HICN_INTEREST_HITPIT_NEXT_INTEREST_HITCS;
 	    }
 	  else
 	    {
-	      // A data packet may have arrived in the time between the pcs
-	      // lookup and now. Check again to make sure the entry is CS or
-	      // PIT
-	      if (hicn_pcs_entry_is_cs (pcs_entry))
+	      // Distinguish between aggregation, retransmission and
+	      // additionally check if the strategy mandates to always send
+	      // the interest
+
+	      // Retransmission
+	      forward = hicn_pcs_entry_pit_search (pcs_entry, hicnb0->face_id);
+
+	      // Strategy mandates to force send after aggregation
+	      if (!forward && strategy_vft0->hicn_send_after_aggregation (
+				dpo_ctx_id0, hicnb0->face_id))
 		{
-		  next0 = HICN_INTEREST_HITPIT_NEXT_INTEREST_HITCS;
+		  forward = true;
+		  hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
 		}
-	      else
+
+	      if (forward && hicnb0->payload_type != HPT_MANIFEST)
 		{
-		  // Distinguish between aggregation, retransmission and
-		  // additionally check if the strategy mandates to always send
-		  // the interest
+		  // Send interest
+		  strategy_vft0->hicn_select_next_hop (
+		    dpo_ctx_id0, hicnb0->face_id, outfaces, &outfaces_len);
 
-		  // Retransmission
-		  forward =
-		    hicn_pcs_entry_pit_search (pcs_entry, hicnb0->face_id);
-
-		  // Strategy mandates to force send after aggregation
-		  if (!forward && strategy_vft0->hicn_send_after_aggregation (
-				    dpo_ctx_id0, hicnb0->face_id))
+		  // If no next hops, drop the packet
+		  if (outfaces_len == 0)
 		    {
-		      forward = true;
-		      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
+		      drop_packet (&next0);
+		      vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
+						       to_next, n_left_to_next,
+						       bi0, next0);
+		      continue;
 		    }
 
-		  if (forward && hicnb0->payload_type != HPT_MANIFEST)
+		  // Prepare the packet for the forwarding
+		  next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
+				 HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
+
+		  // Update stats
+		  stats.interests_retx += outfaces_len;
+
+		  // Clone interest if needed
+		  if (outfaces_len > 1)
 		    {
-		      // Send interest
-		      strategy_vft0->hicn_select_next_hop (
-			dpo_ctx_id0, hicnb0->face_id, outfaces, &outfaces_len);
-
-		      // If no next hops, drop the packet
-		      if (outfaces_len == 0)
-			{
-			  drop_packet (&next0);
-			  vlib_validate_buffer_enqueue_x1 (
-			    vm, node, next_index, to_next, n_left_to_next, bi0,
-			    next0);
-			  continue;
-			}
-
-		      // Prepare the packet for the forwarding
-		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
-					   HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
-
-		      // Update stats
-		      stats.interests_retx += outfaces_len;
-
-		      // Clone interest if needed
-		      if (outfaces_len > 1)
-			{
-			  ret = vlib_buffer_clone (vm, bi0, clones,
-						   (u16) outfaces_len,
-						   CLIB_CACHE_LINE_BYTES * 2);
-			  ASSERT (ret == outfaces_len);
-			}
-		      else
-			{
-			  clones[0] = bi0;
-			}
-
-		      // We need to clone the packet over multiple output
-		      // faces
-
-		      // Restore pointers
-		      to_next -= 1;
-		      n_left_to_next += 1;
-
-		      for (u32 nh = 0; nh < outfaces_len; nh++)
-			{
-			  vlib_buffer_t *local_b0 =
-			    vlib_get_buffer (vm, clones[nh]);
-			  to_next[0] = clones[nh];
-			  to_next += 1;
-			  n_left_to_next -= 1;
-
-			  vnet_buffer (local_b0)->ip.adj_index[VLIB_TX] =
-			    outfaces[nh];
-
-			  /* Maybe trace */
-			  if (PREDICT_FALSE (
-				(node->flags & VLIB_NODE_FLAG_TRACE) &&
-				(local_b0->flags & VLIB_BUFFER_IS_TRACED)))
-			    {
-			      hicn_interest_hitpit_trace_t *t =
-				vlib_add_trace (vm, node, local_b0,
-						sizeof (*t));
-			      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
-			      t->sw_if_index =
-				vnet_buffer (local_b0)->sw_if_index[VLIB_RX];
-			      t->next_index = next0;
-			    }
-
-			  /*
-			   * Verify speculative enqueue, maybe switch
-			   * current next frame
-			   */
-			  vlib_validate_buffer_enqueue_x1 (
-			    vm, node, next_index, to_next, n_left_to_next,
-			    clones[nh], next0);
-			}
-		      continue;
+		      ret =
+			vlib_buffer_clone (vm, bi0, clones, (u16) outfaces_len,
+					   CLIB_CACHE_LINE_BYTES * 2);
+		      ASSERT (ret == outfaces_len);
 		    }
 		  else
 		    {
-		      // Aggregation
-		      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
+		      clones[0] = bi0;
+		    }
 
-		      drop_packet (&next0);
-		      stats.interests_aggregated++;
+		  // We need to clone the packet over multiple output
+		  // faces
+
+		  // Restore pointers
+		  to_next -= 1;
+		  n_left_to_next += 1;
+
+		  for (u32 nh = 0; nh < outfaces_len; nh++)
+		    {
+		      vlib_buffer_t *local_b0 =
+			vlib_get_buffer (vm, clones[nh]);
+		      to_next[0] = clones[nh];
+		      to_next += 1;
+		      n_left_to_next -= 1;
+
+		      vnet_buffer (local_b0)->ip.adj_index[VLIB_TX] =
+			outfaces[nh];
 
 		      /* Maybe trace */
 		      if (PREDICT_FALSE (
 			    (node->flags & VLIB_NODE_FLAG_TRACE) &&
-			    (b0->flags & VLIB_BUFFER_IS_TRACED)))
+			    (local_b0->flags & VLIB_BUFFER_IS_TRACED)))
 			{
 			  hicn_interest_hitpit_trace_t *t =
-			    vlib_add_trace (vm, node, b0, sizeof (*t));
+			    vlib_add_trace (vm, node, local_b0, sizeof (*t));
 			  t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 			  t->sw_if_index =
-			    vnet_buffer (b0)->sw_if_index[VLIB_RX];
+			    vnet_buffer (local_b0)->sw_if_index[VLIB_RX];
 			  t->next_index = next0;
 			}
+
+		      /*
+		       * Verify speculative enqueue, maybe switch
+		       * current next frame
+		       */
+		      vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
+						       to_next, n_left_to_next,
+						       clones[nh], next0);
+		    }
+		  continue;
+		}
+	      else
+		{
+		  // Aggregation
+		  hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
+
+		  drop_packet (&next0);
+		  stats.interests_aggregated++;
+
+		  /* Maybe trace */
+		  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+				     (b0->flags & VLIB_BUFFER_IS_TRACED)))
+		    {
+		      hicn_interest_hitpit_trace_t *t =
+			vlib_add_trace (vm, node, b0, sizeof (*t));
+		      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+		      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+		      t->next_index = next0;
 		    }
 		}
 	    }
