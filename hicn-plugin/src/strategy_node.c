@@ -155,7 +155,7 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE || outfaces_len == 0))
 	    {
-	      drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
+	      drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
 			   &next_index, node);
 	      continue;
 	    }
