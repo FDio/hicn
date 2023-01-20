@@ -50,6 +50,7 @@ typedef struct
   u32 sw_if_index;
   u8 pkt_type;
   u8 packet_data[64];
+  u32 face;
 } hicn_data_fwd_trace_t;
 
 typedef enum
