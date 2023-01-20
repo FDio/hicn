@@ -44,11 +44,11 @@ static vapi_error_e process_ip_info(struct vapi_ctx_s *ctx, void *callback_ctx,
   struct listener_data_s *ld = (struct listener_data_s *)callback_ctx;
 
   if (reply->prefix.address.af == ADDRESS_IP4) {
-    memcpy(&(ld->listener.local_addr), reply->prefix.address.un.ip4,
+    memcpy(&(ld->listener.local_addr.v4), reply->prefix.address.un.ip4,
            IPV4_ADDR_LEN);
     ld->listener.family = AF_INET;
   } else {
-    memcpy(&(ld->listener.local_addr), reply->prefix.address.un.ip6,
+    memcpy(&(ld->listener.local_addr.v6), reply->prefix.address.un.ip6,
            IPV6_ADDR_LEN);
     ld->listener.family = AF_INET6;
   }
