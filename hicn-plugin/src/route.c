@@ -470,8 +470,8 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
     }
   else
     {
-      HICN_DEBUG ("Found a route for %U. Updating DPO.", format_ip_prefix,
-		  &prefix);
+      HICN_DEBUG ("Found a route for %U. Updating DPO.", format_fib_prefix,
+		  prefix);
       const dpo_id_t *load_balance_dpo_id;
       const dpo_id_t *strategy_dpo_id;
 
