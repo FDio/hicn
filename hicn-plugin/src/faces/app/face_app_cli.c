@@ -17,6 +17,7 @@
 #include <vnet/dpo/dpo.h>
 #include <vlib/vlib.h>
 #include <vnet/ip/ip6_packet.h>
+#include <vnet/ip/format.h>
 
 #include "../../params.h"
 #include "../face.h"
