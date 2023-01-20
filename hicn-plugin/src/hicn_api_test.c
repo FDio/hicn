@@ -33,178 +33,10 @@
 
 #include <vpp_plugins/hicn/hicn_api.h>
 #include <vpp_plugins/hicn/error.h>
+#include <vpp_plugins/hicn/hicn_enums.h>
 
 /* Declare message IDs */
 #include <vpp_plugins/hicn/hicn_msg_enum.h>
-
-/* SUPPORTING FUNCTIONS NOT LOADED BY VPP_API_TEST */
-uword
-unformat_ip46_address (unformat_input_t *input, va_list *args)
-{
-  ip46_address_t *ip46 = va_arg (*args, ip46_address_t *);
-  ip46_type_t type = va_arg (*args, ip46_type_t);
-  if ((type != IP46_TYPE_IP6) &&
-      unformat (input, "%U", unformat_ip4_address, &ip46->ip4))
-    {
-      ip46_address_mask_ip4 (ip46);
-      return 1;
-    }
-  else if ((type != IP46_TYPE_IP4) &&
-	   unformat (input, "%U", unformat_ip6_address, &ip46->ip6))
-    {
-      return 1;
-    }
-  return 0;
-}
-
-static ip46_type_t
-ip_address_union_decode (const vl_api_address_union_t *in,
-			 vl_api_address_family_t af, ip46_address_t *out)
-{
-  ip46_type_t type;
-
-  switch (clib_net_to_host_u32 (af))
-    {
-    case ADDRESS_IP4:
-      clib_memset (out, 0, sizeof (*out));
-      clib_memcpy (&out->ip4, &in->ip4, sizeof (out->ip4));
-      type = IP46_TYPE_IP4;
-      break;
-    case ADDRESS_IP6:
-      clib_memcpy (&out->ip6, &in->ip6, sizeof (out->ip6));
-      type = IP46_TYPE_IP6;
-      break;
-    default:
-      ASSERT (!"Unkown address family in API address type");
-      type = IP46_TYPE_ANY;
-      break;
-    }
-
-  return type;
-}
-
-void
-ip6_address_encode (const ip6_address_t *in, vl_api_ip6_address_t out)
-{
-  clib_memcpy (out, in, sizeof (*in));
-}
-
-void
-ip6_address_decode (const vl_api_ip6_address_t in, ip6_address_t *out)
-{
-  clib_memcpy (out, in, sizeof (*out));
-}
-
-void
-ip4_address_encode (const ip4_address_t *in, vl_api_ip4_address_t out)
-{
-  clib_memcpy (out, in, sizeof (*in));
-}
-
-void
-ip4_address_decode (const vl_api_ip4_address_t in, ip4_address_t *out)
-{
-  clib_memcpy (out, in, sizeof (*out));
-}
-
-static void
-ip_address_union_encode (const ip46_address_t *in, vl_api_address_family_t af,
-			 vl_api_address_union_t *out)
-{
-  if (ADDRESS_IP6 == clib_net_to_host_u32 (af))
-    ip6_address_encode (&in->ip6, out->ip6);
-  else
-    ip4_address_encode (&in->ip4, out->ip4);
-}
-
-ip46_type_t
-ip_address_decode (const vl_api_address_t *in, ip46_address_t *out)
-{
-  return (ip_address_union_decode (&in->un, in->af, out));
-}
-
-void
-ip_address_encode (const ip46_address_t *in, ip46_type_t type,
-		   vl_api_address_t *out)
-{
-  switch (type)
-    {
-    case IP46_TYPE_IP4:
-      out->af = clib_net_to_host_u32 (ADDRESS_IP4);
-      break;
-    case IP46_TYPE_IP6:
-      out->af = clib_net_to_host_u32 (ADDRESS_IP6);
-      break;
-    case IP46_TYPE_ANY:
-      if (ip46_address_is_ip4 (in))
-	out->af = clib_net_to_host_u32 (ADDRESS_IP4);
-      else
-	out->af = clib_net_to_host_u32 (ADDRESS_IP6);
-      break;
-    }
-  ip_address_union_encode (in, out->af, &out->un);
-}
-
-fib_protocol_t
-fib_proto_from_ip46 (ip46_type_t iproto)
-{
-  switch (iproto)
-    {
-    case IP46_TYPE_IP4:
-      return FIB_PROTOCOL_IP4;
-    case IP46_TYPE_IP6:
-      return FIB_PROTOCOL_IP6;
-    case IP46_TYPE_ANY:
-      ASSERT (0);
-      return FIB_PROTOCOL_IP4;
-    }
-
-  ASSERT (0);
-  return FIB_PROTOCOL_IP4;
-}
-
-ip46_type_t
-fib_proto_to_ip46 (fib_protocol_t fproto)
-{
-  switch (fproto)
-    {
-    case FIB_PROTOCOL_IP4:
-      return (IP46_TYPE_IP4);
-    case FIB_PROTOCOL_IP6:
-      return (IP46_TYPE_IP6);
-    case FIB_PROTOCOL_MPLS:
-      return (IP46_TYPE_ANY);
-    }
-  ASSERT (0);
-  return (IP46_TYPE_ANY);
-}
-
-void
-ip_prefix_decode (const vl_api_prefix_t *in, fib_prefix_t *out)
-{
-  switch (clib_net_to_host_u32 (in->address.af))
-    {
-    case ADDRESS_IP4:
-      out->fp_proto = FIB_PROTOCOL_IP4;
-      break;
-    case ADDRESS_IP6:
-      out->fp_proto = FIB_PROTOCOL_IP6;
-      break;
-    }
-  out->fp_len = in->len;
-  out->___fp___pad = 0;
-  ip_address_decode (&in->address, &out->fp_addr);
-}
-
-void
-ip_prefix_encode (const fib_prefix_t *in, vl_api_prefix_t *out)
-{
-  out->len = in->fp_len;
-  ip_address_encode (&in->fp_addr, fib_proto_to_ip46 (in->fp_proto),
-		     &out->address);
-}
-
-/////////////////////////////////////////////////////
 
 #define HICN_FACE_NULL ~0
 
@@ -256,6 +88,7 @@ foreach_standard_reply_retval_handler;
   _ (HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                      \
   _ (HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                        \
   _ (HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)            \
+  _ (HICN_API_STRATEGY_SET_REPLY, hicn_api_strategy_set_reply)                \
   _ (HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)                \
   _ (HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)            \
   _ (HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)
@@ -900,13 +733,69 @@ vl_api_hicn_api_strategies_get_reply_t_handler (
 }
 
 static int
+api_hicn_api_strategy_set (vat_main_t *vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_strategy_set_t *mp;
+  int ret;
+  int addpfx = -1;
+  fib_prefix_t fib_prefix;
+  ip46_address_t address;
+  int plen;
+
+  vl_api_hicn_strategy_t strategy_id = HICN_STRATEGY_NULL;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "strategy %d", &strategy_id))
+	{
+	  addpfx = 2;
+	}
+      else if (addpfx != -1 &&
+	       unformat (input, "prefix %U/%d", unformat_ip46_address,
+			 &address, IP46_TYPE_ANY, &plen))
+	{
+	  ;
+	}
+      else
+	{
+	  clib_warning ("Error parsing input string.");
+	  return 1;
+	}
+    }
+
+  if (strategy_id == HICN_STRATEGY_NULL)
+    {
+      clib_warning ("Please specify strategy id...");
+      return 1;
+    }
+
+  // Get fib prefix
+  fib_prefix_from_ip46_addr (&address, &fib_prefix);
+  fib_prefix.fp_len = plen;
+
+  /* Construct the API message */
+  M (HICN_API_STRATEGY_SET, mp);
+  mp->strategy_id = clib_host_to_net_u32 (strategy_id);
+  ip_prefix_encode (&fib_prefix, &mp->prefix);
+
+  /* send it... */
+  S (mp);
+
+  /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static int
 api_hicn_api_strategy_get (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_strategy_get_t *mp;
   int ret;
 
-  u32 strategy_id = HICN_STRATEGY_NULL;
+  vl_api_hicn_strategy_t strategy_id = HICN_STRATEGY_NULL;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -961,6 +850,28 @@ vl_api_hicn_api_strategy_get_reply_t_handler (
       return;
     }
   fformat (vam->ofp, "%s", mp->description);
+}
+
+static void
+vl_api_hicn_api_strategy_set_reply_t_handler (
+  vl_api_hicn_api_strategy_set_reply_t *mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+  i32 retval = ntohl (mp->retval);
+
+  if (vam->async_mode)
+    {
+      vam->async_errors += (retval < 0);
+      return;
+    }
+
+  vam->retval = retval;
+  vam->result_ready = 1;
+
+  if (vam->retval < 0)
+    {
+      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
+    }
 }
 
 static int

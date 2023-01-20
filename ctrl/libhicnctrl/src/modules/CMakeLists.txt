@@ -66,12 +66,14 @@ if(BUILD_HICNPLUGIN AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/listener.c
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/strategy.c
   )
 
   list(APPEND HICN_PLUGIN_HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/base.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/base.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/listener.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/route.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/strategy.h
   )
 
   ##############################################################
