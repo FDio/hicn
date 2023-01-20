@@ -162,6 +162,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h0, sizeof (*t));
+	      t->face = face0;
 	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
@@ -173,6 +174,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h1, sizeof (*t));
+	      t->face = face1;
 	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h1)->sw_if_index[VLIB_RX];
 	      t->next_index = next1;
@@ -212,6 +214,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h0, sizeof (*t));
+	      t->face = face0;
 	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
@@ -284,8 +287,8 @@ hicn_data_fwd_format_trace (u8 *s, va_list *args)
   hicn_data_fwd_trace_t *t = va_arg (*args, hicn_data_fwd_trace_t *);
   u32 indent = format_get_indent (s);
 
-  s = format (s, "DATAFWD: pkt: %d, sw_if_index %d, next index %d\n",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (s, "DATAFWD: pkt: %d, sw_if_index %d, next index %d, face %d\n",
+	      (int) t->pkt_type, t->sw_if_index, t->next_index, t->face);
 
   s = format (s, "%U%U", format_white_space, indent, format_ip6_header,
 	      t->packet_data, sizeof (t->packet_data));
