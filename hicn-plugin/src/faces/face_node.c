@@ -164,12 +164,15 @@ typedef enum
 	    (from_tunnel0) * ~0 +                                             \
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
-	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
+	  ret0 = hicn_face_ip##ipv##_find (                                   \
 	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr->dst_address, sw_if0,   \
 	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
-	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
+	  if (ret0 == HICN_ERROR_FACE_NOT_FOUND)                              \
+	    {                                                                 \
+	      next0 = HICN##ipv##_FACE_INPUT_NEXT_ERROR_DROP;                 \
+	    }                                                                 \
 	}                                                                     \
                                                                               \
       vlib_increment_combined_counter (                                       \
@@ -261,12 +264,15 @@ typedef enum
 	    (from_tunnel0) * ~0 +                                             \
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
-	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
+	  ret0 = hicn_face_ip##ipv##_find (                                   \
 	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, sw_if0,  \
 	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
-	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
+	  if (ret0 == HICN_ERROR_FACE_NOT_FOUND)                              \
+	    {                                                                 \
+	      next0 = HICN##ipv##_FACE_INPUT_NEXT_ERROR_DROP;                 \
+	    }                                                                 \
                                                                               \
 	  from_tunnel1 =                                                      \
 	    (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL ||            \
@@ -275,12 +281,15 @@ typedef enum
 	    (from_tunnel1) * ~0 +                                             \
 	    (1 - from_tunnel1) * vnet_buffer (b1)->sw_if_index[VLIB_RX];      \
                                                                               \
-	  ret1 = hicn_face_ip##ipv##_add_and_lock (                           \
+	  ret1 = hicn_face_ip##ipv##_find (                                   \
 	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, sw_if1,  \
 	    vnet_buffer (b1)->ip.adj_index[VLIB_RX],                          \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
-	  ASSERT (ret1 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
+	  if (ret1 == HICN_ERROR_FACE_NOT_FOUND)                              \
+	    {                                                                 \
+	      next1 = HICN##ipv##_FACE_INPUT_NEXT_ERROR_DROP;                 \
+	    }                                                                 \
 	}                                                                     \
       else if (ret0 && !ret1)                                                 \
 	{                                                                     \
@@ -292,14 +301,20 @@ typedef enum
 	    (from_tunnel0) * ~0 +                                             \
 	    (1 - from_tunnel0) * vnet_buffer (b0)->sw_if_index[VLIB_RX];      \
                                                                               \
-	  ret0 = hicn_face_ip##ipv##_add_and_lock (                           \
+	  ret0 = hicn_face_ip##ipv##_find (                                   \
 	    &hicnb0->face_id, &hicnb0->flags, &ip_hdr0->dst_address, sw_if0,  \
 	    vnet_buffer (b0)->ip.adj_index[VLIB_RX],                          \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
-	  ASSERT (ret0 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp0) * NEXT_DATA_IP##ipv;                         \
+	  if (ret0 == HICN_ERROR_FACE_NOT_FOUND)                              \
+	    {                                                                 \
+	      next0 = HICN##ipv##_FACE_INPUT_NEXT_ERROR_DROP;                 \
+	    }                                                                 \
+	  else                                                                \
+	    {                                                                 \
+	      next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                         \
+		      (1 - is_icmp0) * NEXT_DATA_IP##ipv;                     \
+	    }                                                                 \
 	}                                                                     \
       else if (!ret0 && ret1)                                                 \
 	{                                                                     \
@@ -311,14 +326,20 @@ typedef enum
 	    (from_tunnel1) * ~0 +                                             \
 	    (1 - from_tunnel1) * vnet_buffer (b1)->sw_if_index[VLIB_RX];      \
                                                                               \
-	  ret1 = hicn_face_ip##ipv##_add_and_lock (                           \
+	  ret1 = hicn_face_ip##ipv##_find (                                   \
 	    &hicnb1->face_id, &hicnb1->flags, &ip_hdr1->dst_address, sw_if1,  \
 	    vnet_buffer (b1)->ip.adj_index[VLIB_RX],                          \
 	    /* Should not be used */ ~0);                                     \
 	  /* Make sure the face is not created here */                        \
-	  ASSERT (ret1 == HICN_ERROR_FACE_ALREADY_CREATED);                   \
-	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp1) * NEXT_DATA_IP##ipv;                         \
+	  if (ret1 == HICN_ERROR_FACE_NOT_FOUND)                              \
+	    {                                                                 \
+	      next1 = HICN##ipv##_FACE_INPUT_NEXT_ERROR_DROP;                 \
+	    }                                                                 \
+	  else                                                                \
+	    {                                                                 \
+	      next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                         \
+		      (1 - is_icmp1) * NEXT_DATA_IP##ipv;                     \
+	    }                                                                 \
 	}                                                                     \
       else                                                                    \
 	{                                                                     \
