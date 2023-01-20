@@ -13,22 +13,10 @@
  * limitations under the License.
  */
 
-#ifndef __HICN_API_H__
-#define __HICN_API_H__
+#ifndef __HICN_ENUMS_H__
+#define __HICN_ENUMS_H__
 
-/**
- * @file
- */
+#define HICN_STRATEGY_NULL ~0
+#define HICN_FIB_TABLE	   10
 
-/* define message structures */
-#define vl_typedefs
-#include <vpp_plugins/hicn/hicn_all_api_h.h>
-#undef vl_typedefs
-
-#endif /* // __HICN_API_H___ */
-
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables: eval: (c-set-style "gnu") End:
- */
+#endif /* // __HICN_ENUMS_H__ */
