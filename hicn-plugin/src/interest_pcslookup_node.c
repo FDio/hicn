@@ -80,6 +80,7 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
   hicn_pcs_entry_t *pcs_entry = NULL;
   f64 tnow;
   hicn_buffer_t *hicnb0;
+  const hicn_strategy_vft_t *strategy;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
 
@@ -132,48 +133,69 @@ hicn_interest_pcslookup_node_inline (vlib_main_t *vm,
 
 	  if (ret == HICN_ERROR_NONE)
 	    {
-	      // We found an entry in the PCS. Next stage for this packet is
-	      // one of hitpit/cs nodes
-	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT +
-		      hicn_pcs_entry_is_cs (pcs_entry);
-
+	      // We found an entry in the PCS.
 	      ret = hicn_store_internal_state (
 		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
 		vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
 
-	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
-		next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
-	    }
-	  else
-	    {
-	      // No entry in PCS. Let's create one now
-	      pcs_entry = hicn_pcs_entry_pit_get (
-		rt->pitcs, tnow, hicn_buffer_get_lifetime (b0));
-
-	      ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
-
-	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+	      // Make sure the entry is not expired first
+	      if (tnow > hicn_pcs_entry_get_expire_time (pcs_entry))
 		{
-		  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+		  // Notify strategy
+		  strategy = hicn_dpo_get_strategy_vft (hicnb0->vft_id);
+
+		  // Release lock on entry - this MUST delete the entry
+		  hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
+
+		  stats.pit_expired_count++;
+
+		  // Forward to strategy node
+		  // TODO this can be simplified by checking directly in the
+		  // pcslookup node!
+		  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
+
+		  goto newentry;
+		}
+	      else
+		{
+		  // Next stage for this packet is one of hitpit/cs nodes
+		  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT +
+			  hicn_pcs_entry_is_cs (pcs_entry);
+
+		  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+		    next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+
 		  goto end;
 		}
-
-	      // Store internal state
-	      ret = hicn_store_internal_state (
-		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
-		vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
-
-	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
-		{
-		  hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
-		  drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
-			       &next_index, node);
-		  continue;
-		}
-
-	      // Add face
-	      hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
 	    }
+	newentry:
+	  // No entry in PCS. Let's create one now
+	  pcs_entry = hicn_pcs_entry_pit_get (rt->pitcs, tnow,
+					      hicn_buffer_get_lifetime (b0));
+
+	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
+
+	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+	    {
+	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+	      goto end;
+	    }
+
+	  // Store internal state
+	  ret = hicn_store_internal_state (
+	    b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
+	    vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
+
+	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+	    {
+	      hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
+	      drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
+			   &next_index, node);
+	      continue;
+	    }
+
+	  // Add face
+	  hicn_pcs_entry_pit_add_face (pcs_entry, hicnb0->face_id);
 
 	end:
 	  stats.pkts_interest_count++;
@@ -444,8 +466,8 @@ hicn_interest_manifest_pcslookup_node_inline (vlib_main_t *vm,
 	      if (ret == HICN_ERROR_NONE && outfaces_len > 0)
 		{
 		  next0 = hicn_buffer_is_v6 (b0) ?
-				  HICN_INTEREST_MANIFEST_PCSLOOKUP_NEXT_FACE6 :
-				  HICN_INTEREST_MANIFEST_PCSLOOKUP_NEXT_FACE4;
+			    HICN_INTEREST_MANIFEST_PCSLOOKUP_NEXT_FACE6 :
+			    HICN_INTEREST_MANIFEST_PCSLOOKUP_NEXT_FACE4;
 
 		  // Clone interest if needed
 		  if (outfaces_len > 1)
