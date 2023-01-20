@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,22 +13,16 @@
  * limitations under the License.
  */
 
-#ifndef __HICN_API_H__
-#define __HICN_API_H__
-
 /**
- * @file
+ * \file modules/hicn_plugin/route.h
+ * \brief route object VFT for hicn_plugin.
  */
 
-/* define message structures */
-#define vl_typedefs
-#include <vpp_plugins/hicn/hicn_all_api_h.h>
-#undef vl_typedefs
+#ifndef HICNCTRL_MODULE_VPP_STRATEGY_H
+#define HICNCTRL_MODULE_VPP_STRATEGY_H
 
-#endif /* // __HICN_API_H___ */
+#include "../../module.h"
 
-/*
- * fd.io coding-style-patch-verification: ON
- *
- * Local Variables: eval: (c-set-style "gnu") End:
- */
+DECLARE_MODULE_OBJECT_OPS_H(vpp, strategy);
+
+#endif /* HICNCTRL_MODULE_VPP_STRATEGY_H */

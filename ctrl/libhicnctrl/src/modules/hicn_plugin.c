@@ -39,6 +39,7 @@
 #include "hicn_plugin/base.h"  // hc_sock_vpp_data_t
 #include "hicn_plugin/listener.h"
 #include "hicn_plugin/route.h"
+#include "hicn_plugin/strategy.h"
 
 /******************************************************************************
  * Message helper types and aliases
@@ -241,7 +242,7 @@ int hc_sock_initialize_module(hc_sock_t *s) {
   s->ops.object_vft[OBJECT_TYPE_WLDR] = HC_MODULE_OBJECT_OPS_EMPTY;
   s->ops.object_vft[OBJECT_TYPE_POLICY] = HC_MODULE_OBJECT_OPS_EMPTY;
   s->ops.object_vft[OBJECT_TYPE_ROUTE] = vpp_route_module_ops;
-  s->ops.object_vft[OBJECT_TYPE_STRATEGY] = HC_MODULE_OBJECT_OPS_EMPTY;
+  s->ops.object_vft[OBJECT_TYPE_STRATEGY] = vpp_strategy_module_ops;
   s->ops.object_vft[OBJECT_TYPE_SUBSCRIPTION] = HC_MODULE_OBJECT_OPS_EMPTY;
   return 0;
 }

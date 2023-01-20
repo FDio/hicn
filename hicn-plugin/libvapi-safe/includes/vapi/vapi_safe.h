@@ -24,6 +24,8 @@
 #include <vapi/ip.api.vapi.h>
 #include <vapi/memif.api.vapi.h>
 #include <vapi/udp.api.vapi.h>
+#include <vapi/ip_types.api.vapi.h>
+#include <vapi/ip_types.api.vapi.h>
 
 vapi_error_e vapi_connect_safe (vapi_ctx_t *vapi_ctx_ret, int async);
 vapi_error_e vapi_disconnect_safe ();
