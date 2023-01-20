@@ -79,8 +79,8 @@ vl_api_hicn_api_node_params_set_t_handler (
 
   f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
   pit_max_lifetime_sec = pit_max_lifetime_sec == -1 ?
-				 HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
-				 pit_max_lifetime_sec;
+			   HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
+			   pit_max_lifetime_sec;
 
   int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
   cs_max_size = cs_max_size == -1 ? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;
@@ -451,6 +451,28 @@ vl_api_hicn_api_strategies_get_t_handler (vl_api_hicn_api_strategies_get_t *mp)
 }
 
 static void
+vl_api_hicn_api_strategy_set_t_handler (vl_api_hicn_api_strategy_set_t *mp)
+{
+  vl_api_hicn_api_strategy_set_reply_t *rmp;
+  int rv = HICN_ERROR_NONE;
+  fib_prefix_t prefix;
+  vl_api_hicn_strategy_t strategy_id;
+
+  hicn_main_t *sm = &hicn_main;
+
+  // Decode prefix
+  ip_prefix_decode (&mp->prefix, &prefix);
+
+  // Decode strategy id
+  strategy_id = clib_net_to_host_u32 (mp->strategy_id);
+
+  // Try to set the strategy
+  rv = hicn_route_set_strategy (&prefix, strategy_id);
+
+  REPLY_MACRO (VL_API_HICN_API_STRATEGY_SET_REPLY);
+}
+
+static void
 vl_api_hicn_api_strategy_get_t_handler (vl_api_hicn_api_strategy_get_t *mp)
 {
   vl_api_hicn_api_strategy_get_reply_t *rmp;
@@ -458,7 +480,7 @@ vl_api_hicn_api_strategy_get_t_handler (vl_api_hicn_api_strategy_get_t *mp)
 
   hicn_main_t *sm = &hicn_main;
 
-  u32 strategy_id = clib_net_to_host_u32 (mp->strategy_id);
+  vl_api_hicn_strategy_t strategy_id = clib_net_to_host_u32 (mp->strategy_id);
   rv = hicn_dpo_strategy_id_is_valid (strategy_id);
 
   REPLY_MACRO2 (VL_API_HICN_API_STRATEGY_GET_REPLY /* , rmp, mp, rv */, ({

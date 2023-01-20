@@ -22,6 +22,14 @@ enum hicn_action_type
    HICN_ENABLE,
 };
 
+enum hicn_strategy
+{
+   HICN_STRATEGY_MW = 0,
+   HICN_STRATEGY_RR,
+   HICN_STRATEGY_RP,
+   HICN_STRATEGY_LR,
+};
+
 typedef hicn_face
 {
   /* IP local address */
@@ -360,6 +368,33 @@ define hicn_api_routes_dump
   u32 context;
 };
 
+define hicn_api_strategy_set
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Fib prefix for the strategy */
+  vl_api_prefix_t prefix;
+
+  /* ID of the strategy to set for this prefix */
+  vl_api_hicn_strategy_t strategy_id;
+};
+
+define hicn_api_strategy_set_reply
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
 define hicn_api_strategies_get
 {
   /* Client identifier, set from api_main.my_client_index */
@@ -381,7 +416,7 @@ define hicn_api_strategies_get_reply
   u8 n_strategies;
 
   /* Strategies */
-  u32 strategy_id[256];
+  vl_api_hicn_strategy_t strategy_id[256];
 
   /* Return value, zero means all OK */
   i32 retval;
@@ -396,7 +431,7 @@ define hicn_api_strategy_get
   u32 context;
 
   /* Route prefix */
-  u32 strategy_id;
+  vl_api_hicn_strategy_t strategy_id;
 };
 
 define hicn_api_strategy_get_reply
