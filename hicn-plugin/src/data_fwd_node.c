@@ -371,7 +371,15 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  // Get PCS entry
 	  pcs_entry =
-	    hicn_pcs_entry_get_entry_from_index (rt->pitcs, pcs_entry_id);
+	    hicn_pcs_entry_get_entry_from_index_safe (rt->pitcs, pcs_entry_id);
+
+    if (pcs_entry == NULL)
+      {
+        drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
+         &next_index, node);
+
+        goto end_processing;
+      }
 
 	  isv6 = hicn_buffer_is_v6 (b0);
 
