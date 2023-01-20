@@ -518,6 +518,31 @@ hicn4_iface_adj_walk_cb (adj_index_t ai, void *ctx)
   return (ADJ_WALK_RC_CONTINUE);
 }
 
+always_inline int
+hicn_face_ip4_find (hicn_face_id_t *index, u8 *hicnb_flags,
+		    const ip4_address_t *nat_addr, u32 sw_if, u32 adj_index,
+		    u32 node_index)
+{
+  int ret = HICN_ERROR_FACE_NOT_FOUND;
+
+  /*All (complete) faces are indexed by remote addess as well */
+  /* if the face exists, it adds a lock */
+  hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
+				     &hicn_face_hashtb, adj_index);
+
+  if (face != NULL)
+    {
+      /* unlock the face. We don't take a lock on each interest we receive */
+      hicn_face_id_t face_id = hicn_dpoi_get_index (face);
+      hicn_face_unlock_with_id (face_id);
+      ret = HICN_ERROR_FACE_ALREADY_CREATED;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+      *index = hicn_dpoi_get_index (face);
+    }
+
+  return ret;
+}
+
 /**
  * @brief Retrieve, or create if it doesn't exist, a face from the ip6 local
  * address and returns its dpo. This method adds a lock on the face state.
@@ -535,17 +560,16 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 			    u32 adj_index, u32 node_index)
 {
   int ret = HICN_ERROR_NONE;
-  /*All (complete) faces are indexed by remote addess as well */
+  hicn_face_t *face = NULL;
 
-  ip46_address_t ip_address = { 0 };
-  ip46_address_set_ip4 (&ip_address, nat_addr);
+  ret = hicn_face_ip4_find (index, hicnb_flags, nat_addr, sw_if, adj_index,
+			    node_index);
 
-  /* if the face exists, it adds a lock */
-  hicn_face_t *face =
-    hicn_face_get (&ip_address, sw_if, &hicn_face_hashtb, adj_index);
-
-  if (face == NULL)
+  if (ret == HICN_ERROR_FACE_NOT_FOUND)
     {
+      ip46_address_t ip_address = { 0 };
+      ip46_address_set_ip4 (&ip_address, nat_addr);
+
       hicn_face_id_t idx;
       u8 face_flags = 0;
 
@@ -565,15 +589,6 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
 
       *index = idx;
-    }
-  else
-    {
-      /* unlock the face. We don't take a lock on each interest we receive */
-      hicn_face_id_t face_id = hicn_dpoi_get_index (face);
-      hicn_face_unlock_with_id (face_id);
-      ret = HICN_ERROR_FACE_ALREADY_CREATED;
-      *index = hicn_dpoi_get_index (face);
-      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
     }
 
   return ret;
@@ -600,6 +615,29 @@ hicn6_iface_adj_walk_cb (adj_index_t ai, void *ctx)
   return (ADJ_WALK_RC_CONTINUE);
 }
 
+always_inline int
+hicn_face_ip6_find (hicn_face_id_t *index, u8 *hicnb_flags,
+		    const ip6_address_t *nat_addr, u32 sw_if, u32 adj_index,
+		    u32 node_index)
+{
+  int ret = HICN_ERROR_FACE_NOT_FOUND;
+
+  hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
+				     &hicn_face_hashtb, adj_index);
+
+  if (face != NULL)
+    {
+      /* unlock the face. We don't take a lock on each interest we receive */
+      hicn_face_id_t face_id = hicn_dpoi_get_index (face);
+      hicn_face_unlock_with_id (face_id);
+      ret = HICN_ERROR_FACE_ALREADY_CREATED;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+      *index = hicn_dpoi_get_index (face);
+    }
+
+  return ret;
+}
+
 /**
  * @brief Retrieve, or create if it doesn't exist, a face from the ip6 local
  * address and returns its dpo. This method adds a lock on the face state.
@@ -617,14 +655,15 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 			    u32 adj_index, u32 node_index)
 {
   int ret = HICN_ERROR_NONE;
+  hicn_face_t *face = NULL;
 
-  /*All (complete) faces are indexed by remote addess as well */
-  /* if the face exists, it adds a lock */
-  hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
-				     &hicn_face_hashtb, adj_index);
+  ret = hicn_face_ip6_find (index, hicnb_flags, nat_addr, sw_if, adj_index,
+			    node_index);
 
-  if (face == NULL)
+  if (ret == HICN_ERROR_FACE_NOT_FOUND)
     {
+      ip46_address_t ip_address = { 0 };
+      ip46_address_set_ip6 (&ip_address, nat_addr);
       hicn_face_id_t idx;
       u8 face_flags = 0;
 
@@ -639,15 +678,6 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 
       *hicnb_flags = HICN_BUFFER_FLAGS_NEW_FACE;
       *index = idx;
-    }
-  else
-    {
-      /* unlock the face. We don't take a lock on each interest we receive */
-      hicn_face_id_t face_id = hicn_dpoi_get_index (face);
-      hicn_face_unlock_with_id (face_id);
-      ret = HICN_ERROR_FACE_ALREADY_CREATED;
-      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-      *index = hicn_dpoi_get_index (face);
     }
 
   return ret;
