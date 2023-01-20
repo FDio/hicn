@@ -377,6 +377,16 @@ hicn_pcs_entry_get_entry_from_index (const hicn_pit_cs_t *pitcs, u32 index)
   return pool_elt_at_index (pitcs->pcs_entries_pool, index);
 }
 
+always_inline hicn_pcs_entry_t *
+hicn_pcs_entry_get_entry_from_index_safe (const hicn_pit_cs_t *pitcs,
+					  u32 index)
+{
+  if (!pool_is_free_index (pitcs->pcs_entries_pool, index))
+    return pool_elt_at_index (pitcs->pcs_entries_pool, index);
+
+  return NULL;
+}
+
 /*
  * Check if pcs entry is a content store entry
  */
