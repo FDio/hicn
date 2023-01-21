@@ -102,7 +102,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_strategy_next_t next_index;
   hicn_strategy_runtime_t *rt = NULL;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
-  f64 tnow;
   vlib_buffer_t *b0;
   u32 bi0;
   hicn_face_id_t outfaces[MAX_OUT_FACES];
@@ -118,7 +117,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   rt = vlib_node_get_runtime_data (vm, hicn_strategy_node.index);
   rt->pitcs = &hicn_main.pitcs;
   /* Capture time in vpp terms */
-  tnow = vlib_time_now (vm);
   next0 = next_index;
 
   while (n_left_from > 0)
