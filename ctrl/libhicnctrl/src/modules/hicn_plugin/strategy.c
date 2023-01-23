@@ -82,7 +82,7 @@ static int _vpp_strategy_set(hc_sock_vpp_data_t *s,
       vapi_alloc_hicn_api_strategy_set(s->g_vapi_ctx_instance);
 
   // Fill it
-  msg->payload.strategy_id = clib_host_to_net_u32(strategy_id);
+  msg->payload.strategy_id = strategy_id;
   ret = _ip_prefix_encode(&strategy->address, strategy->len, strategy->family,
                           &msg->payload.prefix);
 
