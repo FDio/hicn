@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -51,8 +51,9 @@ typedef struct {
   uint32_t timescale;  // Milliseconds
 
   hicn_ip_address_t address;
-  int family;
-  u8 len;
+  uint8_t family;
+  uint8_t len;
+  uint32_t face_id;
 } hc_mapme_t;
 
 #endif /* HICNCTRL_OBJECTS_MAPME_H */

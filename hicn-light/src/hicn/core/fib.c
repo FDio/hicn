@@ -329,17 +329,11 @@ void fib_add(fib_t *fib, fib_entry_t *entry) {
 
   /* Case 2 */
   if (search.prefix_len == search.match_len && prefix_len == search.match_len) {
-    if (!curr->is_used) {
-      curr->is_used = true;
-      if (curr->entry) fib_entry_free(curr->entry);
-      curr->entry = entry;
-      fib->size++;
-    } else {
-      const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
-      nexthops_foreach(nexthops, nexthop,
-                       { fib_entry_nexthops_add(curr->entry, nexthop); });
-      fib_entry_free(entry);
-    }
+    const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+    nexthops_foreach(nexthops, nexthop,
+                     { fib_entry_nexthops_add(curr->entry, nexthop); });
+    fib_entry_free(entry);
+    curr->is_used = true;
     goto END;
   }
 
