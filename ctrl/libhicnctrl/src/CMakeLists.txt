@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022 Cisco and/or its affiliates.
+# Copyright (c) 2021-2023 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -39,6 +39,7 @@ set(SOURCE_FILES
   objects/connection.c
   objects/face.c
   objects/listener.c
+  objects/mapme.c
   objects/route.c
   objects/strategy.c
   objects/stats.c
@@ -56,6 +57,7 @@ set(HEADER_FILES
   objects/connection.h
   objects/face.h
   objects/listener.h
+  objects/mapme.h
   objects/route.h
   objects/stats.h
   objects/strategy.h
@@ -115,6 +117,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/connection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/mapme.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/stats.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.c
@@ -124,6 +127,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/connection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/mapme.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/stats.h
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.h
