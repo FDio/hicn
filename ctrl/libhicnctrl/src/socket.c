@@ -185,6 +185,7 @@ void hc_sock_free(hc_sock_t *s) {
       hc_request_t *request = request_array[i];
       if (hc_sock_map_remove(s->map, hc_request_get_seq(request), NULL) < 0)
         ERROR("[hc_sock_light_process] Error removing request from map");
+      INFO("removed request to sock map #%d", hc_request_get_seq(request));
       hc_request_free(request);
     }
     free(request_array);
@@ -262,6 +263,8 @@ hc_request_t *hc_sock_create_request(hc_sock_t *s, hc_action_t action,
     goto ERR_MAP;
   }
 
+  INFO("added request to sock map #%d", seq);
+
   return request;
 
 ERR_MAP:
@@ -276,6 +279,7 @@ void hc_sock_free_request(hc_sock_t *s, hc_request_t *request, bool recursive) {
   if (hc_sock_map_remove(s->map, hc_request_get_seq(request), NULL) < 0) {
     ERROR("[hc_sock_free_request] Error removing request from map");
   }
+  INFO("removed request to sock map #%d", hc_request_get_seq(request));
   if (recursive) {
     hc_request_t *r = NULL;
     do {
