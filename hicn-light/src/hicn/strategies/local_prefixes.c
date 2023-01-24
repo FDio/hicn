@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -77,6 +77,6 @@ void update_remote_node_paths(const void *nexthops, const void *forwarder,
     fib_entry_t *entry = fib_match_prefix(fib, &prefixes->local_prefixes[i]);
     if (!entry) continue;
     // XXX we don't want to force
-    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops);
+    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops, NULL);
   }
 }
