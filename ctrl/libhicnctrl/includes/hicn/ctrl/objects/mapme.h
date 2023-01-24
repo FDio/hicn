@@ -51,8 +51,9 @@ typedef struct {
   uint32_t timescale;  // Milliseconds
 
   hicn_ip_address_t address;
-  int family;
-  u8 len;
+  uint8_t family;
+  uint8_t len;
+  uint32_t face_id;
 } hc_mapme_t;
 
 #endif /* HICNCTRL_OBJECTS_MAPME_H */
