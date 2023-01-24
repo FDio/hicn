@@ -177,7 +177,8 @@ int
 icmp_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
 	       hicn_packet_type_t *type)
 {
-  return CALL_CHILD (get_type, pkbuf, pos, type);
+  *type = HICN_PACKET_TYPE_MAPME;
+  return HICN_LIB_ERROR_NONE;
 }
 
 int
