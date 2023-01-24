@@ -129,7 +129,6 @@
 #define MS2NS(x) x * 1000000
 #define T2NS(x) forwarder_TicksToNanos(x)
 
-//#define MAPME_ALLOW_NONEXISTING_FIB_ENTRY
 #define MAPME_DEFAULT_TU 5000  /* ms */
 #define MAPME_DEFAULT_RETX 500 /* ms */
 #define MAPME_DEFAULT_DISCOVERY false
@@ -302,6 +301,7 @@ static void mapme_create_tfib(const mapme_t *mapme, fib_entry_t *entry) {
  */
 static hicn_mapme_type_t mapme_get_type_from_heuristic(const mapme_t *mapme,
                                                        fib_entry_t *entry) {
+  if (!entry) return UPDATE;
   if (fib_entry_has_local_nexthop(entry))
     /* We are a producer for this entry, send update */
     return UPDATE;
@@ -322,43 +322,67 @@ static hicn_mapme_type_t mapme_get_type_from_heuristic(const mapme_t *mapme,
  *
  * Here nexthops is not necessarily FIB nexthops as we might advertise given FIB
  * entries on various other connections.
+ *
+ * prefix can be specified to send an update for a More Specific Prefix (MSP),
+ * or left NULL for the default behaviour. Note there will be no support for
+ * retransmission for MSP.
+ *
+ * NOTES:
+ *  - if the face is pending an we receive an IN, maybe we should not cancel the
+ *  timer
+ *  - this function should never be called for Notifications.
  */
-/* NOTE: if the face is pending an we receive an IN, maybe we should not cancel
- * the timer
- */
-// XXX Make sure this function is never called for Notifications
-// XXX overall review notification code and integrate it in VPP
 int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
-                           const nexthops_t *nexthops) {
+                           const nexthops_t *nexthops,
+                           const hicn_prefix_t *prefix) {
+  INFO("mapme send to nexthops");
+  const hicn_prefix_t *mapme_prefix;
+  uint32_t mapme_seq;
+
+  assert(!!prefix ^ !!entry);
+
   if (mapme->enabled == false) {
     WARN("MAP-Me is NOT enabled");
     return -1;
   }
 
-  mapme_tfib_t *tfib = TFIB(entry);
-  if (tfib == NULL) {
-    mapme_create_tfib(mapme, entry);
-    tfib = TFIB(entry);
+  if (prefix) {
+    INFO("mapme with given prefix");
+    mapme_prefix = prefix;
+    mapme_seq = 1;
+  } else {
+    INFO("mapme wih fib entry prefix");
+    mapme_tfib_t *tfib = TFIB(entry);
+    if (tfib == NULL) {
+      mapme_create_tfib(mapme, entry);
+      tfib = TFIB(entry);
+    }
+
+    mapme_prefix = fib_entry_get_prefix(entry);
+    mapme_seq = tfib->seq;
   }
 
-  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
+  char prefix_s[MAXSZ_IP_PREFIX];
+  int rc = hicn_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, mapme_prefix);
+  assert(rc < MAXSZ_IP_PREFIX);
+  if (rc < 0) NULL;
 
-  WITH_DEBUG({
+  INFO("mapme send to nexthops prefix= %s", prefix_s);
+
+  WITH_INFO({
     char buf[MAXSZ_HICN_PREFIX];
-    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, mapme_prefix);
     if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
       snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
-    DEBUG("sending IU/IN for name %s on all nexthops", buf);
+    INFO("sending IU/IN for name %s on nexthops", buf);
   })
 
-  mapme_params_t params = {
-      .protocol = mapme->protocol,
-      .type = mapme_get_type_from_heuristic(mapme, entry),
-      .seq = tfib->seq,
-  };
+  mapme_params_t params = {.protocol = mapme->protocol,
+                           .type = mapme_get_type_from_heuristic(mapme, entry),
+                           .seq = mapme_seq};
 
   uint8_t packet[MTU];
-  size_t size = hicn_mapme_create_packet(packet, prefix, &params);
+  size_t size = hicn_mapme_create_packet(packet, mapme_prefix, &params);
   if (size <= 0) {
     ERROR("Could not create MAP-Me packet");
     return -1;
@@ -367,8 +391,8 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
   connection_table_t *table = forwarder_get_connection_table(mapme->forwarder);
 
   nexthops_foreach(nexthops, nexthop, {
-    INFO("sending mapme packet on connection %d", nexthop);
     const connection_t *conn = connection_table_get_by_id(table, nexthop);
+    assert(!connection_is_local(conn));
     connection_send_packet(conn, packet, size);
   });
 
@@ -414,32 +438,61 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry) {
   nexthops_t *nexthops = fib_entry_get_mapme_nexthops(entry, &new_nexthops);
 
   /* We set force to true to avoid overriding the FIB cache */
-  return mapme_set_adjacencies(mapme, entry, nexthops);
+  return mapme_set_adjacencies(mapme, entry, nexthops, NULL);
 }
 
 // XXX this will change with the FIB cache
 // XXX we are sometimes incrementing tfib seq for nothing
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops) {
+                          nexthops_t *nexthops, const hicn_prefix_t *prefix) {
+
+  INFO("mapme set adjacenies");
+  /*
+   * - entry is provided in case of a producer reannouncement
+   * - prefix is provided for control plane triggered updates
+   */
+  assert(!!prefix ^ !!entry);
+
   if (mapme->enabled == false) {
     WARN("MAP-Me is NOT enabled");
     return -1;
   }
 
-  if (!fib_entry_has_local_nexthop(entry)) return -1;
+  if (entry) {
+    /* Check disabled, we need to be able to send an update for a larger prefix
+     * that the one being served.
+     */
+    //if (!fib_entry_has_local_nexthop(entry)) return -1;
 
-  /* Advertise prefix on all available next hops (if needed) */
-  mapme_tfib_t *tfib = TFIB(entry);
-  if (tfib == NULL) {
-    mapme_create_tfib(mapme, entry);
-    tfib = TFIB(entry);
+    mapme_tfib_t *tfib = TFIB(entry);
+    if (tfib == NULL) {
+      mapme_create_tfib(mapme, entry);
+      tfib = TFIB(entry);
+    }
+
+    /*
+     * We need to prevent pending updates to recreate a link which does not make
+     * since anymore since we edit the graph here.
+     */
+    nexthops_clear(&tfib->nexthops);
+
+    /* We update the sequence number in all cases otherwise this won't allow
+     * repetition
+     */
+    tfib->seq++;
   }
 
-  nexthops_clear(&tfib->nexthops);
-  tfib->seq++;
-
-  mapme_send_to_nexthops(mapme, entry, nexthops);
+  INFO("calling send to nh");
+  mapme_send_to_nexthops(mapme, entry, nexthops, prefix);
   return 0;
+}
+
+int mapme_set_adjacency(const mapme_t *mapme, fib_entry_t *entry,
+                        nexthop_t nexthop, const hicn_prefix_t *prefix) {
+  nexthops_t nexthops = NEXTHOPS_EMPTY;
+  nexthops_add(&nexthops, nexthop);
+
+  return mapme_set_adjacencies(mapme, entry, &nexthops, prefix);
 }
 
 int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
@@ -457,7 +510,7 @@ int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
 
   if (inc_iu_seq) tfib->seq++;
 
-  mapme_send_to_nexthops(mapme, entry, &tfib->nexthops);
+  mapme_send_to_nexthops(mapme, entry, &tfib->nexthops, NULL);
   return 0;
 }
 
@@ -471,7 +524,7 @@ int mapme_send_to_nexthop(const mapme_t *mapme, fib_entry_t *entry,
   nexthops_t nexthops = NEXTHOPS_EMPTY;
   nexthops_add(&nexthops, nexthop);
 
-  return mapme_send_to_nexthops(mapme, entry, &nexthops);
+  return mapme_send_to_nexthops(mapme, entry, &nexthops, NULL);
 }
 
 #if 0
@@ -533,33 +586,48 @@ void mapme_on_connection_event(const mapme_t *mapme,
  *----------------------------------------------------------------------------*/
 
 // XXX this code has not been updated
-#ifdef MAPME_ALLOW_NONEXISTING_FIB_ENTRY
-int mapme_create_fib_entry(const mapme_t *mapme, const Name *name,
-                           unsigned ingress_id) {
-  INFO("  - Re-creating FIB entry with next hop on connection %d", ingress_id);
+#ifdef HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY
+fib_entry_t *mapme_create_fib_entry(const mapme_t *mapme,
+                                    const hicn_prefix_t *prefix,
+                                    unsigned ingress_id) {
+  INFO("  - creating FIB entry with next hop on connection %d", ingress_id);
+
   /*
    * This might happen for a node hosting a producer which has moved.
    * Destroying the face has led to removing all corresponding FIB
    * entries. In that case, we need to correctly restore the FIB entries.
+   * Also in case we have an intermediate node with just a less specific prefix
+   * (eg. a default route), and thus an announcement with a more specific
+   * prefix. In that case we need to perform a FIB lookup to find the next hops
+   * to which the message should be propagated (before adding).
    */
-  strategy_type fwdStrategy = LAST_STRATEGY_VALUE;
+  forwarder_t *forwarder = mapme->forwarder;
 
-  /*
-   * It might also be due to the announcement of a more specific prefix. In
-   * that case we need to perform a FIB lookup to find the next hops to which
-   * the message should be propagated.
-   */
-#ifdef WITH_POLICY
-  entry = fib_entry_Create(name, fwdStrategy, mapme->forwarder);
-#else
-  entry = fib_entry_Create(name, fwdStrategy);
-#endif /* WITH_POLICY */
-  fib_entry_t *lpm = fib_MatchName(fib, name);
-  fib_Add(fib, entry);
+  fib_t *fib = forwarder_get_fib(forwarder);
+  configuration_t *config = forwarder_get_configuration(forwarder);
+
+  char prefix_s[MAXSZ_IP_PREFIX];
+  int rc = hicn_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, prefix);
+  assert(rc < MAXSZ_IP_PREFIX);
+  if (rc < 0) NULL;
+
+  INFO("creating FIB entry for prefix %s", prefix_s);
+
+  strategy_type_t strategy_type = configuration_get_strategy(config, prefix_s);
+  fib_entry_t * entry = fib_entry_create(prefix, strategy_type, NULL, forwarder);
+  mapme_create_tfib(mapme, entry);
+
+  fib_entry_t *lpm = fib_match_prefix(fib, prefix);
+
+  // Keep this after the LPM lookup
+  fib_add(fib, entry);
+
   if (!lpm) {
-    TFIB(entry)->seq = seq;
-    fib_entry_AddNexthop(entry, ingress_id);
-    return true;
+      INFO("no lom");
+    TFIB(entry)->seq = 0;
+    if (ingress_id != INVALID_FACE_ID)
+      fib_entry_nexthops_add(entry, ingress_id);
+    return entry;
   }
 
   /*
@@ -567,11 +635,10 @@ int mapme_create_fib_entry(const mapme_t *mapme, const Name *name,
    * the more specific name, and proceed as usual. Worst case we clone the
    * default route...
    */
-  const NumberSet *lpm_nexthops = fib_entry_nexthops_get(lpm);
-  for (size_t i = 0; i < numberSet_Length(lpm_nexthops); i++) {
-    fib_entry_AddNexthop(entry, numberSet_GetItem(lpm_nexthops, i));
-  }
-  return 0;
+  INFO("using info from LOM");
+  const nexthops_t *lpm_nexthops = fib_entry_get_nexthops(lpm);
+  nexthops_foreach(lpm_nexthops, nh, { fib_entry_nexthops_add(entry, nh); });
+  return entry;
 }
 #endif
 
@@ -804,13 +871,13 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
 
   msgbuf_pool_put(msgbuf_pool, ack);
 
-  WITH_DEBUG({
+  WITH_INFO({
     char buf[MAXSZ_HICN_PREFIX];
     int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
     if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
       snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
-    DEBUG("Ack'ed interest : connection=%d  prefix=%s seq=%d", ingress_id, buf,
-          params->seq);
+    INFO("Ack'ed interest : connection=%d  prefix=%s seq=%d", ingress_id, buf,
+         params->seq);
   });
 
   /* EPM on FIB */
@@ -818,7 +885,8 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
   fib_entry_t *entry = fib_contains(fib, prefix);
   if (!entry) {
 #ifdef HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY
-    if (mapme_create_fib_entry(mapme, &name, ingress_id) < 0) {
+    entry = mapme_create_fib_entry(mapme, prefix, ingress_id);
+    if (!entry) {
       ERROR("Failed to create FIB entry");
       return;
     }
@@ -843,7 +911,13 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
    * for which the prefix has a local next hop in the FIB.
    */
   // XXX NOT IN VPP ?
-  if (fib_entry_has_local_nexthop(entry)) {
+
+  /* Initially we were detecting that the update completed when it returned to
+   * the producer, Because there might be proxies (using local/remote strategy),
+   * we need instead to verify if there is no non-local faces.
+   */
+
+  if (fib_entry_has_all_local_nexthops(entry)) {
     INFO("Received original interest... Update complete");
     return;
   }
@@ -863,12 +937,24 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
      *
      * This could might optimized for situations where nothing changes, but
      * this is very unlikely if not impossible...
-     * */
-    nexthops_foreach(&entry->nexthops, prevhop,
-                     { nexthops_add(&tfib->nexthops, prevhop); });
+     */
+    nexthops_t nexthops_keep = NEXTHOPS_EMPTY;
+    nexthops_foreach(&entry->nexthops, prevhop, {
+      const connection_t *conn = connection_table_get_by_id(table, prevhop);
+      /* Preserve local connections, migrate others to TFIB */
+      if (connection_is_local(conn)) {
+        nexthops_add(&nexthops_keep, prevhop);
+      } else {
+        nexthops_add(&tfib->nexthops, prevhop);
+      }
+    });
+
     nexthops_remove(&tfib->nexthops, ingress_id);
+
     nexthops_clear(&entry->nexthops);
     nexthops_add(&entry->nexthops, ingress_id);
+    nexthops_foreach(&nexthops_keep, nh,
+                     { nexthops_add(&entry->nexthops, nh); });
 
     event = MAPME_EVENT_NH_SET;
 
@@ -906,8 +992,8 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
            params->seq, tfib->seq, ingress_id);
       return;
     } else {
-      DEBUG("Received seq %d < fib_seq %d, sending backwards on face %d",
-            params->seq, tfib->seq, ingress_id);
+      INFO("Received seq %d < fib_seq %d, sending backwards on face %d",
+           params->seq, tfib->seq, ingress_id);
       nexthops_add(&tfib->nexthops, ingress_id);
     }
 
@@ -923,13 +1009,13 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
 
 static void mapme_on_data(mapme_t *mapme, msgbuf_t *msgbuf, unsigned ingress_id,
                           hicn_prefix_t *prefix, mapme_params_t *params) {
-  WITH_DEBUG({
+  WITH_INFO({
     char buf[MAXSZ_HICN_PREFIX];
     int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
     if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
       snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
-    DEBUG("Received ack for name prefix=%s seq=%d on conn id=%d", buf,
-          params->seq, ingress_id);
+    INFO("Received ack for name prefix=%s seq=%d on conn id=%d", buf,
+         params->seq, ingress_id);
   })
 
   const fib_t *fib = forwarder_get_fib(mapme->forwarder);
@@ -986,8 +1072,8 @@ void mapme_process(mapme_t *mapme, msgbuf_t *msgbuf) {
   if (rc < 0) return;
 
   // XXX TYPE STR
-  DEBUG("Received interest type: %d seq: %d len:%d", params.type, params.seq,
-        prefix.len);
+  INFO("Received interest type: %d seq: %d len:%d", params.type, params.seq,
+       prefix.len);
 
   // XXX RENAME TYPES
   switch (params.type) {

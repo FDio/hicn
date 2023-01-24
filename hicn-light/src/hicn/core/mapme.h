@@ -33,6 +33,10 @@
 #include "fib_entry.h"
 #include "msgbuf.h"
 
+// Allow processing of MAP-Me requests when no FIB entry is present.
+// An alternative would be to perform a LPM
+#define HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY
+
 typedef struct mapme_s mapme_t;
 
 /**
@@ -85,9 +89,24 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry);
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] fib_entry - The FIB entry to consider
  * @param [in] nexthops - next hops on which to send the update.
+ * @param [in] prefix - A more specific prefix (special use with no retx), or
+ * NULL
  */
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops);
+                          nexthops_t *nexthops, const hicn_prefix_t *prefix);
+
+/**
+ * @function mapme_set_adjacencies
+ * @abstract sends an update to the specified adjacency. Used by control plane
+ * commands.
+ * @param [in] mapme - Pointer to the MAP-Me data structure.
+ * @param [in] fib_entry - The FIB entry to consider
+ * @param [in] nexthop - nexthop on which to send the update.
+ * @param [in] prefix - A more specific prefix (special use with no retx), or
+ * NULL
+ */
+int mapme_set_adjacency(const mapme_t *mapme, fib_entry_t *entry,
+                        nexthop_t nexthop, const hicn_prefix_t *prefix);
 
 /**
  * @function mapme_update_adjacencies
@@ -121,6 +140,12 @@ void mapme_on_connection_event(const mapme_t *mapme, const connection_t *conn,
  */
 // nexthops_t * mapme_get_nexthops(const mapme_t *mapme, fib_entry_t *fib_entry,
 //                              const msgbuf_t *interest);
+
+#ifdef HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY
+fib_entry_t *mapme_create_fib_entry(const mapme_t *mapme,
+                                    const hicn_prefix_t *prefix,
+                                    unsigned ingress_id);
+#endif /* HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY */
 
 void mapme_set_enable(mapme_t *mapme, bool enable);
 void mapme_set_discovery(mapme_t *mapme, bool enable);

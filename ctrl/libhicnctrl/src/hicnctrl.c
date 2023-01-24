@@ -122,7 +122,7 @@ void usage_forwarding_strategy(const char *prog, bool header, bool verbose) {
 
 void usage_listener_create(const char *prog, bool header, bool verbose) {
   if (header) usage_header();
-  fprintf(stderr, "%s -l NAME TYPE LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n",
+  fprintf(stderr, "%s -l TYPE NAME LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n",
           prog);
   if (verbose)
     fprintf(stderr, "    Create a listener on specified address and port.\n");
@@ -323,7 +323,8 @@ USAGE:
 
 int main(int argc, char *argv[]) {
   int rc = 1;
-  hc_command_t command = {0};
+  hc_command_t command;
+  memset(&command, 0, sizeof(command));
   char buf[MAXSZ_HC_OBJECT];
 
   log_conf.log_level = LOG_INFO;
