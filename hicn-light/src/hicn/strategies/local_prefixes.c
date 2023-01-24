@@ -77,6 +77,6 @@ void update_remote_node_paths(const void *nexthops, const void *forwarder,
     fib_entry_t *entry = fib_match_prefix(fib, &prefixes->local_prefixes[i]);
     if (!entry) continue;
     // XXX we don't want to force
-    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops);
+    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops, NULL);
   }
 }
