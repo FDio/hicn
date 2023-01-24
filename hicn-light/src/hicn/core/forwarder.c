@@ -785,7 +785,10 @@ static int _forwarder_get_interest_manifest(
 
   hicn_payload_type_t payload_type;
   HICN_UNUSED(int rc) = hicn_packet_get_payload_type(pkbuf, &payload_type);
-  assert(rc == HICN_LIB_ERROR_NONE);
+  // XXX ASSERT HERE !!!
+  if (rc != HICN_LIB_ERROR_NONE)
+      return -1;
+  //assert(rc == HICN_LIB_ERROR_NONE);
 
   if (payload_type != HPT_MANIFEST) return -1;
 
