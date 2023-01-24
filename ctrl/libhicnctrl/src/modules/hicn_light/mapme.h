@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,24 +14,16 @@
  */
 
 /**
- * \file command_stats.h
- * \brief Implementation of stats command.
+ * \file modules/hicn_light/mapme.h
+ * \brief mapme object VFT for hicn_light.
  */
-#include <math.h>
-#include <hicn/ctrl/command.h>
 
-/* Commands */
+#ifndef HICNCTRL_MODULE_HICNLIGHT_MAPME_H
+#define HICNCTRL_MODULE_HICNLIGHT_MAPME_H
 
-static const command_parser_t command_stats_list = {
-    .action = ACTION_LIST,
-    .object_type = OBJECT_TYPE_STATS,
-    .nparams = 0,
-};
-COMMAND_REGISTER(command_stats_list);
+#include "../../module.h"
 
-static const command_parser_t command_face_stats_list = {
-    .action = ACTION_LIST,
-    .object_type = OBJECT_TYPE_FACE_STATS,
-    .nparams = 0,
-};
-COMMAND_REGISTER(command_face_stats_list);
+DECLARE_MODULE_OBJECT_OPS_H(hicnlight, mapme);
+
+#endif /* HICNCTRL_MODULE_HICNLIGHT_MAPME_H */
+

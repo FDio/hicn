@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -42,11 +42,9 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
   int has_family = 0;
   int has_remote_addr = 0;
 
-  if (!IS_VALID_CONNECTION_ID(route->face_id)) {
-    ERROR("[hc_route_validate] Invalid face id");
-    return -1;
+  if (IS_VALID_CONNECTION_ID(route->face_id)) {
+    has_id = 1;
   }
-  has_id = 1;
 
   if (!isempty(route->face_name)) {
     if (!IS_VALID_NAME(route->face_name)) {
@@ -64,6 +62,8 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
     has_family = 1;
   }
 
+  //::/0 is a valid remote addr
+#if 0
   if (!hicn_ip_address_empty(&route->remote_addr)) {
     if (!IS_VALID_ADDRESS(route->remote_addr)) {
       ERROR("[hc_route_validate] Invalid remote_addr specified");
@@ -71,16 +71,21 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
     }
     has_remote_addr = 1;
   }
+#else
+  has_remote_addr = 1;
+#endif
 
   if (!IS_VALID_ROUTE_COST(route->cost)) {
     ERROR("[hc_route_validate] Invalid cost");
     return -1;
   }
 
+#if 0
   if (!IS_VALID_PREFIX_LEN(route->len)) {
     ERROR("[hc_route_validate] Invalid len");
     return -1;
   }
+#endif
 
   if (hc_route_has_face(route)) {
     if (hc_face_validate(&route->face, allow_partial) < 0) {
@@ -90,12 +95,10 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
     has_face = 1;
   }
 
-  int has_face_info = has_id || has_name || has_face;
-
-  if (!has_face_info) return -1;
-  if (allow_partial && (has_name + has_face != 1)) return -1;
-
-  if (has_face_info && has_family && has_remote_addr) return 0;
+  /* We also allow routes without faces, hence the '>' sign */
+  if (allow_partial && (has_id + has_name + has_face > 1)) return -1;
+  //if (has_face_info && has_family && has_remote_addr) return 0;
+  if (has_family && has_remote_addr) return 0;
 
   return -1;
 }
