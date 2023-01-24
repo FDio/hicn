@@ -111,8 +111,10 @@ static inline u32 msgbuf_get_name_hash(const msgbuf_t *msgbuf) {
 static inline u32 msgbuf_get_interest_lifetime(const msgbuf_t *msgbuf) {
   u32 lifetime;
   int rc = hicn_interest_get_lifetime(msgbuf_get_pkbuf(msgbuf), &lifetime);
-  assert(rc == HICN_LIB_ERROR_NONE);  // XXX
-  _unused(rc);
+  //assert(rc == HICN_LIB_ERROR_NONE);  // XXX
+  //_unused(rc);
+  if (rc == HICN_LIB_ERROR_NONE)
+      return 0;
   return lifetime;
 }
 
@@ -130,8 +132,10 @@ static inline bool msgbuf_set_interest_lifetime(msgbuf_t *msgbuf,
 static inline u32 msgbuf_get_data_expiry_time(const msgbuf_t *msgbuf) {
   u32 lifetime;
   int rc = hicn_data_get_expiry_time(msgbuf_get_pkbuf(msgbuf), &lifetime);
-  assert(rc == HICN_LIB_ERROR_NONE);  // XXX
-  _unused(rc);
+  //assert(rc == HICN_LIB_ERROR_NONE);  // XXX
+  //_unused(rc);
+  if (rc == HICN_LIB_ERROR_NONE)
+      return 0;
   return lifetime;
 }
 
