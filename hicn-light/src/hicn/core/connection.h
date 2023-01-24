@@ -31,7 +31,7 @@
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
-#define CONNECTION_ID_UNDEFINED ~0
+#define CONNECTION_ID_UNDEFINED INVALID_FACE_ID
 
 #define foreach_connection_event \
   _(UNDEFINED)                   \
