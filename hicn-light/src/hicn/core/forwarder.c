@@ -32,6 +32,11 @@
 /* Batch sending: only if the previous option is undefined */
 #define USE_QUEUE true
 
+/* Shall we send mapme updates to advertise all local prefixes on newly created
+ * faces
+ */
+//#define ADVERTISE_PREFIXES_ON_NEW_FACES
+
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -250,9 +255,11 @@ void forwarder_on_route_event(const forwarder_t *forwarder,
                               fib_entry_t *entry) {
   commands_notify_route(forwarder, entry);
 
+#ifdef ADVERTISE_PREFIXES_ON_NEW_FACES
   nexthops_t new_nexthops = NEXTHOPS_EMPTY;
-  nexthops_t *nexthops;
+#endif /* ADVERTISE_PREFIXES_ON_NEW_FACES */
 
+  nexthops_t *nexthops = NULL;
   char *prefix_type_s;
 
   const connection_table_t *table =
@@ -272,6 +279,7 @@ void forwarder_on_route_event(const forwarder_t *forwarder,
     nexthops = fib_entry_get_nexthops(entry);
     nexthops_reset(nexthops);
     fib_entry_filter_nexthops(entry, nexthops, ~0, false);
+#ifdef ADVERTISE_PREFIXES_ON_NEW_FACES
   } else {
     /* Check available non-local connections (on which we would send MAP-Me
      * updates */
@@ -281,9 +289,13 @@ void forwarder_on_route_event(const forwarder_t *forwarder,
     fib_entry_filter_nexthops(entry, nexthops, ~0, true);
 
 #ifdef WITH_MAPME
-    mapme_set_adjacencies(forwarder->mapme, entry, nexthops);
+    mapme_set_adjacencies(forwarder->mapme, entry, nexthops, NULL);
 #endif /* WITH_MAPME */
+#endif /* ADVERTISE_PREFIXES_ON_NEW_FACES */
   }
+
+  if (!nexthops)
+    return;
 
   if (!fib_entry_nexthops_changed(entry, nexthops)) return;
 
@@ -785,12 +797,15 @@ static int _forwarder_get_interest_manifest(
 
   hicn_payload_type_t payload_type;
   HICN_UNUSED(int rc) = hicn_packet_get_payload_type(pkbuf, &payload_type);
-  assert(rc == HICN_LIB_ERROR_NONE);
+  // XXX ASSERT HERE !!!
+  if (rc != HICN_LIB_ERROR_NONE) return -1;
+  // assert(rc == HICN_LIB_ERROR_NONE);
 
   if (payload_type != HPT_MANIFEST) return -1;
 
   rc = hicn_packet_get_payload(pkbuf, &payload, payload_size, false);
-  assert(rc == HICN_LIB_ERROR_NONE);
+  // assert(rc == HICN_LIB_ERROR_NONE);
+  if (rc != HICN_LIB_ERROR_NONE) return -1;
 
   *int_manifest_header = (interest_manifest_header_t *)payload;
 
@@ -1254,7 +1269,6 @@ bool forwarder_add_or_update_route(forwarder_t *forwarder,
 
   DEBUG("Adding prefix=%s for conn_id=%d", prefix_s, ingress_id);
 
-  // XXX TODO this should store options too
   strategy_type_t strategy_type = configuration_get_strategy(config, prefix_s);
 
   hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
@@ -1263,11 +1277,13 @@ bool forwarder_add_or_update_route(forwarder_t *forwarder,
   fib_entry_t *entry = fib_contains(forwarder->fib, &name_prefix);
   if (!entry) {
     entry = fib_entry_create(&name_prefix, strategy_type, NULL, forwarder);
-    fib_entry_nexthops_add(entry, ingress_id);
+    if (ingress_id != INVALID_FACE_ID)
+      fib_entry_nexthops_add(entry, ingress_id);
     fib_add(forwarder->fib, entry);
 
   } else {
-    fib_entry_nexthops_add(entry, ingress_id);
+    if (ingress_id != INVALID_FACE_ID)
+      fib_entry_nexthops_add(entry, ingress_id);
   }
 
   forwarder_on_route_event(forwarder, entry);
@@ -1553,6 +1569,7 @@ RETRY:
 #endif
 
     case HICN_PACKET_TYPE_MAPME:
+      INFO("Received MAP-Me packet");
       // XXX what about acks ?
       if (!connection_id_is_valid(msgbuf->connection_id)) {
         char conn_name[SYMBOLIC_NAME_LEN];
@@ -1568,6 +1585,7 @@ RETRY:
           ERROR("Could not create new connection");
           goto DROP;
         }
+        INFO("Created connection upon MAP-Me packet");
         msgbuf->connection_id = connection_id;
       }
       mapme_process(forwarder->mapme, msgbuf);
