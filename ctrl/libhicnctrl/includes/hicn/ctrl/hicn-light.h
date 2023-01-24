@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,8 +20,8 @@
  * Header and payload in binary format.
  */
 
-#ifndef HICN_CTRL_HICNLIGHTNG_H
-#define HICN_CTRL_HICNLIGHTNG_H
+#ifndef HICN_CTRL_HICNLIGHT_H
+#define HICN_CTRL_HICNLIGHT_H
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -84,7 +84,7 @@ typedef enum {
   _(mapme_set_discovery, MAPME_SET_DISCOVERY)             \
   _(mapme_set_timescale, MAPME_SET_TIMESCALE)             \
   _(mapme_set_retx, MAPME_SET_RETX)                       \
-  _(mapme_send_update, MAPME_SEND_UPDATE)                 \
+  _(mapme_add, MAPME_ADD)                                 \
   _(policy_add, POLICY_ADD)                               \
   _(policy_remove, POLICY_REMOVE)                         \
   _(policy_list, POLICY_LIST)                             \
@@ -93,6 +93,9 @@ typedef enum {
   _(subscription_remove, SUBSCRIPTION_REMOVE)             \
   _(stats_list, STATS_LIST)                               \
   _(face_stats_list, FACE_STATS_LIST)
+#if 0
+_(mapme_send_update, MAPME_SEND_UPDATE)
+#endif
 
 typedef enum {
   COMMAND_TYPE_UNDEFINED,
@@ -302,8 +305,20 @@ typedef cmd_mapme_timing_t cmd_mapme_set_timescale_t;
 typedef cmd_mapme_timing_t cmd_mapme_set_retx_t;
 
 typedef struct {
+  hicn_ip_address_t address;
+  uint32_t face_id;
+  uint8_t family;
+  uint8_t len;
+} cmd_mapme_add_t;
+
+/* dummy */
+typedef struct {} cmd_mapme_list_item_t;
+
+#if 0
+typedef struct {
   void *_;
 } cmd_mapme_send_update_t;
+#endif
 
 /* Policy */
 
@@ -538,4 +553,4 @@ ssize_t hc_light_command_serialize(hc_action_t action,
 
 int hc_sock_initialize_module(hc_sock_t *s);
 
-#endif /* HICN_CTRL_HICNLIGHTNG_H */
+#endif /* HICN_CTRL_HICNLIGHT_H */
