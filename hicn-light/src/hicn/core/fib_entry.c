@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -631,6 +631,19 @@ bool fib_entry_has_local_nexthop(const fib_entry_t *entry) {
     return true;
   });
   return false;
+}
+
+bool fib_entry_has_all_local_nexthops(const fib_entry_t *entry) {
+  connection_table_t *table = forwarder_get_connection_table(entry->forwarder);
+
+  int count = 0;
+  nexthops_foreach(fib_entry_get_nexthops(entry), nexthop, {
+    const connection_t *conn = connection_table_at(table, nexthop);
+    /* Ignore non-local connections */
+    if (!connection_is_local(conn)) return false;
+    count++;
+  });
+  return (count > 0);
 }
 
 #ifdef WITH_MAPME
