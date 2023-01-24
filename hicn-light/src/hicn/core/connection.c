@@ -272,6 +272,7 @@ bool connection_send_packet(const connection_t *connection,
   assert(face_type_is_valid(connection->type));
   assert(packet);
 
+  INFO("connection send packet %ld size %ld", connection_get_id(connection), size);
   return connection_vft[get_protocol(connection->type)]->send_packet(
       connection, packet, size);
 }
