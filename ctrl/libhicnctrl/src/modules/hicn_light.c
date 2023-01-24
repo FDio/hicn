@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -48,8 +48,9 @@
 
 #include "hicn_light/base.h"
 #include "hicn_light/connection.h"
-#include "hicn_light/listener.h"
 #include "hicn_light/face.h"
+#include "hicn_light/listener.h"
+#include "hicn_light/mapme.h"
 #include "hicn_light/route.h"
 #include "hicn_light/stats.h"
 #include "hicn_light/strategy.h"
@@ -194,6 +195,7 @@ static int hicnlight_process_header(hc_sock_t *sock) {
   /* Identify request being parsed */
   int seq = msg->header.seq_num;
   hc_request_t *request = NULL;
+  INFO("DEBUG: searching for request #%d", seq);
   if (hc_sock_map_get(sock->map, seq, &request) < 0) {
     ERROR("[hc_sock_light_process] Error searching for matching request");
     return -1;
@@ -1412,7 +1414,7 @@ int hc_sock_initialize_module(hc_sock_t *s) {
   hc_sock_light.object_vft[OBJECT_TYPE_FACE] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_PUNTING] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_CACHE] = HC_MODULE_OBJECT_OPS_EMPTY;
-  hc_sock_light.object_vft[OBJECT_TYPE_MAPME] = HC_MODULE_OBJECT_OPS_EMPTY;
+  hc_sock_light.object_vft[OBJECT_TYPE_MAPME] = hicnlight_mapme_module_ops;
   hc_sock_light.object_vft[OBJECT_TYPE_WLDR] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_POLICY] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_ROUTE] = hicnlight_route_module_ops;
