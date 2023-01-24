@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,7 +31,7 @@
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
-#define CONNECTION_ID_UNDEFINED ~0
+#define CONNECTION_ID_UNDEFINED INVALID_FACE_ID
 
 #define foreach_connection_event \
   _(UNDEFINED)                   \
