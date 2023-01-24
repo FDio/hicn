@@ -67,6 +67,7 @@ size_t fib_get_entry_array(const fib_t *fib, fib_entry_t ***array_p);
     fib_entry_t *ENTRY;                                                \
     for (_fib_var(i) = 0; _fib_var(i) < _fib_var(n); _fib_var(i)++) {  \
       ENTRY = _fib_var(array)[_fib_var(i)];                            \
+      printf("FIB ENTRY number %ld\n", _fib_var(i)); \
       do {                                                             \
         BODY                                                           \
       } while (0);                                                     \
