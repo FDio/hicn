@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -291,7 +291,7 @@ void _fib_remove(fib_t *fib, fib_node_t *curr, fib_node_t *parent) {
  *         /     \
  *       l        L
  */
-void fib_add(fib_t *fib, fib_entry_t *entry) {
+fib_entry_t *fib_add(fib_t *fib, fib_entry_t *entry) {
   assert(fib);
   assert(entry);
 
@@ -329,17 +329,12 @@ void fib_add(fib_t *fib, fib_entry_t *entry) {
 
   /* Case 2 */
   if (search.prefix_len == search.match_len && prefix_len == search.match_len) {
-    if (!curr->is_used) {
-      curr->is_used = true;
-      if (curr->entry) fib_entry_free(curr->entry);
-      curr->entry = entry;
-      fib->size++;
-    } else {
-      const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
-      nexthops_foreach(nexthops, nexthop,
-                       { fib_entry_nexthops_add(curr->entry, nexthop); });
-      fib_entry_free(entry);
-    }
+    const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+    nexthops_foreach(nexthops, nexthop,
+                     { fib_entry_nexthops_add(curr->entry, nexthop); });
+    fib_entry_free(entry);
+    entry = curr->entry;
+    curr->is_used = true;
     goto END;
   }
 
@@ -366,7 +361,7 @@ END:
 #if 0
   fib_dump(fib);
 #endif
-    ; /* required by clang */
+  return entry;
 }
 
 /*
