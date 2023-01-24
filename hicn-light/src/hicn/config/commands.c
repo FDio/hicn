@@ -1316,15 +1316,13 @@ NACK:
   return (uint8_t *)msg;
 }
 
-uint8_t *configuration_on_mapme_send_update(forwarder_t *forwarder,
-                                            uint8_t *packet,
-                                            unsigned ingress_id,
-                                            size_t *reply_size) {
+uint8_t *configuration_on_mapme_add(forwarder_t *forwarder, uint8_t *packet,
+        unsigned ingress_id, size_t *reply_size) {
   assert(forwarder);
   assert(packet);
 
   INFO("CMD: mapme send update (ingress=%d)", ingress_id);
-  msg_mapme_send_update_t *msg = (msg_mapme_send_update_t *)packet;
+  msg_mapme_add_t *msg = (msg_mapme_add_t *)packet;
 
   *reply_size = sizeof(msg_header_t);
 
