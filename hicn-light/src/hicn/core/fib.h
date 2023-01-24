@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,7 +30,7 @@ void fib_free(fib_t *fib);
 
 size_t fib_get_size(const fib_t *fib);
 
-void fib_add(fib_t *fib, fib_entry_t *node);
+fib_entry_t *fib_add(fib_t *fib, fib_entry_t *node);
 
 fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix);
 

@@ -14,24 +14,17 @@
  */
 
 /**
- * \file command_stats.h
- * \brief Implementation of stats command.
+ * \file mapme.h
+ * \brief Route.
  */
-#include <math.h>
-#include <hicn/ctrl/command.h>
 
-/* Commands */
+#ifndef HICNCTRL_IMPL_OBJECTS_MAPME_H
+#define HICNCTRL_IMPL_OBJECTS_MAPME_H
 
-static const command_parser_t command_stats_list = {
-    .action = ACTION_LIST,
-    .object_type = OBJECT_TYPE_STATS,
-    .nparams = 0,
-};
-COMMAND_REGISTER(command_stats_list);
+#include "../object_vft.h"
 
-static const command_parser_t command_face_stats_list = {
-    .action = ACTION_LIST,
-    .object_type = OBJECT_TYPE_FACE_STATS,
-    .nparams = 0,
-};
-COMMAND_REGISTER(command_face_stats_list);
+bool hc_mapme_has_face(const hc_mapme_t* mapme);
+
+DECLARE_OBJECT_OPS_H(OBJECT_TYPE_MAPME, mapme);
+
+#endif /* HICNCTRL_IMPL_OBJECTS_MAPME_H */

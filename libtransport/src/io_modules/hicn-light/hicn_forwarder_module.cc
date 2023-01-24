@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -218,20 +218,16 @@ utils::MemBuf::Ptr HicnForwarderModule::createCommandDeleteConnection() {
 
 utils::MemBuf::Ptr HicnForwarderModule::createCommandMapmeSendUpdate() {
   auto ret = PacketManager<>::getInstance().getMemBuf();
-  auto command =
-      reinterpret_cast<msg_mapme_send_update_t *>(ret->writableData());
-  ret->append(sizeof(msg_mapme_send_update_t));
+  auto command = reinterpret_cast<msg_mapme_add_t *>(ret->writableData());
+  ret->append(sizeof(msg_mapme_add_t));
   std::memset(command, 0, sizeof(*command));
 
-  *command = {
-      .header =
-          {
-              .message_type = REQUEST_LIGHT,
-              .command_id = COMMAND_TYPE_MAPME_SEND_UPDATE,
-              .length = 1,
-              .seq_num = seq_++,
-          },
-  };
+  *command = {.header = {
+                  .message_type = REQUEST_LIGHT,
+                  .command_id = COMMAND_TYPE_MAPME_ADD,
+                  .length = 1,
+                  .seq_num = seq_++,
+              }};
 
   return ret;
 }
