@@ -633,6 +633,19 @@ bool fib_entry_has_local_nexthop(const fib_entry_t *entry) {
   return false;
 }
 
+bool fib_entry_has_all_local_nexthops(const fib_entry_t *entry) {
+  connection_table_t *table = forwarder_get_connection_table(entry->forwarder);
+
+  int count = 0;
+  nexthops_foreach(fib_entry_get_nexthops(entry), nexthop, {
+    const connection_t *conn = connection_table_at(table, nexthop);
+    /* Ignore non-local connections */
+    if (!connection_is_local(conn)) return false;
+    count ++;
+  });
+  return (count > 0);
+}
+
 #ifdef WITH_MAPME
 
 void *fib_entry_get_user_data(const fib_entry_t *entry) {
