@@ -85,9 +85,22 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry);
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] fib_entry - The FIB entry to consider
  * @param [in] nexthops - next hops on which to send the update.
+ * @param [in] prefix - A more specific prefix (special use with no retx), or NULL
  */
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops);
+                          nexthops_t *nexthops, const hicn_prefix_t *prefix);
+
+/**
+ * @function mapme_set_adjacencies
+ * @abstract sends an update to the specified adjacency. Used by control plane
+ * commands.
+ * @param [in] mapme - Pointer to the MAP-Me data structure.
+ * @param [in] fib_entry - The FIB entry to consider
+ * @param [in] nexthop - nexthop on which to send the update.
+ * @param [in] prefix - A more specific prefix (special use with no retx), or NULL
+ */
+int mapme_set_adjacency(const mapme_t *mapme, fib_entry_t *entry,
+                        nexthop_t nexthop, const hicn_prefix_t *prefix);
 
 /**
  * @function mapme_update_adjacencies

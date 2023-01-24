@@ -351,6 +351,7 @@ uint8_t *configuration_on_listener_list(forwarder_t *forwarder, uint8_t *packet,
   size_t n = listener_table_len(table);
   msg_listener_list_t *msg_received = (msg_listener_list_t *)packet;
   uint8_t command_id = msg_received->header.command_id;
+  INFO("listener list seq num %d", msg_received->header.seq_num);
   uint32_t seq_num = msg_received->header.seq_num;
 
   msg_listener_list_reply_t *msg = NULL;
@@ -733,7 +734,11 @@ uint8_t *configuration_on_route_add(forwarder_t *forwarder, uint8_t *packet,
 
   unsigned conn_id = symbolic_to_conn_id_self(
       forwarder, control->symbolic_or_connid, ingress_id);
+
+  /* We accept routes without conn_id */
+#if 0
   if (!connection_id_is_valid(conn_id)) goto NACK;
+#endif
 
   hicn_ip_prefix_t prefix = {.family = control->family,
                              .address = control->address,
@@ -1165,7 +1170,7 @@ uint8_t *configuration_on_punting_add(forwarder_t *forwarder, uint8_t *packet,
 
 #if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   cmd_punting_add_t *control = &msg->payload;
-  if (ip_address_empty(&control->address)) goto NACK;
+  if (hicn_ip_address_empty(&control->address)) goto NACK;
 
   /* This is for hICN listeners only */
   // XXX add check !
@@ -1316,15 +1321,17 @@ NACK:
   return (uint8_t *)msg;
 }
 
-uint8_t *configuration_on_mapme_send_update(forwarder_t *forwarder,
-                                            uint8_t *packet,
-                                            unsigned ingress_id,
-                                            size_t *reply_size) {
+uint8_t *configuration_on_mapme_add(forwarder_t *forwarder, uint8_t *packet,
+                                    unsigned ingress_id, size_t *reply_size) {
   assert(forwarder);
   assert(packet);
 
-  INFO("CMD: mapme send update (ingress=%d)", ingress_id);
-  msg_mapme_send_update_t *msg = (msg_mapme_send_update_t *)packet;
+  /* Check ingress is local (for now this is only used locally) */
+  connection_table_t *table = forwarder_get_connection_table(forwarder);
+  const connection_t *connection = connection_table_at(table, ingress_id);
+  if (!connection_is_local(connection)) goto NACK;
+
+  msg_mapme_add_t *msg = (msg_mapme_add_t *)packet;
 
   *reply_size = sizeof(msg_header_t);
 
@@ -1333,20 +1340,66 @@ uint8_t *configuration_on_mapme_send_update(forwarder_t *forwarder,
 
   mapme_t *mapme = forwarder_get_mapme(forwarder);
 
-  /*
-   * The command triggers a mapme update for all prefixes produced on this
-   * face
-   * */
-  fib_foreach_entry(fib, entry, {
-    const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
-    nexthops_foreach(nexthops, nexthop, {
-      if (nexthop != ingress_id) continue;
-      /* This entry points to the producer face */
-      mapme_set_all_adjacencies(mapme, entry);
-      break;
-    });
-  });
+  cmd_mapme_add_t *control = &msg->payload;
+  /* If the message comes from the producer, address, family, len and
+   * face_id will be NULL
+   */
+  if (hicn_ip_address_empty(&control->address) && (control->len == 0) &&
+      (control->family == 0) && (control->face_id == 0)) {
+    /*
+     * The command triggers a mapme update for all prefixes produced on this
+     * face
+     *
+     * XXX This should in fact be an UPDATE command
+     */
 
+    fib_foreach_entry(fib, entry, {
+      const nexthops_t *nexthops = fib_entry_get_nexthops(entry);
+      nexthops_foreach(nexthops, nexthop, {
+        if (nexthop != ingress_id) continue;
+        /* This entry points to the producer face */
+        mapme_set_all_adjacencies(mapme, entry);
+        break;
+      });
+    });
+
+    goto END;
+  }
+
+  /* Control plane triggered
+   *
+   * We might not only receive MAP-Me update requests for prefixes we own,
+   * but also for more specific ones (for instance, we have a /64 and
+   * want to send an update on a /128). This requires a FIB lookup.
+   *
+   * NOTE: we need to avoid modifying the FIB because of this.
+   *
+   * TODO:
+   *  - assert face_id is valid and exists
+   *  - assert family is correct
+   */
+
+  hicn_prefix_t name_prefix = HICN_PREFIX_EMPTY;
+  hicn_prefix_create_from_ip_address_len(&control->address, control->len,
+                                         &name_prefix);
+  fib_entry_t *entry = fib_match_prefix(fib, &name_prefix);
+
+  INFO("Found a matching FIB entry for prefix");
+
+
+  /* We need a function that does not modify the FIB if we have a more specific
+   * prefix... we use workaround
+   */
+  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
+  if (hicn_prefix_get_len(prefix) == control->len) {
+    INFO("Sending mapme update to specified nexthop %d", control->face_id);
+    mapme_set_adjacency(mapme, entry, control->face_id, NULL);
+  } else {
+    INFO("Sending mapme update for MSP to specified nexthop %d", control->face_id);
+    mapme_set_adjacency(mapme, NULL, control->face_id, prefix);
+  }
+
+END:
   make_ack(msg);
   return (uint8_t *)msg;
 
