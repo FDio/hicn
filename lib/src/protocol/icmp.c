@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -177,7 +177,8 @@ int
 icmp_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
 	       hicn_packet_type_t *type)
 {
-  return CALL_CHILD (get_type, pkbuf, pos, type);
+  *type = HICN_PACKET_TYPE_MAPME;
+  return HICN_LIB_ERROR_NONE;
 }
 
 int
