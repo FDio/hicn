@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -303,7 +303,7 @@ int hc_mapme_set(hc_sock_t *s, hc_mapme_t *mapme);
 int hc_mapme_set_discovery(hc_sock_t *s, hc_mapme_t *mapme);
 int hc_mapme_set_timescale(hc_sock_t *s, hc_mapme_t *mapme);
 int hc_mapme_set_retx(hc_sock_t *s, hc_mapme_t *mapme);
-int hc_mapme_send_update(hc_sock_t *s, hc_mapme_t *mapme);
+int hc_mapme_create(hc_sock_t *s, hc_mapme_t *mapme);
 
 int hc_policy_create(hc_sock_t *s, hc_policy_t *policy);
 int hc_policy_delete(hc_sock_t *s, hc_policy_t *policy);
