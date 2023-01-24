@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2023 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -48,8 +48,9 @@
 
 #include "hicn_light/base.h"
 #include "hicn_light/connection.h"
-#include "hicn_light/listener.h"
 #include "hicn_light/face.h"
+#include "hicn_light/listener.h"
+#include "hicn_light/mapme.h"
 #include "hicn_light/route.h"
 #include "hicn_light/stats.h"
 #include "hicn_light/strategy.h"
@@ -186,7 +187,6 @@ static int hicnlight_process_header(hc_sock_t *sock) {
 
   // INFO("Processing header header %s", command_type_str(msg->hdr.command_id));
   s->roff += sizeof(hc_msg_header_t);
-  s->got_header = true;
 
   /* How many elements are we expecting in the reply ? */
   s->remaining = msg->header.length;
@@ -194,14 +194,17 @@ static int hicnlight_process_header(hc_sock_t *sock) {
   /* Identify request being parsed */
   int seq = msg->header.seq_num;
   hc_request_t *request = NULL;
+  INFO("DEBUG: searching for request #%d", seq);
   if (hc_sock_map_get(sock->map, seq, &request) < 0) {
     ERROR("[hc_sock_light_process] Error searching for matching request");
     return -1;
   }
   if (!request) {
     ERROR("[hc_sock_light_process] No request matching sequence number");
-    return -1;
+    return 0; // ignore packet
   }
+
+
   sock->current_request = request;
   hc_request_t *current_request = hc_request_get_current(request);
   hc_data_t *data = hc_request_get_data(current_request);
@@ -273,6 +276,10 @@ static int hicnlight_process_header(hc_sock_t *sock) {
       ERROR("[hc_sock_light_process] Invalid response received");
       return -99;
   }
+
+  /* As we might ignore packets, always keep this around here */
+  INFO("got header");
+  s->got_header = true;
 
   return 0;
 }
@@ -438,6 +445,7 @@ static ssize_t hicnlight_prepare_generic(hc_sock_t *sock, hc_request_t *request,
   }
 
   s->msg.header.seq_num = hc_request_get_seq(current_request);
+  INFO("Setting request seq = %d\n", s->msg.header.seq_num); 
 
   *buffer = (uint8_t *)&s->msg;
   return msg_len;
@@ -1412,7 +1420,7 @@ int hc_sock_initialize_module(hc_sock_t *s) {
   hc_sock_light.object_vft[OBJECT_TYPE_FACE] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_PUNTING] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_CACHE] = HC_MODULE_OBJECT_OPS_EMPTY;
-  hc_sock_light.object_vft[OBJECT_TYPE_MAPME] = HC_MODULE_OBJECT_OPS_EMPTY;
+  hc_sock_light.object_vft[OBJECT_TYPE_MAPME] = hicnlight_mapme_module_ops;
   hc_sock_light.object_vft[OBJECT_TYPE_WLDR] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_POLICY] = HC_MODULE_OBJECT_OPS_EMPTY;
   hc_sock_light.object_vft[OBJECT_TYPE_ROUTE] = hicnlight_route_module_ops;
