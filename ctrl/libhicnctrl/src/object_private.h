@@ -1,11 +1,13 @@
 #ifndef HICNCTRL_OBJECT_PRIVATE_H
 #define HICNCTRL_OBJECT_PRIVATE_H
 
+#include <hicn/face.h>
+
 #define INT_CMP(x, y) ((x > y) ? 1 : (x < y) ? -1 : 0)
 
 // XXX Those are always true
 #define IS_VALID_ADDRESS(x) (1)
-#define IS_VALID_CONNECTION_ID(x) (1)  // XXX ID
+#define IS_VALID_CONNECTION_ID(x) (x != INVALID_FACE_ID)  // XXX ID
 #define IS_VALID_ROUTE_COST(x) (1)
 #define IS_VALID_PREFIX_LEN(x) (1)
 #define IS_VALID_POLICY(x) (1)
