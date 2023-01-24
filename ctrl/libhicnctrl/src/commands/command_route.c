@@ -22,7 +22,7 @@
     .offset3 = offsetof(hc_route_t, family),                             \
   }
 
-#define cost                                                        \
+#define p_cost                                                        \
   {                                                                 \
     .name = "cost", .help = "Positive integer representing cost.",  \
     .type = TYPE_INT(1, 255), .offset = offsetof(hc_route_t, cost), \
@@ -73,19 +73,41 @@
   }
 
 /* Commands */
-int on_route_create(hc_route_t* route) {
-  if (hc_route_has_face(route)) {
-    route->face.admin_state = FACE_STATE_UP;
-    route->face.id = INVALID_FACE_ID;
-  }
+
+int on_route_parsed(hc_route_t* route) {
+   if (hc_route_has_face(route)) {
+     route->face.admin_state = FACE_STATE_UP;
+     route->face.id = INVALID_FACE_ID;
+   }
+  route->face_id = INVALID_FACE_ID; // we populate face name
+  if (route->cost == 0) route->cost = 1;
   return 0;
 }
+
+static const command_parser_t command_route_create1 = {
+    .action = ACTION_CREATE,
+    .object_type = OBJECT_TYPE_ROUTE,
+    .nparams = 1,
+    .parameters = {prefix},
+    .post_hook = (parser_hook_t)on_route_parsed,
+};
+COMMAND_REGISTER(command_route_create1);
+
+static const command_parser_t command_route_create2 = {
+    .action = ACTION_CREATE,
+    .object_type = OBJECT_TYPE_ROUTE,
+    .nparams = 2,
+    .parameters = {symbolic_or_id, prefix},
+    .post_hook = (parser_hook_t)on_route_parsed,
+};
+COMMAND_REGISTER(command_route_create2);
 
 static const command_parser_t command_route_create3 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 3,
-    .parameters = {symbolic_or_id, prefix, cost},
+    .parameters = {symbolic_or_id, prefix, p_cost},
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_create3);
 
@@ -93,8 +115,8 @@ static const command_parser_t command_route_create5 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 5,
-    .parameters = {prefix, cost, type_tcp_udp, remote_address, remote_port},
-    .post_hook = (parser_hook_t)on_route_create,
+    .parameters = {prefix, p_cost, type_tcp_udp, remote_address, remote_port},
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_create5);
 
@@ -102,9 +124,9 @@ static const command_parser_t command_route_create6 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 6,
-    .parameters = {prefix, cost, type_tcp_udp, remote_address, remote_port,
+    .parameters = {prefix, p_cost, type_tcp_udp, remote_address, remote_port,
                    interface},
-    .post_hook = (parser_hook_t)on_route_create,
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_create6);
 
@@ -112,9 +134,9 @@ static const command_parser_t command_route_create7 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 7,
-    .parameters = {prefix, cost, type_tcp_udp, local_address, local_port,
+    .parameters = {prefix, p_cost, type_tcp_udp, local_address, local_port,
                    remote_address, remote_port},
-    .post_hook = (parser_hook_t)on_route_create,
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_create7);
 
@@ -122,9 +144,9 @@ static const command_parser_t command_route_create8 = {
     .action = ACTION_CREATE,
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 8,
-    .parameters = {prefix, cost, type_tcp_udp, local_address, local_port,
+    .parameters = {prefix, p_cost, type_tcp_udp, local_address, local_port,
                    remote_address, remote_port, interface},
-    .post_hook = (parser_hook_t)on_route_create,
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_create8);
 
@@ -140,5 +162,6 @@ static const command_parser_t command_route_remove = {
     .object_type = OBJECT_TYPE_ROUTE,
     .nparams = 2,
     .parameters = {symbolic_or_id, prefix},
+    .post_hook = (parser_hook_t)on_route_parsed,
 };
 COMMAND_REGISTER(command_route_remove);
