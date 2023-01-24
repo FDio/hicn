@@ -22,6 +22,7 @@ list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/connection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/listener.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/face.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/mapme.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/route.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/stats.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/strategy.c
