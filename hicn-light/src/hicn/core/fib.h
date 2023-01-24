@@ -30,7 +30,7 @@ void fib_free(fib_t *fib);
 
 size_t fib_get_size(const fib_t *fib);
 
-void fib_add(fib_t *fib, fib_entry_t *node);
+fib_entry_t *fib_add(fib_t *fib, fib_entry_t *node);
 
 fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix);
 
