@@ -302,6 +302,8 @@ static void mapme_create_tfib(const mapme_t *mapme, fib_entry_t *entry) {
  */
 static hicn_mapme_type_t mapme_get_type_from_heuristic(const mapme_t *mapme,
                                                        fib_entry_t *entry) {
+  if (!entry)
+    return UPDATE;
   if (fib_entry_has_local_nexthop(entry))
     /* We are a producer for this entry, send update */
     return UPDATE;
@@ -322,43 +324,60 @@ static hicn_mapme_type_t mapme_get_type_from_heuristic(const mapme_t *mapme,
  *
  * Here nexthops is not necessarily FIB nexthops as we might advertise given FIB
  * entries on various other connections.
+ *
+ * prefix can be specified to send an update for a More Specific Prefix (MSP),
+ * or left NULL for the default behaviour. Note there will be no support for
+ * retransmission for MSP.
+ *
+ * NOTES:
+ *  - if the face is pending an we receive an IN, maybe we should not cancel the
+ *  timer
+ *  - this function should never be called for Notifications.
  */
-/* NOTE: if the face is pending an we receive an IN, maybe we should not cancel
- * the timer
- */
-// XXX Make sure this function is never called for Notifications
-// XXX overall review notification code and integrate it in VPP
 int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
-                           const nexthops_t *nexthops) {
+                           const nexthops_t *nexthops,
+                           const hicn_prefix_t *prefix) {
+  const hicn_prefix_t *mapme_prefix;
+  uint32_t mapme_seq;;
+
+  assert(!!prefix ^ !!entry);
+
+  INFO("mapme_send_to_nexthops");
   if (mapme->enabled == false) {
     WARN("MAP-Me is NOT enabled");
     return -1;
   }
 
-  mapme_tfib_t *tfib = TFIB(entry);
-  if (tfib == NULL) {
-    mapme_create_tfib(mapme, entry);
-    tfib = TFIB(entry);
+  if (entry) {
+    mapme_tfib_t *tfib = TFIB(entry);
+    if (tfib == NULL) {
+      mapme_create_tfib(mapme, entry);
+      tfib = TFIB(entry);
+    }
+
+    mapme_prefix = fib_entry_get_prefix(entry);
+    mapme_seq = tfib->seq,
+  } else {
+    mapme_prefix = prefix;
+    mapme_seq = 1;
   }
 
-  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
-
-  WITH_DEBUG({
+  WITH_INFO({
     char buf[MAXSZ_HICN_PREFIX];
-    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, mapme_prefix);
     if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
       snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
-    DEBUG("sending IU/IN for name %s on all nexthops", buf);
+    INFO("sending IU/IN for name %s on all nexthops", buf);
   })
 
   mapme_params_t params = {
       .protocol = mapme->protocol,
       .type = mapme_get_type_from_heuristic(mapme, entry),
-      .seq = tfib->seq,
+      .seq = mapme_seq;
   };
 
   uint8_t packet[MTU];
-  size_t size = hicn_mapme_create_packet(packet, prefix, &params);
+  size_t size = hicn_mapme_create_packet(packet, mapme_prefix, &params);
   if (size <= 0) {
     ERROR("Could not create MAP-Me packet");
     return -1;
@@ -366,6 +385,7 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
 
   connection_table_t *table = forwarder_get_connection_table(mapme->forwarder);
 
+  INFO("sending to %d nexthops", nexthops_get_len(nexthops));
   nexthops_foreach(nexthops, nexthop, {
     INFO("sending mapme packet on connection %d", nexthop);
     const connection_t *conn = connection_table_get_by_id(table, nexthop);
@@ -414,32 +434,62 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry) {
   nexthops_t *nexthops = fib_entry_get_mapme_nexthops(entry, &new_nexthops);
 
   /* We set force to true to avoid overriding the FIB cache */
-  return mapme_set_adjacencies(mapme, entry, nexthops);
+  return mapme_set_adjacencies(mapme, entry, nexthops, NULL);
 }
 
 // XXX this will change with the FIB cache
 // XXX we are sometimes incrementing tfib seq for nothing
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops) {
+                          nexthops_t *nexthops, const hicn_prefix_t *prefix) {
+  /*
+   * - entry is provided in case of a producer reannouncement
+   * - prefix is provided for control plane triggered updates
+   */
+  assert(!!prefix ^ !!entry);
+
+  INFO("1. mapme_set_adjacencies");
   if (mapme->enabled == false) {
     WARN("MAP-Me is NOT enabled");
     return -1;
   }
 
-  if (!fib_entry_has_local_nexthop(entry)) return -1;
+  INFO("2. mapme_set_adjacencies");
+  /* Let a control plane update go through even if there is no local prefix...
+   * we might for instance serve a /128 while a /64 was advertised.
+   *
+   * For a producer reannouncement, prefix is NULL, and there we can perform the
+   * check.
+   */
+  if (entry) {
+    if (!fib_entry_has_local_nexthop(entry)) return -1;
+  INFO("3. mapme_set_adjacencies");
 
-  /* Advertise prefix on all available next hops (if needed) */
-  mapme_tfib_t *tfib = TFIB(entry);
-  if (tfib == NULL) {
-    mapme_create_tfib(mapme, entry);
-    tfib = TFIB(entry);
+    /* Advertise prefix on all available next hops (if needed) */
+    mapme_tfib_t *tfib = TFIB(entry);
+    if (tfib == NULL) {
+      mapme_create_tfib(mapme, entry);
+      tfib = TFIB(entry);
+    }
+
+    nexthops_clear(&tfib->nexthops);
+
+  /* We update the sequence number in all cases otherwise this won't allow
+   * repetition
+   */
+  tfib->seq++;
   }
 
-  nexthops_clear(&tfib->nexthops);
-  tfib->seq++;
-
-  mapme_send_to_nexthops(mapme, entry, nexthops);
+  INFO("5 mapme_set_adjacencies");
+  mapme_send_to_nexthops(mapme, entry, nexthops, prefix);
   return 0;
+}
+
+int mapme_set_adjacency(const mapme_t *mapme, fib_entry_t *entry,
+                        nexthop_t nexthop, const hicn_prefix_t *prefix) {
+  nexthops_t nexthops = NEXTHOPS_EMPTY;
+  nexthops_add(&nexthops, nexthop);
+
+  return mapme_set_adjacencies(mapme, entry, &nexthops, prefix);
 }
 
 int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
@@ -457,7 +507,7 @@ int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
 
   if (inc_iu_seq) tfib->seq++;
 
-  mapme_send_to_nexthops(mapme, entry, &tfib->nexthops);
+  mapme_send_to_nexthops(mapme, entry, &tfib->nexthops, NULL);
   return 0;
 }
 
@@ -471,7 +521,7 @@ int mapme_send_to_nexthop(const mapme_t *mapme, fib_entry_t *entry,
   nexthops_t nexthops = NEXTHOPS_EMPTY;
   nexthops_add(&nexthops, nexthop);
 
-  return mapme_send_to_nexthops(mapme, entry, &nexthops);
+  return mapme_send_to_nexthops(mapme, entry, &nexthops, NULL);
 }
 
 #if 0
