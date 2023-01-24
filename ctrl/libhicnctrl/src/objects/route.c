@@ -93,7 +93,7 @@ int hc_route_validate(const hc_route_t *route, bool allow_partial) {
   int has_face_info = has_id || has_name || has_face;
 
   if (!has_face_info) return -1;
-  if (allow_partial && (has_name + has_face != 1)) return -1;
+  if (allow_partial && (has_id + has_name + has_face != 1)) return -1;
 
   if (has_face_info && has_family && has_remote_addr) return 0;
 
