@@ -323,7 +323,8 @@ USAGE:
 
 int main(int argc, char *argv[]) {
   int rc = 1;
-  hc_command_t command = {0};
+  hc_command_t command;
+  memset(&command, 0, sizeof(command));
   char buf[MAXSZ_HC_OBJECT];
 
   log_conf.log_level = LOG_INFO;
