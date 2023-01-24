@@ -175,12 +175,12 @@ nexthops_t *fib_entry_get_nexthops_from_strategy(
 
 /**
  * @function fib_entry_get_prefix
- * @abstract Returns a copy of the prefix.
- * @return A reference counted copy that you must destroy
+ * @return The FIB entry prefix
  */
 const hicn_prefix_t *fib_entry_get_prefix(const fib_entry_t *fib_entry);
 
 bool fib_entry_has_local_nexthop(const fib_entry_t *entry);
+bool fib_entry_has_all_local_nexthops(const fib_entry_t *entry);
 
 #ifdef WITH_MAPME
 
