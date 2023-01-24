@@ -261,8 +261,10 @@ hicn_packet_analyze (hicn_packet_buffer_t *pkbuf)
   pkbuf->payload = offset;
 
   rc = CALL (get_type, pkbuf, (hicn_packet_type_t *) (&pkbuf->type));
-  if (rc < 0)
+  if (rc < 0) {
+      printf("GET TYPE FAILED\n");
     goto ERR;
+  }
 
   return HICN_LIB_ERROR_NONE;
 
