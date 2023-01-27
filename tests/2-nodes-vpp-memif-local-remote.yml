@@ -54,7 +54,7 @@ services:
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
 
-        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
+        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 -k ${HMAC_KEY} &
         sleep 1
 
         sudo vppctl hicn strategy set 3 prefix ${RAAQM_PRODUCER}/128
@@ -111,6 +111,6 @@ services:
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
 
-        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
+        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 -k ${HMAC_KEY} &
 
         tail -f /dev/null
