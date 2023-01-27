@@ -16,7 +16,7 @@ BUILD_SOFTWARE=${BUILD_SOFTWARE:-1}
 PRIVILEGED=${TEST_PRIVILEGED:-false}
 set +a
 
-HIPERF_CMD_RTC="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2"
+HIPERF_CMD_RTC="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2 -k ${HMAC_KEY}"
 HIPERF_CMD_MEMIF_RTC="${HIPERF_CMD_RTC} -z memif_module"
 POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   tr -s " " |                               \
