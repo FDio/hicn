@@ -16,7 +16,7 @@ BUILD_SOFTWARE=${BUILD_SOFTWARE:-1}
 PRIVILEGED=${TEST_PRIVILEGED:-false}
 set +a
 
-HIPERF_CMD_RTC="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2"
+HIPERF_CMD_RTC="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2 -k ${HMAC_KEY}"
 HIPERF_CMD_MEMIF_RTC="${HIPERF_CMD_RTC} -z memif_module"
 POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   tr -s " " |                               \
@@ -34,8 +34,8 @@ POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
     print int(a[0]), int(a[n-1]), int(s/n)  \
   }"'
 
-HIPERF_CMD_RAAQM="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
-HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER_NEW} -w new"
+HIPERF_CMD_RAAQM="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER} -k ${HMAC_KEY}"
+HIPERF_CMD_RAAQM_NEW="ENABLE_LOG_PREFIX=OFF /usr/bin/hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER_NEW} -k ${HMAC_KEY} -w new"
 HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_CBR_NEW="${HIPERF_CMD_RAAQM_NEW} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
