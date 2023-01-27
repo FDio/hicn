@@ -27,7 +27,7 @@ CryptoHash::CryptoHash(const CryptoHash &other)
       digest_(other.digest_),
       digest_size_(other.digest_size_) {}
 
-CryptoHash::CryptoHash(CryptoHash &&other)
+CryptoHash::CryptoHash(CryptoHash &&other) noexcept
     : digest_type_(std::move(other.digest_type_)),
       digest_(std::move(other.digest_)),
       digest_size_(other.digest_size_) {}
