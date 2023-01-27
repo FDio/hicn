@@ -40,7 +40,7 @@ class CryptoHash {
   // Constructors
   CryptoHash();
   CryptoHash(const CryptoHash &other);
-  CryptoHash(CryptoHash &&other);
+  CryptoHash(CryptoHash &&other) noexcept;
   CryptoHash(CryptoHashType hash_type);
   CryptoHash(const uint8_t *hash, std::size_t size, CryptoHashType hash_type);
   CryptoHash(const std::vector<uint8_t> &hash, CryptoHashType hash_type);
