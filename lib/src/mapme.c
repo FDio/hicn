@@ -133,9 +133,13 @@ hicn_mapme_create_packet (u8 *buf, const hicn_prefix_t *prefix,
 {
   /* We currently ignore subsequent protocol definitions */
   if (HICN_EXPECT_TRUE (params->protocol == IPPROTO_IPV6))
-    return hicn_mapme_v6_create_packet (buf, prefix, params);
+    {
+      return hicn_mapme_v6_create_packet (buf, prefix, params);
+    }
   else
-    return hicn_mapme_v4_create_packet (buf, prefix, params);
+    {
+      return hicn_mapme_v4_create_packet (buf, prefix, params);
+    }
 }
 
 size_t

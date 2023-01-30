@@ -311,10 +311,8 @@ typedef struct {
   uint8_t len;
 } cmd_mapme_add_t;
 
-/* dummy */
-typedef struct {} cmd_mapme_list_item_t;
-
 #if 0
+
 typedef struct {
   void *_;
 } cmd_mapme_send_update_t;
