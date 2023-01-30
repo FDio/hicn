@@ -36,6 +36,7 @@
 #include "error.h"
 #include "faces/face.h"
 #include "route.h"
+#include "mapme.h"
 
 static vl_api_hicn_api_node_params_set_t node_ctl_params = {
   .pit_max_size = -1,
@@ -330,6 +331,83 @@ done:
   return (ret == HICN_ERROR_NONE) ?
 		 0 :
 		 clib_error_return (0, "%s\n", get_error_string (ret));
+}
+
+/*
+ * cli handler for 'mapme'
+ */
+static clib_error_t *
+hicn_cli_mapme_set_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+			       vlib_cli_command_t *cmd)
+{
+  clib_error_t *cl_err = 0;
+  fib_prefix_t prefix;
+
+  /* Get a line of input. */
+  unformat_input_t _line_input, *line_input = &_line_input;
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    {
+      return (0);
+    }
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "default-route %U/%d", unformat_ip46_address,
+		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
+	{
+	  ;
+	}
+      else
+	{
+	  return clib_error_return (0, "%s '%U'",
+				    get_error_string (HICN_ERROR_CLI_INVAL),
+				    format_unformat_error, line_input);
+	}
+    }
+
+  prefix.fp_proto = ip46_address_is_ip4 (&prefix.fp_addr) ? FIB_PROTOCOL_IP4 :
+							    FIB_PROTOCOL_IP6;
+
+  hicn_mapme_main_t *mapme_main = hicn_mapme_get_main ();
+  mapme_main->default_route = prefix;
+
+  return (cl_err);
+}
+
+static clib_error_t *
+hicn_cli_mapme_get_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+			       vlib_cli_command_t *cmd)
+{
+  hicn_mapme_main_t *mm = hicn_mapme_get_main ();
+  int default_route = 0;
+  clib_error_t *cl_err = 0;
+
+  /* Get a line of input. */
+  unformat_input_t _line_input, *line_input = &_line_input;
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    {
+      return (0);
+    }
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "default-route"))
+	{
+	  default_route = 1;
+	}
+      else
+	{
+	  return clib_error_return (0, "%s '%U'",
+				    get_error_string (HICN_ERROR_CLI_INVAL),
+				    format_unformat_error, line_input);
+	}
+    }
+
+  if (default_route)
+    {
+      vlib_cli_output (vm, "Mapme default route: '%U'", format_fib_prefix,
+		       &mm->default_route);
+    }
+
+  return cl_err;
 }
 
 /*
@@ -755,6 +833,19 @@ done:
 		   clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
+
+/* cli declaration for 'mapme set default_route' */
+VLIB_CLI_COMMAND (hicn_cli_mapme_set_command, static) = {
+  .path = "hicn mapme set",
+  .short_help = "hicn mapme set default-route <prefix>",
+  .function = hicn_cli_mapme_set_command_fn,
+};
+
+VLIB_CLI_COMMAND (hicn_cli_mapme_get_command, static) = {
+  .path = "hicn mapme get",
+  .short_help = "hicn mapme get default-route",
+  .function = hicn_cli_mapme_get_command_fn,
+};
 
 /* cli declaration for 'control start' */
 VLIB_CLI_COMMAND (hicn_cli_node_ctl_start_set_command, static) = {
