@@ -266,10 +266,12 @@ hicn_face_del (hicn_face_id_t face_id)
 }
 
 static void
-hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo)
+hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo,
+		    dpo_proto_t dpo_proto)
 {
-  dpo_stack (hicn_face_type, dpo->dpoi_proto, &face->dpo, dpo);
+  dpo_stack (hicn_face_type, dpo_proto, &face->dpo, dpo);
 
+  face->dpo.dpoi_proto = dpo_proto;
   face->flags &= ~HICN_FACE_FLAGS_IFACE;
   face->flags |= HICN_FACE_FLAGS_FACE;
 
@@ -305,7 +307,7 @@ hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo)
  */
 int
 hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
-	       hicn_face_id_t *pfaceid)
+	       hicn_face_id_t *pfaceid, dpo_proto_t dpo_proto)
 {
 
   hicn_face_t *face;
@@ -329,7 +331,6 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
 
   if (face == NULL)
     {
-
       hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_index, 0);
       face = hicn_dpoi_get_from_idx (*pfaceid);
 
@@ -345,7 +346,7 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
     }
 
-  hicn_iface_to_face (face, dpo_nh);
+  hicn_iface_to_face (face, dpo_nh, dpo_proto);
 
   temp_dpo.dpoi_index = ~0;
 

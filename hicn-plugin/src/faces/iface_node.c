@@ -164,7 +164,7 @@ typedef struct
       IP_HEADER_##ipv *ip_hdr = NULL;                                         \
       hicn_buffer_t *hicnb0;                                                  \
       int ret0 = HICN_ERROR_NONE;                                             \
-      u8 is_icmp0, is_manifest0;                                              \
+      u8 is_mapme0, is_manifest0;                                             \
       /* Prefetch for next iteration. */                                      \
       if (n_left_from > 1)                                                    \
 	{                                                                     \
@@ -188,7 +188,8 @@ typedef struct
       /* Parse packet and cache useful info in opaque2 */                     \
       ret0 =                                                                  \
 	hicn_interest_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));   \
-      is_icmp0 = (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                    \
+      is_mapme0 = hicn_packet_get_type (&hicn_get_buffer (b0)->pkbuf) ==      \
+		  HICN_PACKET_TYPE_MAPME;                                     \
       is_manifest0 = hicnb0->payload_type == HPT_MANIFEST;                    \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
 	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
@@ -198,8 +199,8 @@ typedef struct
 	}                                                                     \
       else                                                                    \
 	{                                                                     \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp0) * (NEXT_INTEREST_IP##ipv + is_manifest0);    \
+	  next0 = is_mapme0 * NEXT_MAPME_IP##ipv +                            \
+		  (1 - is_mapme0) * (NEXT_INTEREST_IP##ipv + is_manifest0);   \
                                                                               \
 	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
 	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
@@ -257,7 +258,7 @@ typedef struct
       vlib_buffer_t *b0, *b1;                                                 \
       u32 bi0, bi1, next0, next1;                                             \
       u32 next_iface0, next_iface1, sw_if0 = ~0, sw_if1 = ~0;                 \
-      u8 is_icmp0, is_icmp1, is_manifest0, is_manifest1;                      \
+      u8 is_mapme0, is_mapme1, is_manifest0, is_manifest1;                    \
       IP_HEADER_##ipv *ip_hdr0 = NULL;                                        \
       IP_HEADER_##ipv *ip_hdr1 = NULL;                                        \
       int ret0 = HICN_ERROR_NONE, ret1 = HICN_ERROR_NONE;                     \
@@ -296,8 +297,10 @@ typedef struct
 	hicn_interest_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));   \
       ret1 =                                                                  \
 	hicn_interest_parse_pkt (b1, vlib_buffer_length_in_chain (vm, b1));   \
-      is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
-      is_icmp1 = ret1 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
+      is_mapme0 = hicn_packet_get_type (&hicn_get_buffer (b0)->pkbuf) ==      \
+		  HICN_PACKET_TYPE_MAPME;                                     \
+      is_mapme1 = hicn_packet_get_type (&hicn_get_buffer (b1)->pkbuf) ==      \
+		  HICN_PACKET_TYPE_MAPME;                                     \
       is_manifest0 = hicnb0->payload_type == HPT_MANIFEST;                    \
       is_manifest1 = hicnb1->payload_type == HPT_MANIFEST;                    \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
@@ -307,11 +310,11 @@ typedef struct
                                                                               \
       if (PREDICT_TRUE (ret0 && ret1))                                        \
 	{                                                                     \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp0) * (NEXT_INTEREST_IP##ipv + is_manifest0);    \
+	  next0 = is_mapme0 * NEXT_MAPME_IP##ipv +                            \
+		  (1 - is_mapme0) * (NEXT_INTEREST_IP##ipv + is_manifest0);   \
                                                                               \
-	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp1) * (NEXT_INTEREST_IP##ipv + is_manifest1);    \
+	  next1 = is_mapme1 * NEXT_MAPME_IP##ipv +                            \
+		  (1 - is_mapme1) * (NEXT_INTEREST_IP##ipv + is_manifest1);   \
                                                                               \
 	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
 	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
@@ -366,8 +369,8 @@ typedef struct
       else if (ret0 && !ret1)                                                 \
 	{                                                                     \
 	  next1 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
-	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
+	  next0 = is_mapme0 * NEXT_MAPME_IP##ipv +                            \
+		  (1 - is_mapme0) * NEXT_INTEREST_IP##ipv;                    \
 	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
 	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
                                                                               \
@@ -398,8 +401,8 @@ typedef struct
 	  next0 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
 	  next_iface1 = NEXT_DATA_LOOKUP_IP##ipv;                             \
 	  sw_if1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];                    \
-	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
-		  (1 - is_icmp1) * NEXT_INTEREST_IP##ipv;                     \
+	  next1 = is_mapme1 * NEXT_MAPME_IP##ipv +                            \
+		  (1 - is_mapme1) * NEXT_INTEREST_IP##ipv;                    \
                                                                               \
 	  if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
 	      vnet_buffer (b1)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
