@@ -16,6 +16,10 @@
 #ifndef __HICN_DEBUG_H__
 #define __HICN_DEBUG_H__
 
+#ifndef HICN_DDEBUG
+#define HICN_DDEBUG
+#endif
+
 #ifdef HICN_DDEBUG
 #define HICN_DEBUG(...)                                                       \
   do                                                                          \
@@ -27,6 +31,6 @@
 #define HICN_DEBUG(...)
 #endif /* HICN_DEBUG */
 
-#define HICN_ERROR(...) clib_error_return (0, __VA_ARGS__)
+#define HICN_ERROR(...) clib_warning (__VA_ARGS__)
 
 #endif /* __HICN_DEBUG_H__ */

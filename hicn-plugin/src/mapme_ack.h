@@ -41,6 +41,8 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  u32 seq;
+  hicn_prefix_t prefix;
 } hicn_mapme_ack_trace_t;
 
 typedef enum
