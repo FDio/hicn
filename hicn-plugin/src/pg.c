@@ -341,7 +341,8 @@ hicnpg_server_add_and_lock (fib_prefix_t *prefix, u32 *hicnpg_server_index,
   HICN_DEBUG ("Calling hicn enable for pg-server face");
 
   hicn_face_id_t *vec_faces = NULL;
-  hicn_route_enable (prefix, &vec_faces);
+  fib_node_index_t hicn_fib_node_index;
+  hicn_route_enable (prefix, &hicn_fib_node_index, &vec_faces);
   if (vec_faces != NULL)
     vec_free (vec_faces);
 
