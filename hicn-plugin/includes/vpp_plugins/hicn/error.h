@@ -38,8 +38,8 @@
   _ (FACE_NO_GLOBAL_IP, NEXT (FACE_NOMEM), "No global ip address for face")   \
   _ (FACE_NOT_FOUND_IN_ENTRY, NEXT (FACE_NO_GLOBAL_IP),                       \
      "Face not found in entry")                                               \
-  _ (FACE_ALREADY_DELETED, NEXT (FACE_NOT_FOUND_IN_ENTRY),                    \
-     "Face alredy deleted")                                                   \
+  _ (FACE_NOT_VALID, NEXT (FACE_NOT_FOUND_IN_ENTRY), "Face not valid")        \
+  _ (FACE_ALREADY_DELETED, NEXT (FACE_NOT_VALID), "Face alredy deleted")      \
   _ (FACE_ALREADY_CREATED, NEXT (FACE_ALREADY_DELETED),                       \
      "Face alredy created")                                                   \
   _ (FWD_NOT_ENABLED, NEXT (FACE_ALREADY_CREATED),                            \
