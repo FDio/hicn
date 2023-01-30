@@ -22,6 +22,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <vector>
 
 extern "C" {
 #define WITH_TESTS
@@ -49,18 +50,24 @@ class FibTest : public ::testing::Test {
   fib_t *fib;
 };
 
-fib_entry_t *_fib_add_prefix(fib_t *fib, const hicn_prefix_t *prefix) {
+fib_entry_t *_fib_add_prefix(fib_t *fib, const hicn_prefix_t *prefix,
+                             std::vector<uint32_t> &nexthops) {
   fib_entry_t *entry =
       fib_entry_create(prefix, STRATEGY_TYPE_UNDEFINED, NULL, NULL);
+  for (size_t i = 0; i < nexthops.size(); i++)
+    fib_entry_nexthops_add(entry, nexthops[i]);
   fib_add(fib, entry);
   return entry;
 }
 
-#if 0
-static const hicn_prefix_t p0010 = (hicn_prefix_t){
-    .name = {.v6 = {.as_u64 = {0x1122334455667788, 0x9900aabbccddeeff}}},
-    .len = 4};
-#endif
+int compare_str_prefix_to_prefix(char *p1, hicn_prefix_t *p2) {
+  char prefix_s[MAXSZ_IP_PREFIX];
+  hicn_ip_prefix_t ipp;
+  hicn_prefix_get_ip_prefix(p2, &ipp);
+  hicn_ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX,
+                          (const hicn_ip_prefix_t *)&ipp);
+  return strcmp(prefix_s, p1);
+}
 
 #define HICN_PREFIX(P, STR)                      \
   hicn_prefix_t P;                               \
@@ -82,9 +89,10 @@ TEST_F(FibTest, FibAddOne) {
   const hicn_prefix_t *prefix_array[] = {&pfx};
   bool used_array[] = {true};
 
+  std::vector<uint32_t> empty_nexthop;
   for (unsigned i = 0; i < ARRAY_SIZE(prefix_array); i++) {
     if (!used_array[i]) continue;
-    _fib_add_prefix(fib, prefix_array[i]);
+    _fib_add_prefix(fib, prefix_array[i], empty_nexthop);
   }
 
   fib_dump(fib);
@@ -103,8 +111,9 @@ TEST_F(FibTest, FibAddTwo) {
   const hicn_prefix_t *prefix_array[] = {&b001, &inner_8000_1, &c001};
   bool used_array[] = {true, false, true};
 
-  _fib_add_prefix(fib, &b001);
-  _fib_add_prefix(fib, &c001);
+  std::vector<uint32_t> empty_nexthop;
+  _fib_add_prefix(fib, &b001, empty_nexthop);
+  _fib_add_prefix(fib, &c001, empty_nexthop);
 
   fib_dump(fib);
 
@@ -126,11 +135,12 @@ TEST_F(FibTest, FibAddFive) {
       &b002_abcd_0, &inner_b002_abcd_0, &b002_abcd_1};
   bool used_array[] = {true, false, true, true, true, false, true};
 
-  _fib_add_prefix(fib, &b002);
-  _fib_add_prefix(fib, &b002_abcd_0);
-  _fib_add_prefix(fib, &b002_2);
-  _fib_add_prefix(fib, &b002_abcd_1);
-  _fib_add_prefix(fib, &b002_3);
+  std::vector<uint32_t> empty_nexthop;
+  _fib_add_prefix(fib, &b002, empty_nexthop);
+  _fib_add_prefix(fib, &b002_abcd_0, empty_nexthop);
+  _fib_add_prefix(fib, &b002_2, empty_nexthop);
+  _fib_add_prefix(fib, &b002_abcd_1, empty_nexthop);
+  _fib_add_prefix(fib, &b002_3, empty_nexthop);
 
   fib_dump(fib);
 
@@ -149,7 +159,8 @@ TEST_F(FibTest, FibAddRemove) {
   const hicn_prefix_t *prefix_array_3[] = {&b002_64};
   bool used_array_3[] = {true};
 
-  fib_entry_t *entry = _fib_add_prefix(fib, &b002_128);
+  std::vector<uint32_t> empty_nexthop;
+  fib_entry_t *entry = _fib_add_prefix(fib, &b002_128, empty_nexthop);
   fib_dump(fib);
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array_1, used_array_1));
@@ -159,7 +170,7 @@ TEST_F(FibTest, FibAddRemove) {
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array_2, used_array_2));
 
-  entry = _fib_add_prefix(fib, &b002_64);
+  entry = _fib_add_prefix(fib, &b002_64, empty_nexthop);
   fib_dump(fib);
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array_3, used_array_3));
@@ -174,13 +185,154 @@ TEST_F(FibTest, FibAddNested) {
   const hicn_prefix_t *prefix_array_2[] = {&b002_128, &b002_64};
   bool used_array_2[] = {true, true};
 
-  _fib_add_prefix(fib, &b002_128);
+  std::vector<uint32_t> empty_nexthop;
+  _fib_add_prefix(fib, &b002_128, empty_nexthop);
   fib_dump(fib);
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array_1, used_array_1));
 
-  _fib_add_prefix(fib, &b002_64);
+  _fib_add_prefix(fib, &b002_64, empty_nexthop);
   fib_dump(fib);
   EXPECT_TRUE(fib_is_valid(fib));
   EXPECT_TRUE(fib_check_preorder(fib, prefix_array_2, used_array_2));
+}
+
+TEST_F(FibTest, IRIStest) {
+  char p_0_s[] = "b001:0:0:3039::/64";
+  char p_1_3_s[] = "b001::3039:0:1:2:0/128";
+  HICN_PREFIX(p_0, p_0_s);
+
+  HICN_PREFIX(p_1_2, "b001::3039:0:1:0:0/128");
+  HICN_PREFIX(p_1_1, "b001::3039:0:1:0:100/128");
+  HICN_PREFIX(p_1_3, p_1_3_s);
+  HICN_PREFIX(p_1_4, "b001::3039:0:1:0:102/128");
+
+  HICN_PREFIX(p_2_2, "b001::3039:0:2:0:0/128");
+  HICN_PREFIX(p_2_1, "b001::3039:0:2:0:100/128");
+  HICN_PREFIX(p_2_3, "b001::3039:0:2:2:0/128");
+  HICN_PREFIX(p_2_4, "b001::3039:0:2:0:102/128");
+
+  HICN_PREFIX(to_match1, "b001::3039:0:1:0:101/128");
+  HICN_PREFIX(to_match2, "b001:0:0:3039:ffff:ffff::/128");
+  HICN_PREFIX(to_match3, "b001:1::/128");
+  HICN_PREFIX(to_match4, "b001::3039:0:1:2:0/128");
+
+  std::vector<uint32_t> nexthop;
+  nexthop.push_back(2);  // add nexthop 2 to the fib entry
+  /*** add ***/
+  _fib_add_prefix(fib, &p_0, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+
+  _fib_add_prefix(fib, &p_1_1, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+
+  _fib_add_prefix(fib, &p_1_2, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+
+  _fib_add_prefix(fib, &p_1_3, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+
+  _fib_add_prefix(fib, &p_1_4, nexthop);
+  fib_dump(fib);
+  EXPECT_TRUE(fib_is_valid(fib));
+
+  /*** match ***/
+  fib_entry_t *entry = fib_match_prefix(fib, &to_match1);
+  // the matching prefix should be p0
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_0_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
+
+  entry = fib_match_prefix(fib, &to_match2);
+  // the matching prefix should be p0
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_0_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
+
+  entry = fib_match_prefix(fib, &to_match3);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  entry = fib_match_prefix(fib, &to_match4);
+  // the matching prefix should be p_1_3
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_1_3_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
+
+  /*** remove ***/
+  fib_remove(fib, &p_0, nexthop[0]);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_remove(fib, &p_1_1, nexthop[0]);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_remove(fib, &p_1_2, nexthop[0]);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_remove(fib, &p_1_3, nexthop[0]);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_remove(fib, &p_1_4, nexthop[0]);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_dump(fib);
+
+  /*** match ***/
+  entry = fib_match_prefix(fib, &to_match1);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  entry = fib_match_prefix(fib, &to_match2);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  entry = fib_match_prefix(fib, &to_match3);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  entry = fib_match_prefix(fib, &to_match4);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  // add again
+  _fib_add_prefix(fib, &p_0, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+  _fib_add_prefix(fib, &p_2_1, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+  _fib_add_prefix(fib, &p_2_2, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+  _fib_add_prefix(fib, &p_2_3, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+  _fib_add_prefix(fib, &p_2_4, nexthop);
+  EXPECT_TRUE(fib_is_valid(fib));
+  fib_dump(fib);
+
+  entry = fib_match_prefix(fib, &to_match1);
+  // the matching prefix should be p0
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_0_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
+
+  entry = fib_match_prefix(fib, &to_match2);
+  // the matching prefix should be p0
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_0_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
+
+  entry = fib_match_prefix(fib, &to_match3);
+  // we expect no match
+  EXPECT_FALSE(entry != NULL);
+
+  entry = fib_match_prefix(fib, &to_match4);
+  // the matching prefix should be p0
+  EXPECT_TRUE(entry != NULL);
+  if (entry) {
+    int ret = compare_str_prefix_to_prefix(p_0_s, &(entry->prefix));
+    EXPECT_EQ(ret, 0);
+  }
 }
