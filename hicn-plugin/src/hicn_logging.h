@@ -27,6 +27,6 @@
 #define HICN_DEBUG(...)
 #endif /* HICN_DEBUG */
 
-#define HICN_ERROR(...) clib_error_return (0, __VA_ARGS__)
+#define HICN_ERROR(...) clib_warning (__VA_ARGS__)
 
 #endif /* __HICN_DEBUG_H__ */
