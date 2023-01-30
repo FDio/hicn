@@ -91,7 +91,11 @@ foreach_standard_reply_retval_handler;
   _ (HICN_API_STRATEGY_SET_REPLY, hicn_api_strategy_set_reply)                \
   _ (HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)                \
   _ (HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)            \
-  _ (HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)
+  _ (HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)    \
+  _ (HICN_API_MAPME_DEFAULT_ROUTE_SET_REPLY,                                  \
+     hicn_api_mapme_default_route_set_reply)                                  \
+  _ (HICN_API_MAPME_DEFAULT_ROUTE_GET_REPLY,                                  \
+     hicn_api_mapme_default_route_get_reply)
 
 static int
 api_hicn_api_node_params_set (vat_main_t *vam)
@@ -778,6 +782,126 @@ api_hicn_api_strategy_set (vat_main_t *vam)
   M (HICN_API_STRATEGY_SET, mp);
   mp->strategy_id = clib_host_to_net_u32 (strategy_id);
   ip_prefix_encode (&fib_prefix, &mp->prefix);
+
+  /* send it... */
+  S (mp);
+
+  /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static void
+vl_api_hicn_api_mapme_default_route_set_reply_t_handler (
+  vl_api_hicn_api_mapme_default_route_set_reply_t *mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+  i32 retval = ntohl (mp->retval);
+
+  if (vam->async_mode)
+    {
+      vam->async_errors += (retval < 0);
+      return;
+    }
+
+  vam->retval = retval;
+  vam->result_ready = 1;
+
+  if (vam->retval < 0)
+    {
+      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
+    }
+}
+
+static void
+vl_api_hicn_api_mapme_default_route_get_reply_t_handler (
+  vl_api_hicn_api_mapme_default_route_get_reply_t *mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+  i32 retval = ntohl (mp->retval);
+  fib_prefix_t prefix;
+  u8 *sbuf = 0;
+
+  ip_prefix_decode (&mp->prefix, &prefix);
+
+  if (vam->async_mode)
+    {
+      vam->async_errors += (retval < 0);
+      return;
+    }
+
+  vam->retval = retval;
+  vam->result_ready = 1;
+
+  if (vam->retval < 0)
+    {
+      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
+      return;
+    }
+
+  sbuf = format (sbuf, "Mapme Default Route: %U", format_fib_prefix, &prefix);
+  fformat (vam->ofp, "%s\n", sbuf);
+}
+
+static int
+api_hicn_api_mapme_default_route_set (vat_main_t *vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_mapme_default_route_set_t *mp;
+  int ret;
+  fib_prefix_t fib_prefix;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "default_route %U/%d", unformat_ip46_address,
+		    &fib_prefix.fp_addr, IP46_TYPE_ANY, &fib_prefix.fp_len))
+	{
+	  ;
+	}
+      else
+	{
+	  clib_warning ("Please specify valid route.");
+	  return 1;
+	}
+    }
+
+  /* Construct the API message */
+  M (HICN_API_MAPME_DEFAULT_ROUTE_SET, mp);
+  ip_prefix_encode (&fib_prefix, &mp->prefix);
+
+  /* send it... */
+  S (mp);
+
+  /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static int
+api_hicn_api_mapme_default_route_get (vat_main_t *vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_mapme_default_route_set_t *mp;
+  int ret;
+  int default_route = 0;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "default_route"))
+	{
+	  default_route = 1;
+	}
+      else
+	{
+	  clib_warning ("Invalid option");
+	  return 1;
+	}
+    }
+
+  /* Construct the API message */
+  M (HICN_API_MAPME_DEFAULT_ROUTE_GET, mp);
 
   /* send it... */
   S (mp);
