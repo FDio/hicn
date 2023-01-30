@@ -81,13 +81,21 @@ hicn_data_input_set_adj_index (vlib_buffer_t *b,
 			       const hicn_dpo_ctx_t *dpo_ctx)
 {
   CLIB_UNUSED (u8 set) = 0;
+  u32 *adj_index = &vnet_buffer (b)->ip.adj_index[VLIB_RX];
+
+  if (*adj_index != ADJ_INDEX_INVALID)
+    {
+      return;
+    }
+
   for (u8 pos = 0; pos < dpo_ctx->entry_count; pos++)
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (dpo_ctx->next_hops[pos]);
       assert (face);
+
       if (ip46_address_cmp (&(face->nat_addr), dst_addr) == 0)
 	{
-	  vnet_buffer (b)->ip.adj_index[VLIB_RX] = face->dpo.dpoi_index;
+	  *adj_index = face->dpo.dpoi_index;
 	  set = 1;
 	  break;
 	}

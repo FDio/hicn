@@ -231,11 +231,11 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
   const dpo_id_t *former_dpo = &temp;
   int index = 0;
 
-#define ADD_FACE(nh)                                                          \
+#define ADD_FACE(nh, dpo_proto)                                               \
   do                                                                          \
     {                                                                         \
       /* Careful, this adds a lock on the face if it exists */                \
-      hicn_face_add (dpo, nh, sw_if, &face_id);                               \
+      hicn_face_add (dpo, nh, sw_if, &face_id, dpo_proto);                    \
       ASSERT (face_id != HICN_FACE_NULL);                                     \
       vec_validate (vec_faces, index);                                        \
       vec_faces[index] = face_id;                                             \
@@ -272,7 +272,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	  sw_if = adj->rewrite_header.sw_if_index;
 	  nh = get_address (&(adj->sub_type.nbr.next_hop), sw_if,
 			    fib_entry->proto);
-	  ADD_FACE (nh);
+	  ADD_FACE (nh, dpo->dpoi_proto);
 	  HICN_DEBUG ("Added new HICN face: %d because of route prefix %U",
 		      face_id, format_fib_prefix, &_fib_entry->fe_prefix);
 	}
@@ -285,11 +285,11 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	    {
 	    case FIB_PROTOCOL_IP6:
 	      ip46_address_set_ip6 (nh, &localhost6);
-	      ADD_FACE (nh);
+	      ADD_FACE (nh, DPO_PROTO_IP6);
 	      break;
 	    case FIB_PROTOCOL_IP4:
 	      ip46_address_set_ip4 (nh, &localhost4);
-	      ADD_FACE (nh);
+	      ADD_FACE (nh, DPO_PROTO_IP4);
 	      break;
 	    default:
 	      continue;
@@ -302,7 +302,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
       else if (dpo_is_pgserver (dpo))
 	{
 	  hicnpg_server_t *pg_server = hicnpg_server_get (dpo->dpoi_index);
-	  ADD_FACE (&pg_server->hicn_locator);
+	  ADD_FACE (&pg_server->hicn_locator, dpo->dpoi_proto);
 	}
     }
 
@@ -370,7 +370,7 @@ disable_data_receiving_rm_fib_entry (vnet_main_t *vnm, vnet_sw_interface_t *si,
 }
 
 int
-hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
+hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
 {
 
   int ret = HICN_ERROR_NONE;
@@ -464,7 +464,7 @@ hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
        */
       vnet_main_t *vnm = vnet_get_main ();
       vnet_sw_interface_walk (vnm, enable_data_receiving_new_fib_entry,
-			      &(prefix->fp_proto));
+			      (void *) (&prefix->fp_proto));
 
       dpo_unlock (&dpo);
     }
