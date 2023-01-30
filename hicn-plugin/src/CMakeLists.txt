@@ -179,6 +179,7 @@ set(COMPILER_OPTIONS
 ##############################################################
 set(COMPILE_DEFINITIONS
   "-DHICN_VPP_PLUGIN=1"
+  "-DHICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY"
 )
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
