@@ -38,6 +38,7 @@
 #include "faces/app/face_prod.h"
 #include "faces/app/face_cons.h"
 #include "route.h"
+#include "mapme.h"
 
 /* define message IDs */
 #include <vpp_plugins/hicn/hicn.api_enum.h>
@@ -494,6 +495,49 @@ vl_api_hicn_api_strategy_get_t_handler (vl_api_hicn_api_strategy_get_t *mp)
 		}));
 }
 
+/************* MAPME ****************/
+
+static void
+vl_api_hicn_api_mapme_default_route_set_t_handler (
+  vl_api_hicn_api_mapme_default_route_set_t *mp)
+{
+  vl_api_hicn_api_mapme_default_route_set_reply_t *rmp;
+  int rv = HICN_ERROR_NONE;
+  fib_prefix_t prefix;
+
+  hicn_main_t *sm = &hicn_main;
+
+  // Decode prefix
+  ip_prefix_decode (&mp->prefix, &prefix);
+
+  // Set the the prefix
+  hicn_mapme_main_t *mm = hicn_mapme_get_main ();
+  mm->default_route = prefix;
+
+  REPLY_MACRO (VL_API_HICN_API_MAPME_DEFAULT_ROUTE_SET_REPLY);
+}
+
+static void
+vl_api_hicn_api_mapme_default_route_get_t_handler (
+  vl_api_hicn_api_mapme_default_route_get_t *mp)
+{
+  vl_api_hicn_api_mapme_default_route_get_reply_t *rmp;
+  int rv = HICN_ERROR_NONE;
+
+  hicn_main_t *sm = &hicn_main;
+
+  // Get the the prefix
+  hicn_mapme_main_t *mm = hicn_mapme_get_main ();
+
+  REPLY_MACRO2 (
+    VL_API_HICN_API_MAPME_DEFAULT_ROUTE_GET_REPLY /* , rmp, mp, rv */, ({
+      if (rv == HICN_ERROR_NONE)
+	{
+	  ip_prefix_encode (&mm->default_route, &rmp->prefix);
+	}
+    }));
+}
+
 /************* APP FACE ****************/
 
 static void
@@ -590,12 +634,13 @@ vl_api_hicn_api_enable_disable_t_handler (vl_api_hicn_api_enable_disable_t *mp)
   ip_prefix_decode (&mp->prefix, &prefix);
 
   hicn_face_id_t *vec_faces = NULL;
+  fib_node_index_t hicn_fib_index;
 
   switch (clib_net_to_host_u32 (mp->enable_disable))
     {
     case HICN_ENABLE:
       HICN_DEBUG ("Calling hicn enable from API.");
-      rv = hicn_route_enable (&prefix, &vec_faces);
+      rv = hicn_route_enable (&prefix, &hicn_fib_index, &vec_faces);
       break;
     case HICN_DISABLE:
       HICN_DEBUG ("Calling hicn disable from API.");

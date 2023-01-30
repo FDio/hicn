@@ -269,7 +269,8 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
       HICN_DEBUG ("Calling hicn enable for producer face");
 
       hicn_face_id_t *vec_faces = NULL;
-      hicn_route_enable (prefix, &vec_faces);
+      fib_node_index_t hicn_fib_node_index;
+      hicn_route_enable (prefix, &hicn_fib_node_index, &vec_faces);
       if (vec_faces != NULL)
 	vec_free (vec_faces);
 
