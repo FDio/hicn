@@ -196,21 +196,27 @@ hicn_mapme_on_face_added (vlib_main_t *vm, hicn_face_id_t face)
 #define CURLEN		 retx_len[cur]
 #define NXTLEN		 retx_len[NEXT_SLOT (cur)]
 
-static_always_inline void *
-get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
-		   ip46_address_t *addr, hicn_packet_format_t format)
+static_always_inline bool
+create_mapme_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
+			    const hicn_prefix_t *prefix,
+			    const mapme_params_t *params)
 {
   vlib_frame_t *f;
   vlib_buffer_t *b; // for newly created packet
   u32 *to_next;
   u32 bi;
   u8 *buffer;
+  size_t n;
+  hicn_packet_format_t format;
 
   if (vlib_buffer_alloc (vm, &bi, 1) != 1)
     {
       clib_warning ("buffer allocation failure");
       return NULL;
     }
+
+  format = (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
+						HICN_PACKET_FORMAT_IPV4_ICMP;
 
   /* Create a new packet from scratch */
   b = vlib_get_buffer (vm, bi);
@@ -236,6 +242,18 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 			      EXPECTED_MAPME_V6_HDRLEN :
 			      EXPECTED_MAPME_V4_HDRLEN;
 
+  n = hicn_mapme_create_packet (buffer, prefix, params);
+
+  if (n <= 0)
+    {
+      clib_warning ("Could not create MAP-Me packet");
+      return false;
+    }
+
+  hicn_packet_set_buffer (pkbuf, vlib_buffer_get_current (b),
+			  b->current_length, b->current_length);
+  hicn_packet_analyze (&hicn_get_buffer (b)->pkbuf);
+
   return buffer;
 }
 
@@ -243,11 +261,9 @@ static_always_inline bool
 hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
 			 mapme_params_t *params, hicn_face_id_t face)
 {
-  size_t n;
-
   /* This should be retrieved from face information */
-  HICN_DEBUG ("Retransmission for prefix %U seq=%d", format_ip46_address,
-	      &prefix->name, IP46_TYPE_ANY, params->seq);
+  HICN_DEBUG ("Retransmission for prefix %U/%d seq=%d", format_ip46_address,
+	      &prefix->name, IP46_TYPE_ANY, prefix->len, params->seq);
 
   char *node_name = hicn_mapme_get_dpo_face_node (face);
   if (!node_name)
@@ -259,16 +275,7 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   vlib_node_t *node = vlib_get_node_by_name (vm, (u8 *) node_name);
   u32 node_index = node->index;
 
-  u8 *buffer = get_packet_buffer (
-    vm, node_index, face, (ip46_address_t *) prefix,
-    (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
-					       HICN_PACKET_FORMAT_IPV4_ICMP);
-  n = hicn_mapme_create_packet (buffer, prefix, params);
-  if (n <= 0)
-    {
-      clib_warning ("Could not create MAP-Me packet");
-      return false;
-    }
+  return create_mapme_packet_buffer (vm, node_index, face, prefix, params);
 
   return true;
 }
@@ -280,7 +287,7 @@ hicn_mapme_send_updates (vlib_main_t *vm, hicn_prefix_t *prefix, dpo_id_t dpo,
   hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
   if (!tfib)
     {
-      HICN_ERROR ("NULL TFIB entry id=%d", dpo.dpoi_index);
+      HICN_DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
       return;
     }
 
@@ -295,7 +302,8 @@ hicn_mapme_send_updates (vlib_main_t *vm, hicn_prefix_t *prefix, dpo_id_t dpo,
 
   if (send_all)
     {
-      for (u8 pos = tfib_last_idx; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
+      u8 pos;
+      for (pos = tfib_last_idx; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
 	{
 	  hicn_mapme_send_message (vm, prefix, &params, tfib->next_hops[pos]);
 	}
@@ -364,6 +372,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	     *  - For another local face type, we need to advertise local
 	     *  prefixes and schedule retransmissions
 	     */
+	    HICN_DEBUG ("Mapme Event: HICN_MAPME_EVENT_FACE_ADD");
 	    retx_t *retx_events = event_data;
 	    for (u8 i = 0; i < vec_len (retx_events); i++)
 	      {
@@ -379,6 +388,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 
 	case HICN_MAPME_EVENT_FACE_NH_SET:
 	  {
+	    HICN_DEBUG ("Mapme Event: HICN_MAPME_EVENT_FACE_NH_SET");
 	    /*
 	     * An hICN FIB entry has been modified. All operations so far
 	     * have been procedded in the nodes. Here we need to track
@@ -415,6 +425,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 		 * Transmit IU for all TFIB entries with latest seqno (we have
 		 * at least one for sure!)
 		 */
+		HICN_DEBUG ("Sending mapme message upon NH_SET event");
 		hicn_mapme_send_updates (vm, &retx->prefix, retx->dpo, true);
 
 		/* Delete entry_id from retransmissions in the current slot (if
@@ -438,6 +449,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	  break;
 
 	case HICN_MAPME_EVENT_FACE_NH_ADD:
+	  HICN_DEBUG ("Mapme Event: HICN_MAPME_EVENT_FACE_NH_ADD");
 	  /*
 	   * As per the description of states, this event should add the face
 	   * to the list of next hops, and eventually remove it from TFIB.
@@ -457,6 +469,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	  break;
 
 	case HICN_MAPME_EVENT_FACE_PH_ADD:
+	  HICN_DEBUG ("Mapme Event: HICN_MAPME_EVENT_FACE_PH_ADD");
 	  /* Back-propagation, interesting even for IN (desync) */
 	  {
 	    retx_t *retx_events = event_data;
@@ -470,6 +483,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	  break;
 
 	case HICN_MAPME_EVENT_FACE_PH_DEL:
+	  HICN_DEBUG ("Mapme Event: HICN_MAPME_EVENT_FACE_PH_DEL");
 	  /* Ack : remove an element from TFIB */
 	  break;
 
