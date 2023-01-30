@@ -340,7 +340,9 @@ pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache,
   pkt_cache_entry_t *entry = pkt_cache_at(pkt_cache, index);
   assert(entry);
   bool expired = false;
-  if (entry->has_expire_ts && ticks_now() >= entry->expire_ts) {
+  Ticks ticksnow = ticks_now();
+  if (entry->has_expire_ts && ticksnow >= entry->expire_ts) {
+    DEBUG("Ticks now: %llu -- expire_ts: %llu", ticksnow, entry->expire_ts);
     expired = true;
   }
 
@@ -679,6 +681,7 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
                             entry_id);
         *verdict = PKT_CACHE_VERDICT_FORWARD_DATA;
       } else {
+        DEBUG("In pkt_cache_on_data linea 682");
         pkt_cache_pit_remove_entry(pkt_cache, entry);
         *verdict = PKT_CACHE_VERDICT_CLEAR_DATA;
       }
@@ -695,6 +698,7 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
                             entry_id);
         *verdict = PKT_CACHE_VERDICT_STORE_DATA;
       } else {
+        DEBUG("In pkt_cache_on_data linea 699");
         pkt_cache_pit_remove_entry(pkt_cache, entry);
         *verdict = PKT_CACHE_VERDICT_CLEAR_DATA;
       }

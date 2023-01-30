@@ -453,7 +453,7 @@ hicn_face_get_with_dpo (const ip46_address_t *addr, u32 sw_if,
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
-		   int sw_if, hicn_face_id_t *pfaceid);
+		   int sw_if, hicn_face_id_t *pfaceid, dpo_proto_t dpo_proto);
 
 /**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
@@ -621,6 +621,7 @@ hicn_face_ip6_find (hicn_face_id_t *index, u8 *hicnb_flags,
 		    u32 node_index)
 {
   int ret = HICN_ERROR_FACE_NOT_FOUND;
+  hicn_face_id_t face_id;
 
   hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
 				     &hicn_face_hashtb, adj_index);
@@ -628,11 +629,12 @@ hicn_face_ip6_find (hicn_face_id_t *index, u8 *hicnb_flags,
   if (face != NULL)
     {
       /* unlock the face. We don't take a lock on each interest we receive */
-      hicn_face_id_t face_id = hicn_dpoi_get_index (face);
+      face_id = hicn_dpoi_get_index (face);
       hicn_face_unlock_with_id (face_id);
-      ret = HICN_ERROR_FACE_ALREADY_CREATED;
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-      *index = hicn_dpoi_get_index (face);
+      *index = face_id;
+
+      ret = HICN_ERROR_FACE_ALREADY_CREATED;
     }
 
   return ret;
@@ -662,10 +664,15 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 
   if (ret == HICN_ERROR_FACE_NOT_FOUND)
     {
+      HICN_DEBUG ("New iface!!!!!");
       ip46_address_t ip_address = { 0 };
       ip46_address_set_ip6 (&ip_address, nat_addr);
       hicn_face_id_t idx;
-      u8 face_flags = 0;
+      u8 face_flags = *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL ?
+			HICN_FACE_FLAGS_UDP4 :
+		      *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL ?
+			HICN_FACE_FLAGS_UDP6 :
+			0;
 
       hicn_iface_add ((const ip46_address_t *) nat_addr, sw_if, &idx,
 		      adj_index, face_flags);
