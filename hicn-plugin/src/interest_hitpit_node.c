@@ -49,10 +49,8 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_interest_hitpit_next_t next_index;
   hicn_interest_hitpit_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
-  f64 tnow;
   u32 n_left_to_next;
   vlib_buffer_t *b0;
-  u8 isv6;
   u32 bi0;
   u32 next0 = HICN_INTEREST_HITPIT_NEXT_ERROR_DROP;
   const hicn_strategy_vft_t *strategy_vft0;
@@ -72,9 +70,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
-
-  /* Capture time in vpp terms */
-  tnow = vlib_time_now (vm);
 
   while (n_left_from > 0)
     {
@@ -107,8 +102,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  // Retrieve PIT entry
 	  pcs_entry =
 	    hicn_pcs_entry_get_entry_from_index (rt->pitcs, pit_entry_index);
-
-	  isv6 = hicn_buffer_is_v6 (b0);
 
 	  // Increment packet counter
 	  stats.pkts_processed += 1;
