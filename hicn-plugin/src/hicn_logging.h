@@ -16,6 +16,10 @@
 #ifndef __HICN_DEBUG_H__
 #define __HICN_DEBUG_H__
 
+#ifndef HICN_DDEBUG
+#define HICN_DDEBUG
+#endif
+
 #ifdef HICN_DDEBUG
 #define HICN_DEBUG(...)                                                       \
   do                                                                          \

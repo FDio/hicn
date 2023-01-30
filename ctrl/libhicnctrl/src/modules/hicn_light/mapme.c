@@ -65,4 +65,8 @@ int hicnlight_mapme_serialize_set(const hc_object_t *object, uint8_t *packet) {
   return -1;
 }
 
+/* dummy */
+typedef struct {
+} cmd_mapme_list_item_t;
+
 DECLARE_MODULE_OBJECT_OPS(hicnlight, mapme);

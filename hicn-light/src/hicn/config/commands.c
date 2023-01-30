@@ -1326,11 +1326,13 @@ uint8_t *configuration_on_mapme_add(forwarder_t *forwarder, uint8_t *packet,
   assert(forwarder);
   assert(packet);
 
+  msg_mapme_add_t *msg = (msg_mapme_add_t *)packet;
+
   /* Check ingress is local (for now this is only used locally) */
   connection_table_t *table = forwarder_get_connection_table(forwarder);
   const connection_t *connection = connection_table_at(table, ingress_id);
 
-  msg_mapme_add_t *msg = (msg_mapme_add_t *)packet;
+  if (!connection_is_local(connection)) goto NACK;
 
   if (!connection_is_local(connection)) goto NACK;
 
