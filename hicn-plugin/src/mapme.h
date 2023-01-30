@@ -61,9 +61,12 @@ typedef struct hicn_mapme_conf_s
 {
   hicn_mapme_conf_t conf;
   bool remove_dpo; // FIXME used ?
+  fib_prefix_t default_route;
 
   vlib_main_t *vm;
 } hicn_mapme_main_t;
+
+extern hicn_mapme_main_t *hicn_mapme_get_main ();
 
 /**
  * @brief List of event to signat to the procesing node (eventmgr)
@@ -86,6 +89,21 @@ typedef enum
 } hicn_mapme_event_t;
 
 typedef hicn_dpo_ctx_t hicn_mapme_tfib_t;
+
+/**
+ * FIB Lookup Type
+ */
+#define foreach_hicn_mapme_fib_lookup_type                                    \
+  _ (EPM)                                                                     \
+  _ (LPM)                                                                     \
+  _ (LESSPM)
+
+typedef enum
+{
+#define _(a) HICN_MAPME_FIB_LOOKUP_TYPE_##a,
+  foreach_hicn_mapme_fib_lookup_type
+#undef _
+} hicn_mapme_fib_lookup_type_t;
 
 /*
  * Ideally we might need to care about alignment, but this struct is only
@@ -123,7 +141,17 @@ hicn_mapme_tfib_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
   // Don't add if it already exists
   // (eg. an old IU received on a face on which we are retransmitting)
   if (hicn_mapme_tfib_has (tfib, face_id))
-    return 0;
+    {
+      HICN_DEBUG ("Found face %d in tfib.");
+      return 0;
+    }
+
+  // If local face, do not put in in tfib
+  if (hicn_face_is_local (face_id))
+    {
+      HICN_DEBUG ("Do not add local face %d to TFIB.", face_id);
+      return 0;
+    }
 
   u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
@@ -174,9 +202,12 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
    */
   u8 start_pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
   u8 pos = ~0;
+
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
     if (tfib->next_hops[pos] == face_id)
       {
+	HICN_DEBUG ("Deleted the face_id=%d from TFIB as we received an ack.",
+		    face_id);
 	hicn_face_unlock_with_id (tfib->next_hops[pos]);
 	tfib->next_hops[pos] = invalid;
 	break;
@@ -196,30 +227,15 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 }
 
 /**
- * @brief Performs an Exact Prefix Match lookup on the FIB
+ * @brief Retrive DPO from fib entry
  * @returns the corresponding DPO (hICN or IP LB), or NULL
  */
 static_always_inline dpo_id_t *
-fib_epm_lookup (ip46_address_t *addr, u8 plen)
+dpo_from_fib_node_index (fib_node_index_t fib_entry_index)
 {
-  fib_prefix_t fib_pfx;
-  fib_node_index_t fib_entry_index;
-  u32 fib_index;
-  dpo_id_t *dpo_id;
-  load_balance_t *lb;
-
-  const dpo_id_t *load_balance_dpo_id;
-
-  /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (addr, &fib_pfx);
-  fib_pfx.fp_len = plen;
-
-  /* Check if the route already exist in the fib : EPM */
-  fib_index = fib_table_find (fib_pfx.fp_proto, HICN_FIB_TABLE);
-
-  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-  if (fib_entry_index == FIB_NODE_INDEX_INVALID)
-    return NULL;
+  const dpo_id_t *load_balance_dpo_id = NULL;
+  load_balance_t *lb = NULL;
+  dpo_id_t *dpo_id = NULL;
 
   load_balance_dpo_id = fib_entry_contribute_ip_forwarding (fib_entry_index);
 
@@ -249,6 +265,46 @@ fib_epm_lookup (ip46_address_t *addr, u8 plen)
 
   /* un-const */
   return (dpo_id_t *) load_balance_dpo_id;
+}
+
+/**
+ * @brief Performs an Exact Prefix Match lookup on the FIB
+ * @returns the corresponding DPO (hICN or IP LB), or NULL
+ */
+static_always_inline dpo_id_t *
+fib_lookup (ip46_address_t *addr, u8 plen,
+	    hicn_mapme_fib_lookup_type_t lookup_type)
+{
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  u32 fib_index;
+
+  /* At this point the face exists in the face table */
+  fib_prefix_from_ip46_addr (addr, &fib_pfx);
+  fib_pfx.fp_len = plen;
+
+  /* Check if the route already exist in the fib : EPM */
+  fib_index = fib_table_find (fib_pfx.fp_proto, HICN_FIB_TABLE);
+
+  switch (lookup_type)
+    {
+    case HICN_MAPME_FIB_LOOKUP_TYPE_EPM:
+      fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+      break;
+    case HICN_MAPME_FIB_LOOKUP_TYPE_LPM:
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+      break;
+    case HICN_MAPME_FIB_LOOKUP_TYPE_LESSPM:
+      fib_entry_index = fib_table_get_less_specific (fib_index, &fib_pfx);
+      break;
+    default:
+      return NULL;
+    }
+
+  if (fib_entry_index == FIB_NODE_INDEX_INVALID)
+    return NULL;
+
+  return dpo_from_fib_node_index (fib_entry_index);
 }
 
 /* DPO types */
