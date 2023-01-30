@@ -113,8 +113,7 @@ static inline u32 msgbuf_get_interest_lifetime(const msgbuf_t *msgbuf) {
   int rc = hicn_interest_get_lifetime(msgbuf_get_pkbuf(msgbuf), &lifetime);
   //assert(rc == HICN_LIB_ERROR_NONE);  // XXX
   //_unused(rc);
-  if (rc == HICN_LIB_ERROR_NONE)
-      return 0;
+  if (rc != HICN_LIB_ERROR_NONE) return 0;
   return lifetime;
 }
 

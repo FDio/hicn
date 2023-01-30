@@ -87,6 +87,20 @@ typedef enum
 
 typedef hicn_dpo_ctx_t hicn_mapme_tfib_t;
 
+/**
+ * FIB Lookup Type
+ */
+#define foreach_hicn_mapme_fib_lookup_type                                    \
+  _ (EPM)                                                                     \
+  _ (LPM)
+
+typedef enum
+{
+#define _(a) HICN_MAPME_FIB_LOOKUP_TYPE_##a,
+  foreach_hicn_mapme_fib_lookup_type
+#undef _
+} hicn_mapme_fib_lookup_type_t;
+
 /*
  * Ideally we might need to care about alignment, but this struct is only
  * used for casting hicn_dpo_ctx_t.
@@ -200,7 +214,8 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
  * @returns the corresponding DPO (hICN or IP LB), or NULL
  */
 static_always_inline dpo_id_t *
-fib_epm_lookup (ip46_address_t *addr, u8 plen)
+fib_lookup (ip46_address_t *addr, u8 plen,
+	    hicn_mapme_fib_lookup_type_t lookup_type)
 {
   fib_prefix_t fib_pfx;
   fib_node_index_t fib_entry_index;
@@ -217,7 +232,18 @@ fib_epm_lookup (ip46_address_t *addr, u8 plen)
   /* Check if the route already exist in the fib : EPM */
   fib_index = fib_table_find (fib_pfx.fp_proto, HICN_FIB_TABLE);
 
-  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+  switch (lookup_type)
+    {
+    case HICN_MAPME_FIB_LOOKUP_TYPE_EPM:
+      fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+      break;
+    case HICN_MAPME_FIB_LOOKUP_TYPE_LPM:
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+      break;
+    default:
+      return NULL;
+    }
+
   if (fib_entry_index == FIB_NODE_INDEX_INVALID)
     return NULL;
 

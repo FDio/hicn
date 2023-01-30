@@ -246,8 +246,8 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   size_t n;
 
   /* This should be retrieved from face information */
-  HICN_DEBUG ("Retransmission for prefix %U seq=%d", format_ip46_address,
-	      &prefix->name, IP46_TYPE_ANY, params->seq);
+  HICN_DEBUG ("Retransmission for prefix %U/%d seq=%d", format_ip46_address,
+	      &prefix->name, IP46_TYPE_ANY, prefix->len, params->seq);
 
   char *node_name = hicn_mapme_get_dpo_face_node (face);
   if (!node_name)
@@ -322,6 +322,8 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 
   hicn_mapme_init (vm);
 
+  clib_warning ("~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
   for (;;)
     {
       /* NOTE: returned timeout seems to always be 0 with get_event_data
@@ -364,6 +366,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	     *  - For another local face type, we need to advertise local
 	     *  prefixes and schedule retransmissions
 	     */
+	    clib_warning ("2~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 	    retx_t *retx_events = event_data;
 	    for (u8 i = 0; i < vec_len (retx_events); i++)
 	      {
@@ -379,6 +382,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 
 	case HICN_MAPME_EVENT_FACE_NH_SET:
 	  {
+	    clib_warning ("3~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 	    /*
 	     * An hICN FIB entry has been modified. All operations so far
 	     * have been procedded in the nodes. Here we need to track
