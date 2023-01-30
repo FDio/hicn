@@ -48,30 +48,30 @@ static char *hicn_mapme_ack_error_strings[] = {
  */
 bool
 hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
-			hicn_face_id_t in_face)
+			hicn_face_id_t in_face, hicn_prefix_t *prefix,
+			u32 *seq)
 {
   seq_t fib_seq;
   const dpo_id_t *dpo;
-  hicn_prefix_t prefix;
   mapme_params_t params;
   int rc;
 
   /* Parse incoming message */
-  rc = hicn_mapme_parse_packet (vlib_buffer_get_current (b), &prefix, &params);
+  rc = hicn_mapme_parse_packet (vlib_buffer_get_current (b), prefix, &params);
   if (rc < 0)
     goto ERR_PARSE;
 
-  /* if (params.seq == INVALID_SEQ) */
-  /*   { */
-  /*     DEBUG ("Invalid sequence number found in IU"); */
-  /*     return true; */
-  /*   } */
+  *seq = params.seq;
 
-  dpo = fib_epm_lookup (&(prefix.name.as_ip46), prefix.len);
+  HICN_DEBUG ("ACK - type:%d seq:%d prefix:%U len:%d", params.type, params.seq,
+	      format_ip46_address, &prefix->name, IP46_TYPE_ANY, prefix->len);
+
+  dpo = fib_lookup (&(prefix->name.as_ip46), prefix->len,
+		    HICN_MAPME_FIB_LOOKUP_TYPE_EPM);
   if (!dpo)
     {
       HICN_ERROR ("Ignored ACK for non-existing FIB entry %U. Ignored.",
-		  format_ip_prefix, &prefix);
+		  format_ip_prefix, prefix);
       return true;
     }
 
@@ -98,7 +98,14 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
       return true;
     }
 
-  hicn_mapme_tfib_del (tfib, in_face);
+  rc = hicn_mapme_tfib_del (tfib, in_face) != HICN_ERROR_NONE;
+  if (rc != HICN_ERROR_NONE)
+    {
+      HICN_ERROR (
+	"MAPME: Error deleting next hop %d from TFIB for prefix %U/%d",
+	in_face, format_ip46_address, &prefix->name, IP46_TYPE_ANY,
+	prefix->len);
+    }
 
   /*
    * Is the ingress face in TFIB ? if so, remove it, otherwise it might be a
@@ -107,7 +114,7 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
   retx_t *retx = vlib_process_signal_event_data (
     vm, hicn_mapme_eventmgr_process_node.index, HICN_MAPME_EVENT_FACE_PH_DEL,
     1, sizeof (retx_t));
-  *retx = (retx_t){ .prefix = prefix, .dpo = *dpo };
+  *retx = (retx_t){ .prefix = *prefix, .dpo = *dpo };
 
   return true;
 
@@ -125,6 +132,8 @@ hicn_mapme_ack_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_mapme_ack_next_t next_index;
   u32 n_left_from, *from, *to_next;
   n_left_from = frame->n_vectors;
+  hicn_prefix_t prefix;
+  u32 seq;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -152,7 +161,7 @@ hicn_mapme_ack_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  vlib_cli_output (vm, "Received IUAck");
 	  hb = hicn_get_buffer (b0);
-	  hicn_mapme_process_ack (vm, b0, hb->face_id);
+	  hicn_mapme_process_ack (vm, b0, hb->face_id, &prefix, &seq);
 
 	  /* Single loop: process 1 packet here */
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
@@ -164,6 +173,8 @@ hicn_mapme_ack_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		vlib_add_trace (vm, node, b0, sizeof (*t));
 	      t->sw_if_index = sw_if_index0;
 	      t->next_index = next0;
+	      t->prefix = prefix;
+	      t->seq = seq;
 	    }
 	  /* $$$$$ Done processing 1 packet here $$$$$ */
 
@@ -186,8 +197,11 @@ hicn_mapme_ack_format_trace (u8 *s, va_list *args)
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   hicn_mapme_ack_trace_t *t = va_arg (*args, hicn_mapme_ack_trace_t *);
 
-  s = format (s, "MAPME_ACK: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (
+    s,
+    "MAPME_ACK: pkt: %d, sw_if_index %d, next index %d, prefix %U/%d, seq %u",
+    (int) t->pkt_type, t->sw_if_index, t->next_index, format_ip46_address,
+    &t->prefix.name, IP46_TYPE_ANY, t->prefix.len, t->seq);
   return (s);
 }
 

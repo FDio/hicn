@@ -370,7 +370,9 @@ disable_data_receiving_rm_fib_entry (vnet_main_t *vnm, vnet_sw_interface_t *si,
 }
 
 int
-hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
+hicn_route_enable (const fib_prefix_t *prefix,
+		   fib_node_index_t *hicn_fib_node_index,
+		   hicn_face_id_t **pvec_faces)
 {
 
   int ret = HICN_ERROR_NONE;
@@ -398,10 +400,9 @@ hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
   /* Check if the prefix is already enabled */
   u32 fib_hicn_index = fib_table_find (prefix->fp_proto, HICN_FIB_TABLE);
 
-  fib_node_index_t fib_hicn_entry_index =
-    fib_table_lookup_exact_match (fib_hicn_index, prefix);
+  *hicn_fib_node_index = fib_table_lookup_exact_match (fib_hicn_index, prefix);
 
-  if (fib_hicn_entry_index == FIB_NODE_INDEX_INVALID)
+  if (*hicn_fib_node_index == FIB_NODE_INDEX_INVALID)
     {
       HICN_DEBUG (
 	"No route found for %U. Creating DPO and tracking fib prefix.",
@@ -442,10 +443,9 @@ hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
        * to match Neale suggested -- FIB_SOURCE_HICN the client
        * that is adding them -- no easy explanation at this time…
        */
-      CLIB_UNUSED (fib_node_index_t new_fib_node_index) =
-	fib_table_entry_special_dpo_add (
-	  fib_hicn_index, prefix, hicn_fib_src,
-	  (FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT), &dpo);
+      *hicn_fib_node_index = fib_table_entry_special_dpo_add (
+	fib_hicn_index, prefix, hicn_fib_src,
+	(FIB_ENTRY_FLAG_EXCLUSIVE | FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT), &dpo);
 
       HICN_DEBUG ("Calling sync_hicn_fib_entry");
       sync_hicn_fib_entry (fib_entry, pvec_faces);
@@ -477,7 +477,7 @@ hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **pvec_faces)
 
       /* Route already existing. We need to update the dpo. */
       load_balance_dpo_id =
-	fib_entry_contribute_ip_forwarding (fib_hicn_entry_index);
+	fib_entry_contribute_ip_forwarding (*hicn_fib_node_index);
 
       /* The dpo is not a load balance dpo as expected */
       if (load_balance_dpo_id->dpoi_type != DPO_LOAD_BALANCE)
