@@ -235,6 +235,8 @@ hicn_init (vlib_main_t *vm)
   // Init the packet generator module
   hicn_pg_init (vm);
 
+  clib_warning ("Mapme3 o no? %d", 1);
+
   return error;
 }
 
