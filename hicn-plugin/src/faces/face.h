@@ -574,7 +574,11 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       ip46_address_set_ip4 (&ip_address, nat_addr);
 
       hicn_face_id_t idx;
-      u8 face_flags = 0;
+      u8 face_flags = *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL ?
+			HICN_FACE_FLAGS_UDP4 :
+		      *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL ?
+			HICN_FACE_FLAGS_UDP6 :
+			0;
 
       hicn_iface_add (&ip_address, sw_if, &idx, adj_index, face_flags);
 
@@ -670,7 +674,11 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       ip46_address_t ip_address = { 0 };
       ip46_address_set_ip6 (&ip_address, nat_addr);
       hicn_face_id_t idx;
-      u8 face_flags = 0;
+      u8 face_flags = *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL ?
+			HICN_FACE_FLAGS_UDP4 :
+		      *hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL ?
+			HICN_FACE_FLAGS_UDP6 :
+			0;
 
       hicn_iface_add ((const ip46_address_t *) nat_addr, sw_if, &idx,
 		      adj_index, face_flags);

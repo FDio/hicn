@@ -130,7 +130,8 @@ hicn_route_set_strategy (fib_prefix_t *prefix, u8 strategy_id)
 static int
 ip_nh_add_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
 		      ip46_address_t *nh, u32 sw_if, u32 udp_encap_id,
-		      dpo_proto_t proto, u8 is_add)
+		      dpo_proto_t proto, fib_node_index_t *fib_node_index,
+		      u8 is_add)
 {
   fib_route_path_t *rpaths = NULL, rpath;
 
@@ -153,9 +154,11 @@ ip_nh_add_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
 
   vec_add1 (rpaths, rpath);
 
+  *fib_node_index = FIB_NODE_INDEX_INVALID;
+
   if (is_add)
-    fib_table_entry_path_add2 (fib_index, rpfx, FIB_SOURCE_API,
-			       FIB_ENTRY_FLAG_NONE, rpaths);
+    *fib_node_index = fib_table_entry_path_add2 (
+      fib_index, rpfx, FIB_SOURCE_API, FIB_ENTRY_FLAG_NONE, rpaths);
   else
     fib_table_entry_path_remove2 (fib_index, rpfx, FIB_SOURCE_API, rpaths);
 
@@ -164,19 +167,23 @@ ip_nh_add_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
 
 int
 ip_nh_adj_add_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
-			  ip46_address_t *nh, u32 sw_if, u8 is_add)
+			  ip46_address_t *nh, u32 sw_if,
+			  fib_node_index_t *fib_node_index, u8 is_add)
 {
-  return ip_nh_add_del_helper (
-    fib_proto, rpfx, nh, sw_if, ~0,
-    ip46_address_is_ip4 (nh) ? DPO_PROTO_IP4 : DPO_PROTO_IP6, is_add);
+  return ip_nh_add_del_helper (fib_proto, rpfx, nh, sw_if, ~0,
+			       ip46_address_is_ip4 (nh) ? DPO_PROTO_IP4 :
+							  DPO_PROTO_IP6,
+			       fib_node_index, is_add);
 }
 
 int
 ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
 				 const fib_prefix_t *rpfx, u32 uei,
-				 dpo_proto_t proto, u8 is_add)
+				 dpo_proto_t proto,
+				 fib_node_index_t *fib_node_index, u8 is_add)
 {
-  return ip_nh_add_del_helper (fib_proto, rpfx, NULL, ~0, uei, proto, is_add);
+  return ip_nh_add_del_helper (fib_proto, rpfx, NULL, ~0, uei, proto,
+			       fib_node_index, is_add);
 }
 
 static ip46_address_t *

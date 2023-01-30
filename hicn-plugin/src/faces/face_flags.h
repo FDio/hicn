@@ -26,7 +26,8 @@
   _ (2, APPFACE_PROD, "face is producer face")                                \
   _ (3, APPFACE_CONS, "face is consumer face")                                \
   _ (4, DELETED, "face is deleted")                                           \
-  _ (5, UDP, "face is udp")
+  _ (5, UDP4, "face is udp4")                                                 \
+  _ (6, UDP6, "face is udp6")
 
 enum
 {

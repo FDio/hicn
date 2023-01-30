@@ -83,7 +83,8 @@ int hicn_route_set_strategy (fib_prefix_t *prefix, u32 strategy_id);
  */
 int ip_nh_adj_add_del_helper (fib_protocol_t fib_proto,
 			      const fib_prefix_t *rpfx, ip46_address_t *nh,
-			      u32 sw_if, u8 is_add);
+			      u32 sw_if, fib_node_index_t *fib_node_index,
+			      u8 is_add);
 
 /**
  * @Brief Helper to add an udp-tunnel nex hop in the vrf 0. If there are no
@@ -93,11 +94,13 @@ int ip_nh_adj_add_del_helper (fib_protocol_t fib_proto,
  * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
  * @param rpfx Prefix for which to add a next hop
  * @param uei The UDP ENCAP ID
- * @param sw_if The
+ * @param proto The payload proto for this encap
  */
 int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
 				     const fib_prefix_t *rpfx, u32 uei,
-				     dpo_proto_t proto, u8 is_add);
+				     dpo_proto_t proto,
+				     fib_node_index_t *fib_node_index,
+				     u8 is_add);
 
 /**
  * @Brief Enable an hICN for an ip prefix
