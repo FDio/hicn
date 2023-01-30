@@ -92,6 +92,7 @@ typedef struct {
   /* Result node ancestors (NULL if not applicable) */
   fib_node_t *parent;
   fib_node_t *gparent;
+  fib_node_t *lpm;
   /* Information related to the result node */
   hicn_prefix_t *prefix;
   uint32_t prefix_len;
@@ -134,12 +135,16 @@ fib_node_t *fib_search(const fib_t *fib, const hicn_prefix_t *prefix,
 
   fib_node_t *parent = NULL;
   fib_node_t *gparent = NULL;
+  fib_node_t *lpm = NULL;
   fib_node_t *curr = fib->root;
   while (curr) {
     const hicn_prefix_t *curr_prefix = fib_entry_get_prefix(curr->entry);
 
     curr_len = hicn_prefix_get_len(curr_prefix);
     match_len = hicn_prefix_lpm(prefix, curr_prefix);
+
+    // store the lpm
+    if (match_len == curr_len && curr->is_used) lpm = curr;
 
     // curr_len >= prefix_len l >= L
     // L is a prefix of l
@@ -158,6 +163,7 @@ fib_node_t *fib_search(const fib_t *fib, const hicn_prefix_t *prefix,
   if (search) {
     search->parent = parent;
     search->gparent = gparent;
+    search->lpm = lpm;
     if (curr) {
       search->prefix_len = curr_len;
       search->match_len = match_len;
@@ -367,10 +373,10 @@ END:
  * Implementation details:
  *
  * To find whether the fib contains a prefix, we issue a search, and based on
- * the stopping conditions, we return the entry if and only if curr
+ * the stopping conditions, we return the fib note if and only if curr
  * is not NULL, and prefix_len == curr_len (== match_len)
  */
-fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
+fib_node_t *fib_contains_node(const fib_t *fib, const hicn_prefix_t *prefix) {
   assert(fib);
   assert(prefix);
 
@@ -383,7 +389,13 @@ fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
   if (search.match_len != prefix_len) return NULL;
   if (prefix_len != search.prefix_len) return NULL;
 
-  return curr->is_used ? curr->entry : NULL;
+  return curr->is_used ? curr : NULL;
+}
+
+fib_entry_t *fib_contains(const fib_t *fib, const hicn_prefix_t *prefix) {
+  fib_node_t *node = fib_contains_node(fib, prefix);
+  if (!node) return NULL;
+  return node->entry;
 }
 
 /*
@@ -500,12 +512,16 @@ void fib_remove(fib_t *fib, const hicn_prefix_t *prefix, unsigned conn_id) {
   assert(fib);
   assert(prefix);
 
-  fib_entry_t *entry = fib_contains(fib, prefix);
-  if (!entry) return;
+  fib_node_t *node = fib_contains_node(fib, prefix);
+  if (!node) return;
 
-  fib_entry_nexthops_remove(entry, conn_id);
-#ifndef WITH_MAPME
-  if (fib_entry_nexthops_len(entry) == 0) fib_node_remove(fib, name);
+  fib_entry_nexthops_remove(node->entry, conn_id);
+  if (fib_entry_nexthops_len(node->entry) == 0)
+  /* When using MAP-Me, we keep empty FIB entries but we mark them as unused*/
+#ifdef WITH_MAPME
+    node->is_used = false;
+#else
+    fib_node_remove(fib, name);
 #endif /* WITH_MAPME */
 }
 
@@ -515,9 +531,12 @@ static size_t fib_node_remove_connection_id(fib_node_t *node, unsigned conn_id,
   if (node->is_used) {
     fib_entry_nexthops_remove(node->entry, conn_id);
 
-    /* When using MAP-Me, we keep empty FIB entries */
-#ifndef WITH_MAPME
-    if (fib_entry_nexthops_len(node->entry) == 0) array[pos++] = node->entry;
+    /* When using MAP-Me, we keep empty FIB entries but we mark them as unused*/
+    if (fib_entry_nexthops_len(node->entry) == 0)
+#ifdef WITH_MAPME
+      node->is_used = false;
+#else
+      array[pos++] = node->entry;
 #endif /* WITH_MAPME */
   }
   pos = fib_node_remove_connection_id(node->child[ONE], conn_id, array, pos);
@@ -564,30 +583,17 @@ fib_entry_t *fib_match_msgbuf(const fib_t *fib, const msgbuf_t *msgbuf) {
 }
 
 /*
- * Implementation details:
- *
  * fib_search returns the longest non-strict subprefix.
- * - curr == NULL means no such prefix exist and we can return the parent.
- * - if we have an exact match (curr_len == key_prefix_len), then we
- *   return curr unless is_used is false, in which case we return the parent.
- * - otherwise, the parent is the longest prefix match
+ * the LPM is stored in search if it exists
  */
 fib_entry_t *fib_match_prefix(const fib_t *fib, const hicn_prefix_t *prefix) {
   assert(fib);
   assert(prefix);
 
   fib_search_t search;
-  fib_node_t *curr = fib_search(fib, prefix, &search);
-
-  if (!curr) {
-    /* This can happen with an empty FIB for instance */
-    if (!search.parent) return NULL;
-    return search.parent->entry;
-  }
-  if ((search.prefix_len == search.match_len) && curr->is_used)
-    return curr->entry;
-  if (search.parent) return search.parent->entry;
-  return NULL;
+  fib_search(fib, prefix, &search);
+  if (!search.lpm) return NULL;
+  return search.lpm->entry;
 }
 
 fib_entry_t *fib_match_name(const fib_t *fib, const hicn_name_t *name) {
@@ -632,7 +638,6 @@ bool _fib_is_valid(const fib_node_t *node) {
 
     uint32_t match_len = hicn_prefix_lpm(prefix, child_prefix);
     if (match_len != prefix_len) return false;
-    if (!node->is_used && !child->is_used) return false;
     if (hicn_prefix_get_bit(child_prefix, match_len) != i) return false;
     if (!_fib_is_valid(child)) return false;
   }
