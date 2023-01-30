@@ -93,7 +93,7 @@ int ip_nh_adj_add_del_helper (fib_protocol_t fib_proto,
  * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
  * @param rpfx Prefix for which to add a next hop
  * @param uei The UDP ENCAP ID
- * @param sw_if The
+ * @param proto The payload proto for this encap
  */
 int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
 				     const fib_prefix_t *rpfx, u32 uei,
@@ -109,7 +109,9 @@ int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
  * loadbalancer in the vrf HICN already contains a dpo which is not an hICN one
  * HICN_ERROR_ROUTE_MLT_LD if there are more than a dpo in the vpp loadbalancer
  */
-int hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **vec_faces);
+int hicn_route_enable (const fib_prefix_t *prefix,
+		       fib_node_index_t *hicn_fib_node_index,
+		       hicn_face_id_t **vec_faces);
 
 /**
  * @Brief Disable an hICN for an ip prefix. If hICN wasn't enable on the prefix

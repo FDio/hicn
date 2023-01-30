@@ -38,8 +38,8 @@
   _ (FACE_NO_GLOBAL_IP, NEXT (FACE_NOMEM), "No global ip address for face")   \
   _ (FACE_NOT_FOUND_IN_ENTRY, NEXT (FACE_NO_GLOBAL_IP),                       \
      "Face not found in entry")                                               \
-  _ (FACE_ALREADY_DELETED, NEXT (FACE_NOT_FOUND_IN_ENTRY),                    \
-     "Face alredy deleted")                                                   \
+  _ (FACE_NOT_VALID, NEXT (FACE_NOT_FOUND_IN_ENTRY), "Face not valid")        \
+  _ (FACE_ALREADY_DELETED, NEXT (FACE_NOT_VALID), "Face alredy deleted")      \
   _ (FACE_ALREADY_CREATED, NEXT (FACE_ALREADY_DELETED),                       \
      "Face alredy created")                                                   \
   _ (FWD_NOT_ENABLED, NEXT (FACE_ALREADY_CREATED),                            \
@@ -116,7 +116,9 @@
      "Src and dst addresses have different type (ipv4 and ipv6)")             \
   _ (MAPME_NEXT_HOP_ADDED, NEXT (UDP_TUNNEL_SRC_DST_TYPE),                    \
      "Next hop added to mapme")                                               \
-  _ (MAPME_NEXT_HOP_NOT_ADDED, NEXT (MAPME_NEXT_HOP_ADDED),                   \
+  _ (MAPME_WRONG_FACE_CREATED, NEXT (MAPME_NEXT_HOP_ADDED),                   \
+     "Face created does not correspond to the IU input face")                 \
+  _ (MAPME_NEXT_HOP_NOT_ADDED, NEXT (MAPME_WRONG_FACE_CREATED),               \
      "Next hop added to mapme")                                               \
   _ (PCS_NOT_FOUND, NEXT (MAPME_NEXT_HOP_NOT_ADDED),                          \
      "Hash not found in hash table")                                          \
