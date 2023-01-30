@@ -39,8 +39,9 @@ typedef struct hicn_mapme_ctrl_runtime_s
 typedef struct
 {
   u32 next_index;
-  u32 sw_if_index;
-  u8 pkt_type;
+  u32 seq;
+  hicn_prefix_t prefix;
+  hicn_mapme_type_t type;
 } hicn_mapme_ctrl_trace_t;
 
 typedef enum
