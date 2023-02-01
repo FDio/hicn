@@ -34,7 +34,8 @@ class TcpListener {
  public:
   using AcceptCallback = std::function<void(asio::ip::tcp::socket&&)>;
 
-  TcpListener(asio::io_service& io_service, short port, AcceptCallback callback)
+  TcpListener(asio::io_service& io_service, short port,
+              const AcceptCallback& callback)
       : acceptor_(io_service),
 #if ((ASIO_VERSION / 100 % 1000) < 12)
         socket_(io_service),
@@ -49,7 +50,6 @@ class TcpListener {
     acceptor_.listen();
   }
 
- public:
   void doAccept() {
 #if ((ASIO_VERSION / 100 % 1000) >= 12)
     acceptor_.async_accept(
@@ -80,7 +80,7 @@ class HTTPClientConnectionCallback;
 
 class Receiver {
  public:
-  Receiver() : thread_() {}
+  Receiver() {}
   virtual ~Receiver() = default;
   void stopAndJoinThread() { thread_.stop(); }
   virtual void stop() = 0;
@@ -115,13 +115,13 @@ class TcpReceiver : public Receiver {
   std::deque<HTTPClientConnectionCallback*> http_clients_;
   std::unordered_set<HTTPClientConnectionCallback*> used_http_clients_;
   ForwarderConfig forwarder_config_;
-  bool stopped_;
+  bool stopped_ = false;
 };
 
 class IcnReceiver : public Receiver {
  public:
   template <typename... Args>
-  IcnReceiver(Args&&... args)
+  explicit IcnReceiver(Args&&... args)
       : Receiver(),
         icn_consum_producer_(thread_.getIoService(),
                              std::forward<Args>(args)...) {
@@ -148,6 +148,7 @@ class HTTPProxy {
     std::string prefix;
     std::string first_ipv6_word;
 
+    virtual ~CommonParams() {}
     virtual void printParams() { LoggerInfo() << "Parameters: "; };
   };
 

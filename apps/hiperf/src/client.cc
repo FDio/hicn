@@ -26,6 +26,20 @@ namespace hiperf {
 class RTCCallback;
 class Callback;
 
+using transport::auth::CryptoHashType;
+using transport::core::Packet;
+using transport::core::Prefix;
+using transport::interface::ConsumerCallbacksOptions;
+using transport::interface::ConsumerSocket;
+using transport::interface::GeneralTransportOptions;
+using transport::interface::ProducerSocket;
+using transport::interface::ProductionProtocolAlgorithms;
+using transport::interface::RaaqmTransportOptions;
+using transport::interface::RtcTransportOptions;
+using transport::interface::RtcTransportRecoveryStrategies;
+using transport::interface::StrategyCallback;
+using transport::interface::TransportStatistics;
+
 /**
  * Hiperf client class: configure and setup an hicn consumer following the
  * ClientConfiguration.
@@ -207,12 +221,14 @@ class HIperfClient::Impl {
 
     void checkReceivedRtcContent(
         [[maybe_unused]] const ConsumerSocket &c,
-        [[maybe_unused]] const ContentObject &content_object) const {
+        [[maybe_unused]] const transport::core::ContentObject &content_object)
+        const {
       // Nothing to do here
     }
 
-    void processLeavingInterest(const ConsumerSocket & /*c*/,
-                                const Interest & /*interest*/) const {
+    void processLeavingInterest(
+        const ConsumerSocket & /*c*/,
+        const transport::core::Interest & /*interest*/) const {
       // Nothing to do here
     }
 
@@ -470,7 +486,7 @@ class HIperfClient::Impl {
     int setupRTCSocket() {
       int ret = ERROR_SUCCESS;
 
-      configuration_.transport_protocol_ = RTC;
+      configuration_.transport_protocol_ = transport::interface::RTC;
 
       if (configuration_.relay_ && configuration_.parallel_flows_ == 1) {
         int production_protocol = ProductionProtocolAlgorithms::RTC_PROD;
@@ -563,7 +579,7 @@ class HIperfClient::Impl {
 
       ret = consumer_socket_->setSocketOption(
           ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
-          (ConsumerContentObjectCallback)std::bind(
+          (transport::interface::ConsumerContentObjectCallback)std::bind(
               &Impl::ConsumerContext::checkReceivedRtcContent, this,
               std::placeholders::_1, std::placeholders::_2));
       if (ret == SOCKET_OPTION_NOT_SET) {
@@ -572,7 +588,8 @@ class HIperfClient::Impl {
 
       std::shared_ptr<TransportStatistics> transport_stats;
       ret = consumer_socket_->getSocketOption(
-          OtherOptions::STATISTICS, (TransportStatistics **)&transport_stats);
+          transport::interface::OtherOptions::STATISTICS,
+          (TransportStatistics **)&transport_stats);
       transport_stats->setAlpha(0.0);
 
       if (ret == SOCKET_OPTION_NOT_SET) {
@@ -585,7 +602,7 @@ class HIperfClient::Impl {
     int setupRAAQMSocket() {
       int ret = ERROR_SUCCESS;
 
-      configuration_.transport_protocol_ = RAAQM;
+      configuration_.transport_protocol_ = transport::interface::RAAQM;
 
       consumer_socket_ =
           std::make_unique<ConsumerSocket>(configuration_.transport_protocol_);
@@ -610,7 +627,7 @@ class HIperfClient::Impl {
     }
 
     int setupCBRSocket() {
-      configuration_.transport_protocol_ = CBR;
+      configuration_.transport_protocol_ = transport::interface::CBR;
 
       consumer_socket_ =
           std::make_unique<ConsumerSocket>(configuration_.transport_protocol_);
@@ -621,7 +638,8 @@ class HIperfClient::Impl {
    public:
     int setup() {
       int ret;
-      std::shared_ptr<Verifier> verifier = std::make_shared<VoidVerifier>();
+      std::shared_ptr<transport::auth::Verifier> verifier =
+          std::make_shared<transport::auth::VoidVerifier>();
 
       if (configuration_.rtc_) {
         ret = setupRTCSocket();
@@ -669,7 +687,8 @@ class HIperfClient::Impl {
       ret = consumer_socket_->setSocketOption(
           ConsumerCallbacksOptions::FWD_STRATEGY_CHANGE,
           (StrategyCallback)[](
-              [[maybe_unused]] notification::Strategy strategy){
+              [[maybe_unused]] transport::interface::notification::Strategy
+                  strategy){
               // nothing to do
           });
       if (ret == SOCKET_OPTION_NOT_SET) {
@@ -679,15 +698,16 @@ class HIperfClient::Impl {
       ret = consumer_socket_->setSocketOption(
           ConsumerCallbacksOptions::REC_STRATEGY_CHANGE,
           (StrategyCallback)[](
-              [[maybe_unused]] notification::Strategy strategy){
+              [[maybe_unused]] transport::interface::notification::Strategy
+                  strategy){
               // nothing to do
           });
       if (ret == SOCKET_OPTION_NOT_SET) {
         return ERROR_SETUP;
       }
 
-      ret = consumer_socket_->setSocketOption(CURRENT_WINDOW_SIZE,
-                                              configuration_.window_);
+      ret = consumer_socket_->setSocketOption(
+          transport::interface::CURRENT_WINDOW_SIZE, configuration_.window_);
       if (ret == SOCKET_OPTION_NOT_SET) {
         getOutputStream()
             << "ERROR -- Impossible to set the size of the window."
@@ -696,13 +716,13 @@ class HIperfClient::Impl {
       }
 
       if (!configuration_.producer_certificate_.empty()) {
-        verifier = std::make_shared<AsymmetricVerifier>(
+        verifier = std::make_shared<transport::auth::AsymmetricVerifier>(
             configuration_.producer_certificate_);
       }
 
       if (!configuration_.passphrase_.empty()) {
-        verifier =
-            std::make_shared<SymmetricVerifier>(configuration_.passphrase_);
+        verifier = std::make_shared<transport::auth::SymmetricVerifier>(
+            configuration_.passphrase_);
       }
 
       verifier->setVerificationFailedCallback(
@@ -716,10 +736,12 @@ class HIperfClient::Impl {
       }
 
       // Signer for aggregatd interests
-      std::shared_ptr<Signer> signer = std::make_shared<VoidSigner>();
+      std::shared_ptr<transport::auth::Signer> signer =
+          std::make_shared<transport::auth::VoidSigner>();
       if (!configuration_.aggr_interest_passphrase_.empty()) {
-        signer = std::make_shared<SymmetricSigner>(
-            CryptoSuite::HMAC_SHA256, configuration_.aggr_interest_passphrase_);
+        signer = std::make_shared<transport::auth::SymmetricSigner>(
+            transport::auth::CryptoSuite::HMAC_SHA256,
+            configuration_.aggr_interest_passphrase_);
       }
       ret = consumer_socket_->setSocketOption(GeneralTransportOptions::SIGNER,
                                               signer);
@@ -734,7 +756,7 @@ class HIperfClient::Impl {
 
       ret = consumer_socket_->setSocketOption(
           ConsumerCallbacksOptions::INTEREST_OUTPUT,
-          (ConsumerInterestCallback)std::bind(
+          (transport::interface::ConsumerInterestCallback)std::bind(
               &ConsumerContext::processLeavingInterest, this,
               std::placeholders::_1, std::placeholders::_2));
 
@@ -751,7 +773,7 @@ class HIperfClient::Impl {
 
       ret = consumer_socket_->setSocketOption(
           ConsumerCallbacksOptions::STATS_SUMMARY,
-          (ConsumerTimerCallback)std::bind(
+          (transport::interface::ConsumerTimerCallback)std::bind(
               &Impl::ConsumerContext::handleTimerExpiration, this,
               std::placeholders::_1, std::placeholders::_2));
 

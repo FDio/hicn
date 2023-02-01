@@ -154,10 +154,9 @@ void ForwarderInterface::internalRemoveConnectedUser(uint32_t route_id) {
   hc_data_free(data);
 }
 
-void ForwarderInterface::internalCreateFaceAndRoute(RouteInfoPtr route_info,
-                                                    uint8_t max_try,
-                                                    asio::steady_timer *timer,
-                                                    SetRouteCallback callback) {
+void ForwarderInterface::internalCreateFaceAndRoute(
+    RouteInfoPtr route_info, uint8_t max_try, asio::steady_timer *timer,
+    const SetRouteCallback &callback) {
   int ret = tryToCreateFaceAndRoute(route_info.get());
 
   if (ret < 0 && max_try > 0) {
@@ -186,7 +185,8 @@ void ForwarderInterface::internalCreateFaceAndRoute(RouteInfoPtr route_info,
   delete timer;
 }
 
-int ForwarderInterface::tryToCreateFaceAndRoute(route_info_t *route_info) {
+int ForwarderInterface::tryToCreateFaceAndRoute(
+    const route_info_t *route_info) {
   if (!sock_) return -1;
 
   hc_data_t *data;

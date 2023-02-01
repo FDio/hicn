@@ -21,22 +21,16 @@
 
 namespace transport {
 
-HTTPSession::HTTPSession(asio::io_service &io_service, std::string &ip_address,
-                         std::string &port,
-                         ContentReceivedCallback receive_callback,
-                         OnConnectionClosed on_connection_closed_callback,
-                         bool client)
+HTTPSession::HTTPSession(
+    asio::io_service &io_service, const std::string &ip_address,
+    const std::string &port, const ContentReceivedCallback &receive_callback,
+    const OnConnectionClosed &on_connection_closed_callback, bool client)
     : io_service_(io_service),
       socket_(io_service_),
       resolver_(io_service_),
       endpoint_iterator_(resolver_.resolve({ip_address, port})),
       timer_(io_service),
       reverse_(client),
-      is_reconnection_(false),
-      data_available_(false),
-      content_length_(0),
-      is_last_chunk_(false),
-      chunked_(false),
       receive_callback_(receive_callback),
       on_connection_closed_callback_(on_connection_closed_callback) {
   input_buffer_.prepare(buffer_size + 2048);
@@ -51,10 +45,10 @@ HTTPSession::HTTPSession(asio::io_service &io_service, std::string &ip_address,
   doConnect();
 }
 
-HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
-                         ContentReceivedCallback receive_callback,
-                         OnConnectionClosed on_connection_closed_callback,
-                         bool client)
+HTTPSession::HTTPSession(
+    asio::ip::tcp::socket socket,
+    const ContentReceivedCallback &receive_callback,
+    const OnConnectionClosed &on_connection_closed_callback, bool client)
     :
 #if ((ASIO_VERSION / 100 % 1000) < 12)
       io_service_(socket.get_io_service()),
@@ -120,9 +114,7 @@ void HTTPSession::close() {
   if (state_ != ConnectorState::CLOSED) {
     state_ = ConnectorState::CLOSED;
     if (socket_.is_open()) {
-      // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
       socket_.close();
-      // on_disconnect_callback_();
     }
   }
 }
@@ -130,16 +122,17 @@ void HTTPSession::close() {
 void HTTPSession::doWrite() {
   auto &buffer = write_msgs_.front().first;
 
-  asio::async_write(socket_, asio::buffer(buffer->data(), buffer->length()),
-                    [this](const std::error_code &ec, std::size_t length) {
-                      if (TRANSPORT_EXPECT_FALSE(!ec)) {
-                        write_msgs_.front().second();
-                        write_msgs_.pop_front();
-                        if (!write_msgs_.empty()) {
-                          doWrite();
-                        }
-                      }
-                    });
+  asio::async_write(
+      socket_, asio::buffer(buffer->data(), buffer->length()),
+      [this](const std::error_code &ec, [[maybe_unused]] std::size_t length) {
+        if (TRANSPORT_EXPECT_FALSE(!ec)) {
+          write_msgs_.front().second();
+          write_msgs_.pop_front();
+          if (!write_msgs_.empty()) {
+            doWrite();
+          }
+        }
+      });
 }  // namespace transport
 
 void HTTPSession::handleRead(const std::error_code &ec, std::size_t length) {
@@ -147,8 +140,8 @@ void HTTPSession::handleRead(const std::error_code &ec, std::size_t length) {
     content_length_ -= length;
     const uint8_t *buffer =
         asio::buffer_cast<const uint8_t *>(input_buffer_.data());
-    bool is_last = chunked_ ? (is_last_chunk_ ? !content_length_ : false)
-                            : !content_length_;
+    bool check = is_last_chunk_ ? !content_length_ : false;
+    bool is_last = chunked_ ? check : !content_length_;
     receive_callback_(buffer, input_buffer_.size(), is_last, false, nullptr);
     input_buffer_.consume(input_buffer_.size());
 
@@ -274,7 +267,6 @@ void HTTPSession::tryReconnection() {
       is_reconnection_ = true;
       io_service_.post([this]() {
         if (socket_.is_open()) {
-          // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
           socket_.close();
         }
         startConnectionTimer();
@@ -294,8 +286,6 @@ void HTTPSession::doConnect() {
 
           asio::ip::tcp::no_delay noDelayOption(true);
           socket_.set_option(noDelayOption);
-
-          // on_reconnect_callback_();
 
           doReadHeader();
 

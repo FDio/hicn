@@ -28,8 +28,7 @@
 #include <chrono>
 #include <map>
 
-#define SYN_STATE 1
-#define ACK_STATE 2
+static constexpr uint32_t SYN_STATE = 1;
 
 namespace transport {
 
@@ -63,7 +62,7 @@ class Configuration {
   Configuration() = default;
 };
 
-class Client : private interface::Portal::TransportCallback {
+class Client : public interface::Portal::TransportCallback {
  public:
   explicit Client(Configuration *c)
       : signals_(io_service_, SIGINT),
@@ -222,6 +221,8 @@ class Client : private interface::Portal::TransportCallback {
       case HICN_PACKET_FORMAT_IPV6_TCP:
         checkFamily(format, interest_name.getAddressFamily());
         break;
+      default:
+        throw std::runtime_error("Bad packet format");
     }
 
     /*
@@ -319,9 +320,11 @@ static std::unordered_map<std::string, hicn_packet_format_t> const
                          {"ipv6_tcp", HICN_PACKET_FORMAT_IPV6_TCP},
                          {"new", HICN_PACKET_FORMAT_NEW}};
 
-#define TO_LOWER(s)                             \
-  std::transform(s.begin(), s.end(), s.begin(), \
+std::string str_tolower(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(),
                  [](unsigned char c) { return std::tolower(c); });
+  return s;
+}
 
 void help() {
   LoggerInfo() << "usage: hicn-consumer-ping [options]";
@@ -409,14 +412,13 @@ int start(int argc, char *argv[]) {
         break;
       case 'w': {
         std::string packet_format_s = std::string(optarg);
-        TO_LOWER(packet_format_s);
+        packet_format_s = str_tolower(packet_format_s);
         auto it = packet_format_map.find(std::string(optarg));
         if (it == packet_format_map.end())
           throw std::runtime_error("Bad packet format");
         c->packet_format_ = it->second;
         break;
       }
-      case 'H':;
       default:
         help();
         exit(EXIT_FAILURE);

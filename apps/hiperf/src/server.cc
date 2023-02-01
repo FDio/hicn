@@ -17,18 +17,25 @@
 
 namespace hiperf {
 
+using transport::core::ContentObject;
+using transport::core::Interest;
+using transport::core::Name;
+using transport::interface::GeneralTransportOptions;
+using transport::interface::ProducerCallbacksOptions;
+using transport::interface::ProducerInterestCallback;
+using transport::interface::ProducerSocket;
+using transport::interface::ProductionProtocolAlgorithms;
+
 /**
  * Hiperf server class: configure and setup an hicn producer following the
  * ServerConfiguration.
  */
 class HIperfServer::Impl {
-  static inline constexpr std::size_t klog2_content_object_buffer_size() {
-    return 8;
-  }
-  static inline constexpr std::size_t kcontent_object_buffer_size() {
+  static constexpr std::size_t klog2_content_object_buffer_size() { return 8; }
+  static constexpr std::size_t kcontent_object_buffer_size() {
     return (1 << klog2_content_object_buffer_size());
   }
-  static inline constexpr std::size_t kmask() {
+  static constexpr std::size_t kmask() {
     return (kcontent_object_buffer_size() - 1);
   }
 
@@ -58,7 +65,8 @@ class HIperfServer::Impl {
             content_objects_.emplace_back(std::make_shared<ContentObject>(
                 configuration_.name_.makeName(), configuration_.packet_format_,
                 0, (const uint8_t *)buffer.data(), buffer.size()));
-        element->setLifetime(default_values::content_object_expiry_time);
+        element->setLifetime(
+            transport::interface::default_values::content_object_expiry_time);
       }
     }
 
@@ -92,7 +100,8 @@ class HIperfServer::Impl {
     int setup() {
       int ret;
       int production_protocol;
-      std::shared_ptr<Signer> signer = std::make_shared<VoidSigner>();
+      std::shared_ptr<transport::auth::Signer> signer =
+          std::make_shared<transport::auth::VoidSigner>();
 
       if (!configuration_.rtc_) {
         production_protocol = ProductionProtocolAlgorithms::BYTE_STREAM;
@@ -121,7 +130,7 @@ class HIperfServer::Impl {
         return ERROR_SETUP;
       }
 
-      if (producer_socket_->setSocketOption(PACKET_FORMAT,
+      if (producer_socket_->setSocketOption(transport::interface::PACKET_FORMAT,
                                             configuration_.packet_format_) ==
           SOCKET_OPTION_NOT_SET) {
         getOutputStream() << "ERROR -- Impossible to set the packet format."
@@ -130,12 +139,13 @@ class HIperfServer::Impl {
       }
 
       if (!configuration_.passphrase_.empty()) {
-        signer = std::make_shared<SymmetricSigner>(CryptoSuite::HMAC_SHA256,
-                                                   configuration_.passphrase_);
+        signer = std::make_shared<transport::auth::SymmetricSigner>(
+            transport::auth::CryptoSuite::HMAC_SHA256,
+            configuration_.passphrase_);
       }
 
       if (!configuration_.keystore_name_.empty()) {
-        signer = std::make_shared<AsymmetricSigner>(
+        signer = std::make_shared<transport::auth::AsymmetricSigner>(
             configuration_.keystore_name_, configuration_.keystore_password_);
       }
 
@@ -161,9 +171,10 @@ class HIperfServer::Impl {
       }
 
       // Verifier for aggregated interests
-      std::shared_ptr<Verifier> verifier = std::make_shared<VoidVerifier>();
+      std::shared_ptr<transport::auth::Verifier> verifier =
+          std::make_shared<transport::auth::VoidVerifier>();
       if (!configuration_.aggr_interest_passphrase_.empty()) {
-        verifier = std::make_unique<SymmetricVerifier>(
+        verifier = std::make_unique<transport::auth::SymmetricVerifier>(
             configuration_.aggr_interest_passphrase_);
       }
       ret = producer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
@@ -172,7 +183,7 @@ class HIperfServer::Impl {
 
       if (configuration_.rtc_) {
         ret = producer_socket_->setSocketOption(
-            RtcTransportOptions::AGGREGATED_DATA,
+            transport::interface::RtcTransportOptions::AGGREGATED_DATA,
             configuration_.aggregated_data_);
 
         if (ret == SOCKET_OPTION_NOT_SET) {
@@ -249,7 +260,7 @@ class HIperfServer::Impl {
 
       ret = producer_socket_->setSocketOption(
           ProducerCallbacksOptions::CONTENT_PRODUCED,
-          (ProducerContentCallback)bind(
+          (transport::interface::ProducerContentCallback)bind(
               &ProducerContext::onContentProduced, this, std::placeholders::_1,
               std::placeholders::_2, std::placeholders::_3));
       if (ret == SOCKET_OPTION_NOT_SET) {
@@ -308,8 +319,9 @@ class HIperfServer::Impl {
      * @brief Synchronously produce content upon reception of one interest
      */
     void processInterest(ProducerSocket &p, const Interest &interest) const {
-      p.setSocketOption(ProducerCallbacksOptions::CACHE_MISS,
-                        (ProducerInterestCallback)VOID_HANDLER);
+      p.setSocketOption(
+          ProducerCallbacksOptions::CACHE_MISS,
+          (ProducerInterestCallback)transport::interface::VOID_HANDLER);
       p.setSocketOption(GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME,
                         configuration_.content_lifetime_);
 

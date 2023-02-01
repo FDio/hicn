@@ -19,14 +19,18 @@
 
 namespace hiperf {
 
+using transport::auth::CryptoHashType;
+
 static std::unordered_map<std::string, hicn_packet_format_t> const
     packet_format_map = {{"ipv4_tcp", HICN_PACKET_FORMAT_IPV4_TCP},
                          {"ipv6_tcp", HICN_PACKET_FORMAT_IPV6_TCP},
                          {"new", HICN_PACKET_FORMAT_NEW}};
 
-#define TO_LOWER(s)                             \
-  std::transform(s.begin(), s.end(), s.begin(), \
+std::string str_tolower(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(),
                  [](unsigned char c) { return std::tolower(c); });
+  return s;
+}
 
 void usage() {
   LoggerInfo() << "HIPERF - Instrumentation tool for performing active network"
@@ -187,7 +191,7 @@ void usage() {
                   "defaults to IPV6_TCP)";
 }
 
-int main(int argc, char *argv[]) {
+int hiperf_main(int argc, char *argv[]) {
 #ifndef _WIN32
   // Common
   bool daemon = false;
@@ -202,7 +206,7 @@ int main(int argc, char *argv[]) {
   int role = 0;
   int options = 0;
 
-  char *log_file = nullptr;
+  const char *log_file = nullptr;
   transport::interface::global_config::IoModuleConfiguration config;
   std::string conf_file;
   config.name = "hicnlight_module";
@@ -282,7 +286,7 @@ int main(int argc, char *argv[]) {
       }
       case 'w': {
         std::string packet_format_s = std::string(optarg);
-        TO_LOWER(packet_format_s);
+        packet_format_s = str_tolower(packet_format_s);
         auto it = packet_format_map.find(std::string(optarg));
         if (it == packet_format_map.end())
           throw std::runtime_error("Bad packet format");
@@ -476,7 +480,6 @@ int main(int argc, char *argv[]) {
         options = -1;
         break;
       }
-      case 'h':
       default:
         usage();
         return EXIT_FAILURE;
@@ -565,4 +568,4 @@ int main(int argc, char *argv[]) {
 
 }  // namespace hiperf
 
-int main(int argc, char *argv[]) { return hiperf::main(argc, argv); }
+int main(int argc, char *argv[]) { return hiperf::hiperf_main(argc, argv); }
