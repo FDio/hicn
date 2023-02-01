@@ -18,7 +18,7 @@
 
 using namespace transport;
 
-int usage(char* program) {
+int usage(const char* program) {
   LoggerInfo() << "USAGE: " << program << "[-C|-S] [options] <http_prefix>\n"
                << "Server or Client: \n"
                << "  -P [FIRST_IPv6_WORD_HEX]\n"
@@ -132,7 +132,6 @@ int main(int argc, char** argv) {
       case 't':
         params.n_thread = std::stoul(optarg);
         break;
-      case 'h':
       default:
         return usage(argv[0]);
     }

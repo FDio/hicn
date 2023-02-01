@@ -27,10 +27,6 @@
 #define ASIO_STANDALONE
 #endif
 #include <asio.hpp>
-#include <thread>
-
-#define DEFAULT_BETA 0.99
-#define DEFAULT_GAMMA 0.07
 
 namespace http {
 
@@ -46,16 +42,13 @@ class ReadBytesCallbackImplementation
   static std::string chunk_separator;
 
  public:
-  ReadBytesCallbackImplementation(std::string file_name, long yet_downloaded)
+  ReadBytesCallbackImplementation(const std::string &file_name,
+                                  long yet_downloaded)
       : file_name_(file_name),
         temp_file_name_(file_name_ + ".temp"),
         yet_downloaded_(yet_downloaded),
         byte_downloaded_(yet_downloaded),
-        chunked_(false),
-        chunk_size_(0),
-        work_(std::make_unique<asio::io_service::work>(io_service_)),
-        thread_(
-            std::make_unique<std::thread>([this]() { io_service_.run(); })) {
+        work_(std::make_unique<asio::io_service::work>(io_service_)) {
     std::streambuf *buf;
     if (file_name_ != "-") {
       of_.open(temp_file_name_, std::ofstream::binary | std::ofstream::app);
@@ -65,12 +58,6 @@ class ReadBytesCallbackImplementation
     }
 
     out_ = new std::ostream(buf);
-  }
-
-  ~ReadBytesCallbackImplementation() {
-    if (thread_->joinable()) {
-      thread_->join();
-    }
   }
 
   void onBytesReceived(std::unique_ptr<utils::MemBuf> &&buffer) {
@@ -100,7 +87,7 @@ class ReadBytesCallbackImplementation
 
       if (chunked_) {
         if (chunk_size_ > 0) {
-          out_->write((char *)payload->data(), chunk_size_);
+          out_->write((char *)payload->writableData(), chunk_size_);
           payload->trimStart(chunk_size_);
 
           if (payload->length() >= chunk_separator.size()) {
@@ -128,7 +115,7 @@ class ReadBytesCallbackImplementation
               chunk_size_ -= payload->length();
             }
 
-            out_->write((char *)payload->data(), to_write);
+            out_->write((char *)payload->writableData(), to_write);
             byte_downloaded_ += (long)to_write;
             payload->trimStart(to_write);
 
@@ -138,7 +125,7 @@ class ReadBytesCallbackImplementation
           }
         }
       } else {
-        out_->write((char *)payload->data(), payload->length());
+        out_->write((char *)payload->writableData(), payload->length());
         byte_downloaded_ += (long)payload->length();
       }
 
@@ -224,7 +211,6 @@ class ReadBytesCallbackImplementation
     }
   }
 
- private:
   std::string file_name_;
   std::string temp_file_name_;
   std::ostream *out_;
@@ -233,23 +219,22 @@ class ReadBytesCallbackImplementation
   long content_size_;
   bool first_chunk_read_ = false;
   long byte_downloaded_ = 0;
-  bool chunked_;
-  std::size_t chunk_size_;
+  bool chunked_ = false;
+  std::size_t chunk_size_ = 0;
   asio::io_service io_service_;
   std::unique_ptr<asio::io_service::work> work_;
-  std::unique_ptr<std::thread> thread_;
 };
 
 std::string ReadBytesCallbackImplementation::chunk_separator = "\r\n";
 
-long checkFileStatus(std::string file_name) {
+long checkFileStatus(const std::string &file_name) {
   struct stat stat_buf;
   std::string temp_file_name_ = file_name + ".temp";
   int rc = stat(temp_file_name_.c_str(), &stat_buf);
   return rc == 0 ? stat_buf.st_size : -1;
 }
 
-void usage(char *program_name) {
+void usage(const char *program_name) {
   LoggerInfo() << "usage:";
   LoggerInfo() << program_name << " [option]... [url]...";
   LoggerInfo() << program_name << " options:";
@@ -261,10 +246,9 @@ void usage(char *program_name) {
          "the response";
   LoggerInfo() << "example:";
   LoggerInfo() << "\t" << program_name << " -O - http://origin/index.html";
-  exit(EXIT_FAILURE);
 }
 
-int main(int argc, char **argv) {
+int http_main(int argc, char **argv) {
 #ifdef _WIN32
   WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -293,15 +277,16 @@ int main(int argc, char **argv) {
       case 'P':
         conf.ipv6_first_word = optarg;
         break;
-      case 'h':
       default:
         usage(argv[0]);
+        exit(EXIT_FAILURE);
         break;
     }
   }
 
   if (!argv[optind]) {
     usage(argv[0]);
+    exit(EXIT_FAILURE);
   }
 
   name = argv[optind];
@@ -354,4 +339,4 @@ int main(int argc, char **argv) {
 
 }  // end namespace http
 
-int main(int argc, char **argv) { return http::main(argc, argv); }
+int main(int argc, char **argv) { return http::http_main(argc, argv); }
