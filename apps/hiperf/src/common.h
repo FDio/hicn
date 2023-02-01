@@ -44,23 +44,22 @@
 #ifndef ERROR_SUCCESS
 #define ERROR_SUCCESS 0
 #endif
-#define ERROR_SETUP -5
-#define MIN_PROBE_SEQ 0xefffffff
-#define RTC_HEADER_SIZE 12
-#define FEC_HEADER_MAX_SIZE 36
-#define HIPERF_MTU 1500
-
-using namespace transport::interface;
-using namespace transport::auth;
-using namespace transport::core;
+static constexpr int ERROR_SETUP = -5;
+static constexpr uint32_t MIN_PROBE_SEQ = 0xefffffff;
+static constexpr uint32_t RTC_HEADER_SIZE = 12;
+static constexpr uint32_t FEC_HEADER_MAX_SIZE = 36;
+static constexpr uint32_t HIPERF_MTU = 1500;
 
 namespace hiperf {
+
+using transport::core::Packet;
+using transport::core::Prefix;
 
 /**
  * Logger
  */
 template <typename D, typename ConfType, typename ParentType>
-class Base : protected std::stringbuf, protected std::ostream {
+class Base : public std::stringbuf, public std::ostream {
  protected:
   static inline const char separator[] = "|   ";
 
@@ -88,13 +87,15 @@ class Base : protected std::stringbuf, protected std::ostream {
     end_ = end.str();
   }
 
-  Base(Base &&other)
+  Base(Base &&other) noexcept
       : parent_(other.parent_),
         configuration_(other.configuration_),
         io_service_(other.io_service_),
         identifier_(other.identifier_),
         name_id_(std::move(other.name_id_)),
         flow_name_(other.flow_name_) {}
+
+  ~Base() {}
 
   /***************************************************************
    * std::stringbuf sync override
@@ -142,7 +143,7 @@ static inline int ensureFlows(const Prefix &prefix, std::size_t flows) {
   } else {
     LoggerErr() << "Error: unknown address family.";
     ret = ERROR_SETUP;
-    goto end;
+    goto END;
   }
 
   log2_n_flow = max_ip_addr_len_bits - prefix.getPrefixLength();
@@ -155,7 +156,7 @@ static inline int ensureFlows(const Prefix &prefix, std::size_t flows) {
     ret = ERROR_SETUP;
   }
 
-end:
+END:
   return ret;
 }
 
@@ -184,18 +185,10 @@ class PayloadSize {
  */
 class Rate {
  public:
-  Rate() : rate_kbps_(0) {}
+  Rate() {}
   ~Rate() {}
 
-  Rate &operator=(const Rate &other) {
-    if (this != &other) {
-      rate_kbps_ = other.rate_kbps_;
-    }
-
-    return *this;
-  }
-
-  Rate(const std::string &rate) {
+  explicit Rate(const std::string &rate) {
     std::size_t found = rate.find("kbps");
     if (found != std::string::npos) {
       rate_kbps_ = std::stof(rate.substr(0, found));
@@ -223,7 +216,7 @@ class Rate {
   }
 
  private:
-  float rate_kbps_;
+  float rate_kbps_ = 0.0;
 };
 
 struct packet_t {
@@ -238,7 +231,8 @@ struct Configuration {
   bool rtc_{false};
   uint16_t port_{0};
   bool aggregated_data_{false};
-  Packet::Format packet_format_{default_values::packet_format};
+  Packet::Format packet_format_{
+      transport::interface::default_values::packet_format};
   uint32_t parallel_flows_{1};
   bool colored_{true};
 };
@@ -246,15 +240,15 @@ struct Configuration {
 /**
  * Container for command line configuration for hiperf client.
  */
-struct ClientConfiguration : public Configuration {
+struct ClientConfiguration : Configuration {
   double beta_{-1.f};
   double drop_factor_{-1.f};
   double window_{-1.f};
   std::string producer_certificate_;
-  std::string passphrase_;
   std::size_t receive_buffer_size_{128 * 1024};
   std::uint32_t report_interval_milliseconds_{1000};
-  TransportProtocolAlgorithms transport_protocol_{CBR};
+  transport::interface::TransportProtocolAlgorithms transport_protocol_{
+      transport::interface::CBR};
   bool test_mode_{false};
   bool relay_{false};
   Prefix producer_prefix_;
@@ -274,14 +268,15 @@ struct ClientConfiguration : public Configuration {
 /**
  * Container for command line configuration for hiperf server.
  */
-struct ServerConfiguration : public Configuration {
+struct ServerConfiguration : Configuration {
   bool virtual_producer_{true};
   std::uint32_t manifest_max_capacity_{0};
   bool live_production_{false};
   std::uint32_t content_lifetime_{
       transport::interface::default_values::content_object_expiry_time};
   std::uint32_t download_size_{20 * 1024 * 1024};
-  CryptoHashType hash_algorithm_{CryptoHashType::SHA256};
+  transport::auth::CryptoHashType hash_algorithm_{
+      transport::auth::CryptoHashType::SHA256};
   std::string keystore_name_;
   std::string keystore_password_{"cisco"};
   bool multiphase_produce_{false};

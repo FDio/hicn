@@ -52,16 +52,11 @@ using RouteInfoPtr = std::shared_ptr<route_info_t>;
 
 class ForwarderInterface {
  public:
-  ForwarderInterface(asio::io_service &io_service)
+  explicit ForwarderInterface(asio::io_service &io_service)
       : external_ioservice_(io_service),
         work_(std::make_unique<asio::io_service::work>(internal_ioservice_)),
-        sock_(nullptr),
         thread_(std::make_unique<std::thread>(
-            [this]() { internal_ioservice_.run(); })),
-        check_routes_timer_(nullptr),
-        pending_add_route_counter_(0),
-        route_id_(0),
-        closed_(false) {}
+            [this]() { internal_ioservice_.run(); })) {}
 
   ~ForwarderInterface();
 
@@ -95,20 +90,20 @@ class ForwarderInterface {
 
   void internalCreateFaceAndRoute(RouteInfoPtr route_info, uint8_t max_try,
                                   asio::steady_timer *timer,
-                                  SetRouteCallback callback);
+                                  const SetRouteCallback &callback);
 
-  int tryToCreateFaceAndRoute(route_info_t *route_info);
+  int tryToCreateFaceAndRoute(const route_info_t *route_info);
 
   asio::io_service &external_ioservice_;
   asio::io_service internal_ioservice_;
   std::unique_ptr<asio::io_service::work> work_;
-  hc_sock_t *sock_;
+  hc_sock_t *sock_ = nullptr;
   std::unique_ptr<std::thread> thread_;
   std::unordered_map<uint32_t, RouteInfoPtr> route_status_;
-  std::unique_ptr<asio::steady_timer> check_routes_timer_;
-  uint32_t pending_add_route_counter_;
-  uint32_t route_id_;
-  bool closed_;
+  std::unique_ptr<asio::steady_timer> check_routes_timer_ = nullptr;
+  uint32_t pending_add_route_counter_ = 0;
+  uint32_t route_id_ = 0;
+  bool closed_ = false;
 };
 
 }  // namespace transport

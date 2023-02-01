@@ -20,7 +20,7 @@
 
 namespace hiperf {
 
-class HIperfClient : private ::utils::NonCopyable {
+class HIperfClient : public ::utils::NonCopyable {
  public:
   explicit HIperfClient(const ClientConfiguration &conf);
 

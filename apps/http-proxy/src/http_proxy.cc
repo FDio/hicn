@@ -29,16 +29,15 @@ using interface::ConsumerInterestCallback;
 using interface::ConsumerSocket;
 using interface::TransportProtocolAlgorithms;
 
-class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
+class HTTPClientConnectionCallback
+    : public interface::ConsumerSocket::ReadCallback {
  public:
   HTTPClientConnectionCallback(TcpReceiver& tcp_receiver,
                                utils::EventThread& thread)
       : tcp_receiver_(tcp_receiver),
         thread_(thread),
         prefix_hash_(tcp_receiver_.prefix_hash_),
-        consumer_(TransportProtocolAlgorithms::RAAQM, thread_),
-        session_(nullptr),
-        current_size_(0) {
+        consumer_(TransportProtocolAlgorithms::RAAQM, thread_) {
     consumer_.setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK, this);
     consumer_.setSocketOption(
         ConsumerCallbacksOptions::INTEREST_OUTPUT,
@@ -62,7 +61,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
                   std::placeholders::_1, std::placeholders::_2,
                   std::placeholders::_3, std::placeholders::_4,
                   std::placeholders::_5),
-        [this](asio::ip::tcp::socket& socket) -> bool {
+        [this](const asio::ip::tcp::socket& socket) {
           try {
             std::string remote_address =
                 socket.remote_endpoint().address().to_string();
@@ -136,10 +135,6 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
     current_size_ += size;
 
     if (is_last) {
-      // TRANSPORT_LOGD("Request received: %s",
-      //                std::string((const char*)tmp_buffer_.first->data(),
-      //                            tmp_buffer_.first->length())
-      //                    .c_str());
       if (current_size_ < 1400) {
         request_buffer_queue_.emplace_back(std::move(tmp_buffer_));
       } else {
@@ -162,15 +157,16 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
 
   // hicn callbacks
 
-  void processLeavingInterest(interface::ConsumerSocket& c,
-                              const core::Interest& interest) {
+  void processLeavingInterest(
+      [[maybe_unused]] const interface::ConsumerSocket& c,
+      const core::Interest& interest) {
     if (interest.getName().getSuffix() == 0 && interest.payloadSize() == 0) {
       Interest& int2 = const_cast<Interest&>(interest);
       int2.appendPayload(request_buffer_queue_.front().first->clone());
     }
   }
 
-  void processInterestRetx(interface::ConsumerSocket& c,
+  void processInterestRetx([[maybe_unused]] const interface::ConsumerSocket& c,
                            const core::Interest& interest) {
     if (interest.payloadSize() == 0) {
       Interest& int2 = const_cast<Interest&>(interest);
@@ -179,15 +175,18 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
   }
 
   bool isBufferMovable() noexcept { return true; }
-  void getReadBuffer(uint8_t** application_buffer, size_t* max_length) {}
-  void readDataAvailable(size_t length) noexcept {}
+  void getReadBuffer(uint8_t** application_buffer,
+                     size_t* max_length) { /*nothing to do*/
+  }
+  void readDataAvailable(size_t length) noexcept { /*nothing to do*/
+  }
   size_t maxBufferSize() const { return 64 * 1024; }
 
   void readBufferAvailable(std::unique_ptr<utils::MemBuf>&& buffer) noexcept {
     // Response received. Send it back to client
     auto _buffer = buffer.release();
     // TRANSPORT_LOGD("From hicn: %zu bytes.", _buffer->length());
-    session_->send(_buffer, []() {});
+    session_->send(_buffer, []() { /*nothing to do*/ });
   }
 
   void readError(const std::error_code& ec) noexcept {
@@ -218,7 +217,9 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
       }
     } else {
       tcp_receiver_.parseHicnHeader(
-          it->second, [this](bool result, std::string configured_prefix) {
+          it->second,
+          [this](bool result,
+                 [[maybe_unused]] const std::string& configured_prefix) {
             const char* reply = nullptr;
             if (result) {
               reply = HTTPMessageFastParser::http_ok;
@@ -238,16 +239,15 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
     }
   }
 
- private:
   TcpReceiver& tcp_receiver_;
   utils::EventThread& thread_;
   std::string& prefix_hash_;
   ConsumerSocket consumer_;
-  std::unique_ptr<HTTPSession> session_;
+  std::unique_ptr<HTTPSession> session_ = nullptr;
   std::deque<std::pair<std::unique_ptr<utils::MemBuf>, std::string>>
       request_buffer_queue_;
   std::pair<std::unique_ptr<utils::MemBuf>, std::string> tmp_buffer_;
-  std::size_t current_size_;
+  std::size_t current_size_ = 0;
 };
 
 TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
@@ -260,8 +260,7 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
       ipv6_first_word_(ipv6_first_word),
       prefix_hash_(generatePrefix(prefix_, ipv6_first_word_)),
       forwarder_config_(
-          thread_.getIoService(),
-          [this](const std::error_code& ec) {
+          thread_.getIoService(), [this](const std::error_code& ec) {
             if (!ec) {
               listener_.doAccept();
               for (int i = 0; i < 10; i++) {
@@ -269,8 +268,7 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
                     new HTTPClientConnectionCallback(*this, thread_));
               }
             }
-          }),
-      stopped_(false) {
+          }) {
   forwarder_config_.tryToConnectToForwarder();
 }
 
@@ -349,7 +347,6 @@ void HTTPProxy::stop() {
 HTTPProxy::HTTPProxy(ClientParams& params, std::size_t n_thread)
     : signals_(main_io_context_, SIGINT, SIGQUIT) {
   for (uint16_t i = 0; i < n_thread; i++) {
-    // icn_receivers_.emplace_back(std::make_unique<IcnReceiver>(icn_params));
     receivers_.emplace_back(std::make_unique<TcpReceiver>(
         params.tcp_listen_port, params.prefix, params.first_ipv6_word));
   }

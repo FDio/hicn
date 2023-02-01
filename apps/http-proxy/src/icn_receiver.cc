@@ -33,18 +33,15 @@ AsyncConsumerProducer::AsyncConsumerProducer(
     const std::string& mtu, const std::string& content_lifetime, bool manifest)
     : prefix_(core::Prefix(generatePrefix(prefix, first_ipv6_word), 64)),
       io_service_(io_service),
-      external_io_service_(true),
-      producer_socket_(),
       ip_address_(origin_address),
       port_(origin_port),
       cache_size_((uint32_t)std::stoul(cache_size)),
       mtu_((uint32_t)std::stoul(mtu)),
-      request_counter_(0),
       connector_(io_service_, ip_address_, port_,
                  std::bind(&AsyncConsumerProducer::publishContent, this,
                            std::placeholders::_1, std::placeholders::_2,
                            std::placeholders::_3, std::placeholders::_4),
-                 [this](asio::ip::tcp::socket& socket) -> bool {
+                 [this]([[maybe_unused]] const asio::ip::tcp::socket& socket) {
                    std::queue<interface::PublicationOptions> empty;
                    std::swap(response_name_queue_, empty);
 
@@ -100,7 +97,7 @@ void AsyncConsumerProducer::stop() {
 void AsyncConsumerProducer::doReceive() {
   producer_socket_.setSocketOption(
       interface::ProducerCallbacksOptions::CACHE_MISS,
-      [this](interface::ProducerSocket& producer,
+      [this]([[maybe_unused]] const interface::ProducerSocket& producer,
              interface::Interest& interest) {
         if (interest.payloadSize() > 0) {
           // Interest may contain http request
@@ -149,7 +146,8 @@ void AsyncConsumerProducer::manageIncomingInterest(
   response_name_queue_.emplace(std::move(name),
                                is_mpd ? 1000 : default_content_lifetime_);
 
-  connector_.send(payload, [packet = std::move(packet)]() {});
+  connector_.send(payload,
+                  [packet = std::move(packet)]() { /*nothing to do*/ });
 }
 
 void AsyncConsumerProducer::publishContent(const uint8_t* data,
@@ -162,7 +160,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
     abort();
   }
 
-  interface::PublicationOptions& options = response_name_queue_.front();
+  const interface::PublicationOptions& options = response_name_queue_.front();
 
   int ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME,

@@ -24,7 +24,6 @@
 #include <cstring>
 #include <queue>
 #include <utility>
-//#include "http_session.h"
 
 namespace transport {
 
@@ -48,9 +47,7 @@ class AsyncConsumerProducer {
       const std::string& content_lifetime, bool manifest)
       : AsyncConsumerProducer(internal_io_service_, prefix, first_ipv6_word,
                               origin_address, origin_port, cache_size, mtu,
-                              content_lifetime, manifest) {
-    external_io_service_ = false;
-  }
+                              content_lifetime, manifest) {}
 
   void run();
 
@@ -72,7 +69,7 @@ class AsyncConsumerProducer {
   core::Prefix prefix_;
   asio::io_service& io_service_;
   asio::io_service internal_io_service_;
-  bool external_io_service_;
+  bool external_io_service_ = false;
   interface::ProducerSocket producer_socket_;
 
   std::string ip_address_;
@@ -80,9 +77,8 @@ class AsyncConsumerProducer {
   uint32_t cache_size_;
   uint32_t mtu_;
 
-  uint64_t request_counter_;
+  uint64_t request_counter_ = 0;
 
-  // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;
   HTTPSession connector_;
 
