@@ -70,9 +70,9 @@ class CallbackContainer {
   }
 
  public:
-  CallbackContainer(const Name &prefix, uint32_t object_size,
+  CallbackContainer([[maybe_unused]] const Name &prefix, uint32_t object_size,
                     auth::Signer *signer, bool sign, std::string passphrase,
-                    uint32_t lifetime)
+                    [[maybe_unused]] uint32_t lifetime)
       : buffer_(object_size, 'X'), signer_(signer), sign_(sign) {
     // Verifier for interest manifests
     if (!passphrase.empty())
@@ -113,7 +113,8 @@ class CallbackContainer {
       auto content_object = createContentObject(name, lifetime, interest);
       p.produce(*content_object);
     } else {  // Interest manifest
-      uint32_t _, *suffix = NULL;
+      uint32_t _;
+      const uint32_t *suffix = NULL;
       UNUSED(_);
 
       interest_manifest_foreach_suffix(interest.getIntManifestHeader(), suffix,
@@ -158,7 +159,7 @@ void help() {
   LoggerInfo() << "-H                prints this message";
 }
 
-int main(int argc, char **argv) {
+int ping_main(int argc, char **argv) {
   transport::interface::global_config::GlobalConfigInterface global_conf;
 #ifdef _WIN32
   WSADATA wsaData = {0};
@@ -216,7 +217,6 @@ int main(int argc, char **argv) {
       case 'F':
         conf_file = optarg;
         break;
-      case 'H':
       default:
         help();
         exit(EXIT_FAILURE);
@@ -297,5 +297,5 @@ int main(int argc, char **argv) {
 }  // end namespace transport
 
 int main(int argc, char **argv) {
-  return transport::interface::main(argc, argv);
+  return transport::interface::ping_main(argc, argv);
 }

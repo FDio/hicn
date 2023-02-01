@@ -73,13 +73,16 @@ class HTTPSession {
   };
 
  public:
-  HTTPSession(asio::io_service &io_service, std::string &ip_address,
-              std::string &port, ContentReceivedCallback receive_callback,
-              OnConnectionClosed on_reconnect_callback, bool client = false);
+  HTTPSession(asio::io_service &io_service, const std::string &ip_address,
+              const std::string &port,
+              const ContentReceivedCallback &receive_callback,
+              const OnConnectionClosed &on_reconnect_callback,
+              bool client = false);
 
   HTTPSession(asio::ip::tcp::socket socket,
-              ContentReceivedCallback receive_callback,
-              OnConnectionClosed on_reconnect_callback, bool client = true);
+              const ContentReceivedCallback &receive_callback,
+              const OnConnectionClosed &on_reconnect_callback,
+              bool client = true);
 
   ~HTTPSession();
 
@@ -103,7 +106,6 @@ class HTTPSession {
 
   bool checkConnected();
 
- private:
   void handleRead(const std::error_code &ec, std::size_t length);
   void tryReconnection();
   void startConnectionTimer();
@@ -120,14 +122,14 @@ class HTTPSession {
   asio::streambuf input_buffer_;
 
   bool reverse_;
-  bool is_reconnection_;
-  bool data_available_;
+  bool is_reconnection_ = false;
+  bool data_available_ = false;
 
-  std::size_t content_length_;
+  std::size_t content_length_ = 0;
 
   // Chunked encoding
-  bool is_last_chunk_;
-  bool chunked_;
+  bool is_last_chunk_ = false;
+  bool chunked_ = false;
 
   ContentReceivedCallback receive_callback_;
   OnConnectionClosed on_connection_closed_callback_;

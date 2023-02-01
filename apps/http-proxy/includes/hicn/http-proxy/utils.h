@@ -35,7 +35,7 @@ TRANSPORT_ALWAYS_INLINE std::string generatePrefix(
   str += pos;
 
   uint32_t locator_hash = utils::hash::fnv32_buf(str, strlen(str));
-  uint16_t* word = (uint16_t*)&locator_hash;
+  const uint16_t* word = (const uint16_t*)&locator_hash;
 
   std::stringstream stream;
   stream << first_ipv6_word << ":0";

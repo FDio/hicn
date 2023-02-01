@@ -99,7 +99,8 @@ bool HTTPMessageFastParser::isMpdRequest(const uint8_t *headers,
   return false;
 }
 
-uint32_t HTTPMessageFastParser::parseCacheControl(const uint8_t *headers,
-                                                  std::size_t length) {
+uint32_t HTTPMessageFastParser::parseCacheControl(
+    [[maybe_unused]] const uint8_t *headers,
+    [[maybe_unused]] std::size_t length) {
   return 0;
 }
