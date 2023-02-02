@@ -47,7 +47,7 @@ class RtcIndexer : public Indexer {
         n_fec_(0),
         n_current_fec_(n_fec_) {}
 
-  RtcIndexer(RtcIndexer &&other) : Indexer(std::forward<Indexer>(other)) {}
+  RtcIndexer(RtcIndexer &&other) : Indexer(std::move(other)) {}
 
   ~RtcIndexer() {}
 

@@ -199,6 +199,7 @@ vpp_init_internal (int argc, char *argv[])
 	      if (arg == NULL)
 		{
 		  free (argv_);
+		  fclose (fp);
 		  return 1;
 		}
 	      argv_[argc_ - 1] = arg;
@@ -244,10 +245,13 @@ vpp_init_internal (int argc, char *argv[])
 	{
 	  sizep = (u8 *) argv[i + 1];
 	  size = 0;
-	  while (*sizep >= '0' && *sizep <= '9')
+	  if (sizep)
 	    {
-	      size *= 10;
-	      size += *sizep++ - '0';
+	      while (*sizep >= '0' && *sizep <= '9')
+		{
+		  size *= 10;
+		  size += *sizep++ - '0';
+		}
 	    }
 	  if (size == 0)
 	    {
