@@ -312,16 +312,21 @@ public:
 
   ~VapiGlobalConnection ()
   {
-    std::cout << "\"adios1" << std::endl;
     if (!isConnected ())
       {
 	return;
       }
-    std::cout << "\"adios" << std::endl;
     std::unique_lock<std::mutex> lock (vapi_mtx_);
     vapi_disconnect (vapi_ctx_);
     vapi_ctx_free (vapi_ctx_);
-    timer_.cancel ();
+    try
+      {
+	timer_.cancel ();
+      }
+    catch (asio::system_error e)
+      {
+	// quit anyway
+      }
   }
 
 private:

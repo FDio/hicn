@@ -69,8 +69,5 @@ policy_tag_state_snprintf (char *s, size_t size,
   if (rc < 0)
     return rc;
   cur += rc;
-  if (size != 0 && cur >= s + size)
-    return (int) (cur - s);
-
   return (int) (cur - s);
 }

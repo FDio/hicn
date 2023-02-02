@@ -40,7 +40,7 @@ class DeadlineTimer {
   template <typename T, typename R>
   void expiresFromNow(std::chrono::duration<T, R> &&duration) {
     static_cast<Implementation *>(this)->expiresFromNowImpl(
-        std::forward<std::chrono::duration<T, R>>(duration));
+        std::move(duration));
   }
 
   template <typename TimePoint,
