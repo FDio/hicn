@@ -55,7 +55,13 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       log2_ring_size_(klog2_ring_size),
       max_memif_bufs_(1 << klog2_ring_size) {}
 
-MemifConnector::~MemifConnector() { close(); }
+MemifConnector::~MemifConnector() {
+  try {
+    close();
+  } catch (errors::RuntimeException e) {
+    // do nothing
+  }
+}
 
 void MemifConnector::connect(uint32_t memif_id, long memif_mode,
                              const std::string &socket_filename,
@@ -269,7 +275,7 @@ uint16_t MemifConnector::txBurst(uint16_t qid, std::error_code &ec) {
 void MemifConnector::scheduleSend(std::uint64_t delay) {
   if (!timer_set_) {
     timer_set_ = true;
-    send_timer_.expiresFromNow(std::chrono::microseconds(delay));
+    send_timer_.expiresFromNow(std::move(std::chrono::microseconds(delay)));
     send_timer_.asyncWait(
         std::bind(&MemifConnector::sendCallback, this, std::placeholders::_1));
   }

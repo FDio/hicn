@@ -92,8 +92,7 @@ class FdDeadlineTimer : public DeadlineTimer<FdDeadlineTimer> {
   template <typename T, typename R>
   void expiresFromNowImpl(std::chrono::duration<T, R> &&duration) {
     std::memset(&new_value_, 0, sizeof(new_value_));
-    new_value_.it_value = std::chrono::duration_cast<struct timespec>(
-        std::forward<std::chrono::duration<T, R>>(duration));
+    new_value_.it_value = std::chrono::duration_cast<struct timespec>(duration);
   }
 
   template <typename TimePoint,
