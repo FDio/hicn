@@ -96,7 +96,7 @@ class Connector : public std::enable_shared_from_this<Connector> {
   }
 
   template <typename OnReconnect>
-  void setReconnectCallback(const OnReconnect &&callback) {
+  void setReconnectCallback(OnReconnect &&callback) {
     on_reconnect_callback_ = std::forward<OnReconnect>(callback);
   }
 

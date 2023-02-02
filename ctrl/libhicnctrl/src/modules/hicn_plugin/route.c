@@ -39,8 +39,6 @@ static vapi_error_e parse_route_create(
     vapi_payload_ip_route_add_del_reply *reply) {
   if (reply == NULL || rv != VAPI_OK) return rv;
 
-  if (reply->retval != VAPI_OK) return reply->retval;
-
   return reply->retval;
 }
 
@@ -114,6 +112,10 @@ static int _vpp_route_create(hc_sock_t *sock, hc_route_t *route) {
       if (hicn_ip_address_is_v4(&(face->remote_addr)) &&
           hicn_ip_address_is_v4(&(face->local_addr))) {
         msg2 = vapi_alloc_hicn_api_udp_tunnel_add_del(s->g_vapi_ctx_instance);
+        if (msg2 == NULL) {
+          ret = -1;
+          goto done;
+        }
         memcpy(msg2->payload.src_addr.un.ip4, &face->local_addr.v4,
                sizeof(ip4_address_t));
         msg2->payload.src_addr.af = ADDRESS_IP4;
@@ -125,6 +127,10 @@ static int _vpp_route_create(hc_sock_t *sock, hc_route_t *route) {
       } else if (!hicn_ip_address_is_v4(&(route->face.remote_addr)) &&
                  !hicn_ip_address_is_v4(&(route->face.local_addr))) {
         msg2 = vapi_alloc_hicn_api_udp_tunnel_add_del(s->g_vapi_ctx_instance);
+        if (msg2 == NULL) {
+          ret = -1;
+          goto done;
+        }
         memcpy(msg2->payload.src_addr.un.ip6, &face->local_addr.v6,
                sizeof(ip6_address_t));
         msg2->payload.src_addr.af = ADDRESS_IP6;

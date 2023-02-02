@@ -55,7 +55,13 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       log2_ring_size_(klog2_ring_size),
       max_memif_bufs_(1 << klog2_ring_size) {}
 
-MemifConnector::~MemifConnector() { close(); }
+MemifConnector::~MemifConnector() {
+  try {
+    close();
+  } catch (errors::RuntimeException &e) {
+    // do nothing
+  }
+}
 
 void MemifConnector::connect(uint32_t memif_id, long memif_mode,
                              const std::string &socket_filename,

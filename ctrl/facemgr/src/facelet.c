@@ -1047,8 +1047,6 @@ int facelet_snprintf(char *s, size_t size, const facelet_t *facelet) {
   rc = snprintf(cur, s + size - cur, "}>");
   if (rc < 0) return rc;
   cur += rc;
-  if (cur >= s + size) return (int)(cur - s);
-
   return (int)(cur - s);
 }
 
@@ -1222,7 +1220,5 @@ int facelet_snprintf_json(char *s, size_t size, const facelet_t *facelet,
   rc = snprintf(cur, s + size - cur, "%*s%s", 4 * indent, "", "}");
   if (rc < 0) return rc;
   cur += rc;
-  if (cur >= s + size) return (int)(cur - s);
-
   return (int)(cur - s);
 }

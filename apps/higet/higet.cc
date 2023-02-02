@@ -280,7 +280,6 @@ int http_main(int argc, char **argv) {
       default:
         usage(argv[0]);
         exit(EXIT_FAILURE);
-        break;
     }
   }
 
