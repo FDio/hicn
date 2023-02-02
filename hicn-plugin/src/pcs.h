@@ -647,7 +647,7 @@ hicn_pcs_lookup_one (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
   *pcs_entry = hicn_pcs_entry_get_entry_from_index (pitcs, (u32) (kv.value));
 
   // If the search is successful, we MUST find the entry in the pool.
-  ALWAYS_ASSERT (*pcs_entry);
+  ALWAYS_ASSERT (pcs_entry);
 
   // If entry found and it is a CS entry, let's update the LRU
   if (hicn_pcs_entry_is_cs (*pcs_entry))
