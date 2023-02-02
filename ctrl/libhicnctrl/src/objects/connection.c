@@ -189,7 +189,6 @@ int hc_connection_cmp(const hc_connection_t *c1, const hc_connection_t *c2) {
   if (rc != 0) return rc;
 
   rc = INT_CMP(c1->remote_port, c2->remote_port);
-  if (rc != 0) return rc;
 
   return rc;
 }

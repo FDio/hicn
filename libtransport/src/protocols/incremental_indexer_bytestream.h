@@ -48,7 +48,7 @@ class IncrementalIndexer : public Indexer {
   IncrementalIndexer(const IncrementalIndexer &other) = delete;
 
   IncrementalIndexer(IncrementalIndexer &&other)
-      : Indexer(std::forward<Indexer>(other)),
+      : Indexer(other),
         final_suffix_(other.final_suffix_),
         first_suffix_(other.first_suffix_),
         next_download_suffix_(other.next_download_suffix_),

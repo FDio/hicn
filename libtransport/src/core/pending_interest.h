@@ -62,7 +62,13 @@ class PendingInterest {
     timer_.async_wait(std::forward<Handler>(cb));
   }
 
-  void cancelTimer() { timer_.cancel(); }
+  void cancelTimer() {
+    try {
+      timer_.cancel();
+    } catch (asio::system_error &e) {
+      // do nothing
+    }
+  }
 
   Interest::Ptr &&getInterest() { return std::move(interest_); }
 

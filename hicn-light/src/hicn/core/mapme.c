@@ -302,17 +302,10 @@ static void mapme_create_tfib(const mapme_t *mapme, fib_entry_t *entry) {
  */
 static hicn_mapme_type_t mapme_get_type_from_heuristic(const mapme_t *mapme,
                                                        fib_entry_t *entry) {
+#if 0
   if (fib_entry_has_local_nexthop(entry))
     /* We are a producer for this entry, send update */
     return UPDATE;
-
-#if 0 /* interplay of IU/IN */
-    if (TFIB(fib_entry)->lastAckedUpdate == 0) {
-        return UPDATE;
-    } else {
-        Ticks interval = now - TFIB(fib_entry)->lastAckedUpdate;
-        return (T2NS(interval) > MS2NS(mapme->timescale)) ? UPDATE : NOTIFICATION;
-    }
 #else /* Always send IU */
   return UPDATE;
 #endif
