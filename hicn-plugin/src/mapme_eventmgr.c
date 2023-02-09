@@ -196,21 +196,27 @@ hicn_mapme_on_face_added (vlib_main_t *vm, hicn_face_id_t face)
 #define CURLEN		 retx_len[cur]
 #define NXTLEN		 retx_len[NEXT_SLOT (cur)]
 
-static_always_inline void *
-get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
-		   ip46_address_t *addr, hicn_packet_format_t format)
+static_always_inline bool
+create_mapme_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
+			    const hicn_prefix_t *prefix,
+			    const mapme_params_t *params)
 {
   vlib_frame_t *f;
   vlib_buffer_t *b; // for newly created packet
   u32 *to_next;
   u32 bi;
   u8 *buffer;
+  size_t n;
+  hicn_packet_format_t format;
 
   if (vlib_buffer_alloc (vm, &bi, 1) != 1)
     {
-      clib_warning ("buffer allocation failure");
+      HICN_ERROR ("buffer allocation failure");
       return NULL;
     }
+
+  format = (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
+						      HICN_PACKET_FORMAT_IPV4_ICMP;
 
   /* Create a new packet from scratch */
   b = vlib_get_buffer (vm, bi);
@@ -236,6 +242,18 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 			      EXPECTED_MAPME_V6_HDRLEN :
 			      EXPECTED_MAPME_V4_HDRLEN;
 
+  n = hicn_mapme_create_packet (buffer, prefix, params);
+
+  if (n <= 0)
+    {
+      HICN_ERROR ("Could not create MAP-Me packet");
+      return false;
+    }
+
+  hicn_packet_set_buffer (pkbuf, vlib_buffer_get_current (b),
+			  b->current_length, b->current_length);
+  hicn_packet_analyze (&hicn_get_buffer (b)->pkbuf);
+
   return buffer;
 }
 
@@ -243,8 +261,6 @@ static_always_inline bool
 hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
 			 mapme_params_t *params, hicn_face_id_t face)
 {
-  size_t n;
-
   /* This should be retrieved from face information */
   HICN_DEBUG ("Retransmission for prefix %U seq=%d", format_ip46_address,
 	      &prefix->name, IP46_TYPE_ANY, params->seq);
@@ -259,18 +275,7 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   vlib_node_t *node = vlib_get_node_by_name (vm, (u8 *) node_name);
   u32 node_index = node->index;
 
-  u8 *buffer = get_packet_buffer (
-    vm, node_index, face, (ip46_address_t *) prefix,
-    (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
-					       HICN_PACKET_FORMAT_IPV4_ICMP);
-  n = hicn_mapme_create_packet (buffer, prefix, params);
-  if (n <= 0)
-    {
-      clib_warning ("Could not create MAP-Me packet");
-      return false;
-    }
-
-  return true;
+  return create_mapme_packet_buffer (vm, node_index, face, prefix, params);
 }
 
 static_always_inline void
