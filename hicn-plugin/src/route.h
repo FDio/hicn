@@ -109,7 +109,7 @@ int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
  * loadbalancer in the vrf HICN already contains a dpo which is not an hICN one
  * HICN_ERROR_ROUTE_MLT_LD if there are more than a dpo in the vpp loadbalancer
  */
-int hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **vec_faces);
+int hicn_route_enable (const fib_prefix_t *prefix, hicn_face_id_t **vec_faces);
 
 /**
  * @Brief Disable an hICN for an ip prefix. If hICN wasn't enable on the prefix
