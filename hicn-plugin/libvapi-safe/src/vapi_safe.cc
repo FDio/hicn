@@ -323,7 +323,7 @@ public:
       {
 	timer_.cancel ();
       }
-    catch (asio::system_error e)
+    catch (asio::system_error &e)
       {
 	// quit anyway
       }
