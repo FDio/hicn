@@ -23,6 +23,10 @@ project(hicn-light)
 ##############################################################
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
+set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_SHELL ${HICN_LIGHT}-shell CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
 
 
 ##############################################################
@@ -47,15 +51,6 @@ set(CMAKE_MODULE_PATH
 ##############################################################
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-
-
-##############################################################
-# Libs and Bins names
-##############################################################
-set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
-set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
-set(HICN_LIGHT_SHELL ${HICN_LIGHT}-shell CACHE INTERNAL "" FORCE)
-set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
 
 
 ##############################################################

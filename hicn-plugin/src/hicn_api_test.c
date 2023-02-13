@@ -900,6 +900,11 @@ api_hicn_api_mapme_default_route_get (vat_main_t *vam)
 	}
     }
 
+  if (default_route == 0)
+    {
+      return 1;
+    }
+
   /* Construct the API message */
   M (HICN_API_MAPME_DEFAULT_ROUTE_GET, mp);
 
