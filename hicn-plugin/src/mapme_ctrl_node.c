@@ -487,10 +487,10 @@ hicn_mapme_ctrl_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_mapme_ctrl_next_t next_index;
   u32 n_left_from, *from, *to_next;
   n_left_from = frame->n_vectors;
-  // hicn_face_id_t in_face;
   hicn_prefix_t prefix;
   u32 seq;
-  hicn_mapme_type_t type;
+  hicn_mapme_type_t type = UPDATE;
+  int ret;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -520,9 +520,19 @@ hicn_mapme_ctrl_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	   */
 	  u32 next0 = HICN_MAPME_CTRL_NEXT_IP6_OUTPUT;
 
-	  hicn_mapme_process_ctrl (vm, b0, hb->face_id, &prefix, &seq, &type);
+	  ret = hicn_mapme_process_ctrl (vm, b0, hb->face_id, &prefix, &seq,
+					 &type);
 
-	  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = hb->face_id;
+	  if (PREDICT_FALSE (ret == 0))
+	    {
+	      next0 = HICN_MAPME_CTRL_NEXT_ERROR_DROP;
+	      seq = ~0;
+	      type = UNKNOWN;
+	    }
+	  else
+	    {
+	      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = hb->face_id;
+	    }
 
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 			     (b0->flags & VLIB_BUFFER_IS_TRACED)))
@@ -540,9 +550,7 @@ hicn_mapme_ctrl_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
-  //  vlib_node_increment_counter (vm, hicn_mapme_ctrl_node.index,
-  //                               HICN_MAPME_CTRL_ERROR_SWAPPED,
-  //                               pkts_swapped);
+
   return frame->n_vectors;
 }
 
